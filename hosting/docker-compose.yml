@@ -95,6 +95,12 @@ services:
         condition: service_healthy
 
   web:
+    # Prod path: pulls the prebuilt image for the tag set in hosting/.env
+    # (defaults to `latest`). The GitHub workflow at
+    # .github/workflows/build-docker-image.yml publishes a new tag for
+    # every `git tag` push. The `build:` block is kept so local devs can
+    # still `docker compose build web` from source.
+    image: redplanethq/town:${TOWN_VERSION:-latest}
     build:
       context: ..
       dockerfile: hosting/web/Dockerfile
