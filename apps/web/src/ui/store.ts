@@ -41,8 +41,13 @@ export type ExplorerState = { open: true } | null;
 // Tasks overlay (OFFICE → desk interaction). Null = closed.
 export type TasksState = { open: true } | null;
 
-// Share modal — opened from the identity card dropdown.
-export type ShareState = { open: true } | null;
+// Invite modal — URL + share code. Opened from the identity card
+// dropdown's "Invite" action.
+export type InviteState = { open: true } | null;
+
+// Share-image modal — screenshot preview + download / Twitter / WhatsApp
+// share buttons. Opened from the identity card dropdown's "Share" action.
+export type ShareImageState = { open: true } | null;
 
 // Closest remote player within talk-distance, set by the scene's
 // proximity tick. The InteractionPrompt reads from this to render
@@ -172,7 +177,8 @@ type State = {
   chat: ChatState;
   inbox: InboxState;
   nowPlaying: NowPlayingState;
-  share: ShareState;
+  invite: InviteState;
+  shareImage: ShareImageState;
   proximity: ProximityState;
   dm: DmState;
   suggestions: SuggestionsState;
@@ -188,7 +194,8 @@ let state: State = {
   chat: null,
   inbox: { count: 0, fetchedAt: new Date(0).toISOString() },
   nowPlaying: { connected: false, playing: false },
-  share: null,
+  invite: null,
+  shareImage: null,
   proximity: null,
   dm: null,
   suggestions: {
@@ -292,14 +299,25 @@ export const ui = {
     emit();
   },
 
-  openShare() {
-    state = { ...state, share: { open: true }, prompt: null };
+  openInvite() {
+    state = { ...state, invite: { open: true }, prompt: null };
     emit();
   },
 
-  closeShare() {
-    if (!state.share) return;
-    state = { ...state, share: null };
+  closeInvite() {
+    if (!state.invite) return;
+    state = { ...state, invite: null };
+    emit();
+  },
+
+  openShareImage() {
+    state = { ...state, shareImage: { open: true }, prompt: null };
+    emit();
+  },
+
+  closeShareImage() {
+    if (!state.shareImage) return;
+    state = { ...state, shareImage: null };
     emit();
   },
 
@@ -386,7 +404,8 @@ export const ui = {
       state.explorer !== null ||
       state.tasks !== null ||
       state.chat !== null ||
-      state.share !== null ||
+      state.invite !== null ||
+      state.shareImage !== null ||
       state.dm !== null ||
       state.suggestions.open
     );

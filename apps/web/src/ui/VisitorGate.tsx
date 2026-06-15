@@ -15,15 +15,17 @@ export function VisitorGate({
   townName,
   townSlug,
   initialName,
+  initialCode,
   signedIn,
 }: {
   townName: string;
   townSlug: string;
   initialName?: string;
+  initialCode?: string;
   signedIn: boolean;
 }) {
   const [name, setName] = useState(initialName ?? "");
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(initialCode ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

@@ -21,7 +21,8 @@ import { Tasks } from "./Tasks";
 import { Dialogue } from "./Dialogue";
 import { Chat } from "./Chat";
 import { NowPlaying } from "./NowPlaying";
-import { Share } from "./Share";
+import { Invite } from "./Invite";
+import { ShareImage } from "./ShareImage";
 import { Suggestions } from "./Suggestions";
 import { Dm } from "./Dm";
 import { RemoteCards } from "./RemoteCards";
@@ -69,7 +70,8 @@ export function TownGame(props: TownGameProps = {}) {
     chat,
     inbox,
     nowPlaying,
-    share,
+    invite,
+    shareImage,
     proximity,
     dm,
     suggestions,
@@ -200,7 +202,8 @@ export function TownGame(props: TownGameProps = {}) {
       {tasks ? <Tasks /> : null}
       {dialogue ? <Dialogue dialogue={dialogue} /> : null}
       {chat ? <Chat chat={chat} /> : null}
-      {!isVisitor && share ? <Share /> : null}
+      {!isVisitor && invite ? <Invite /> : null}
+      {!isVisitor && shareImage ? <ShareImage /> : null}
       {!isVisitor && suggestions.open ? (
         <Suggestions list={suggestions.list} />
       ) : null}

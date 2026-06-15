@@ -12,25 +12,12 @@ import { registerInteriorScene } from "./scenes/interior";
 
 export type GameContext = ReturnType<typeof kaplay>;
 
-// The last booted kaplay context. Used by UI surfaces (e.g. the Share
-// modal's screenshot button) that need to call into kaplay without
-// drilling refs through React.
+// The last booted kaplay context. Held so React components outside of
+// TownGame can reach into kaplay without drilling refs.
 let lastContext: GameContext | null = null;
 
 export function getKaplayContext(): GameContext | null {
   return lastContext;
-}
-
-/** Capture a PNG data URL of the current kaplay frame. Returns null when
- *  kaplay hasn't booted yet or the canvas wasn't preserved. */
-export function takeScreenshotDataUrl(): string | null {
-  const k = lastContext;
-  if (!k) return null;
-  try {
-    return k.screenshot();
-  } catch {
-    return null;
-  }
 }
 
 export function bootGame(canvas: HTMLCanvasElement): GameContext {
