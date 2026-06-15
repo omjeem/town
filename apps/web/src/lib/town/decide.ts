@@ -1,25 +1,28 @@
-// Pure decision logic — given an inbound TownEvent and the user's current
-// plot + NPCs, return the list of mutations to apply. No I/O, no Prisma,
-// no Redis — easy to unit test.
+// LLM-driven decision agent — given an inbound TownEvent and the user's
+// current plot + NPCs, the agent thinks through the event and emits
+// proposed mutations as Effect[] by calling the four tools below. Nothing
+// is applied here — the worker materialises each effect as a
+// PlotSuggestion row, and the player approves/declines from in-game.
 //
-// Today's rules are intentionally minimal so behaviour is predictable:
+// Tools the agent has:
+//   • read_npc({ npcId })           — read tool (no proposal). Lets the
+//                                     agent peek at an NPC's prompt before
+//                                     deciding to evolve it.
+//   • add_building({ plotKey, … })  — proposal → Effect "add-building"
+//   • add_npc({ buildingId, … })    — proposal → Effect "add-npc"
+//   • update_npc({ npcId, … })      — proposal → Effect "update-npc"
 //
-//   memory.created
-//     For each topic CORE classified the memory under, if the topic maps
-//     to a `plotKey` and that plot is not already in the user's plot,
-//     emit `add-building`. Topic→plotKey mapping is intentionally narrow
-//     — CORE topics that don't map cleanly are ignored.
-//
-//   identity.created
-//     If the user has a HOME NPC and it still carries the seed name
-//     "Hudson" (or no description), emit `tweak-npc` to absorb the new
-//     identity fact into the description so the world runner feels like
-//     it's getting to know the player. If the user has no HOME NPC yet
-//     (edge case — pre-seedNpcs row), skip and let ensureNpcsForUser
-//     handle it on the next chat hit.
+// The agent does NOT have a tool to mutate the world. All it can do is
+// propose. The player has final say.
 
+import { generateText, stepCountIs, tool } from "ai";
+import { z } from "zod";
+
+import { catalog } from "@town/catalog";
 import type { Plot } from "@town/plot";
 import type { TownEvent } from "@town/types";
+
+import { getChatModel } from "@/lib/chat-model";
 
 export interface NpcRowLite {
   id: string;
@@ -35,89 +38,249 @@ export interface DecideContext {
 }
 
 export type Effect =
+  // New building. Applying also seeds one default NPC for it via the
+  // role-template map seedNpcs() uses.
   | { kind: "add-building"; plotKey: string; reason: string }
+  // Patch the description and/or prompt of an existing NPC.
   | {
-      kind: "tweak-npc";
+      kind: "update-npc";
       npcId: string;
-      fields: Partial<Pick<NpcRowLite, "name" | "description" | "prompt">>;
+      fields: Partial<Pick<NpcRowLite, "description" | "prompt">>;
+      reason: string;
+    }
+  // Add a second (or third, …) NPC to an already-placed building.
+  | {
+      kind: "add-npc";
+      buildingId: string;
+      name: string;
+      description: string;
+      prompt: string;
       reason: string;
     };
 
-/** CORE topic → town plotKey. Lowercase match. Add entries as the catalog
- *  grows; unknown topics are skipped (no panic). */
-const TOPIC_TO_PLOT: Record<string, string> = {
-  music: "studio",
-  audio: "studio",
-  studio: "studio",
-  fitness: "gym",
-  workout: "gym",
-  health: "gym",
-  food: "cafe",
-  cafe: "cafe",
-  coffee: "cafe",
-  cooking: "cafe",
-  work: "office",
-  meetings: "office",
-  engineering: "workshop",
-  building: "workshop",
-  craft: "workshop",
-  performance: "stage",
-  stage: "stage",
-  practice: "practice",
-  rehearsal: "practice",
-  travel: "station",
-  commute: "station",
-};
-
-function hasBuilding(plot: Plot, plotKey: string): boolean {
-  // Match base plotKey ignoring the -N instance suffix, so "office" hits
-  // both "office" and "office-2" in the plot.
-  const base = plotKey.replace(/-\d+$/, "");
-  return plot.buildings.some(
-    (b) => b.plotKey.replace(/-\d+$/, "") === base,
-  );
-}
-
-export function decide(event: TownEvent, ctx: DecideContext): Effect[] {
+/** Run the decision agent against an event. Returns the list of effects
+ *  the LLM proposed via its tools. The caller persists each effect as a
+ *  PlotSuggestion. Errors are logged and surfaced as an empty list — a
+ *  bad LLM call should never block the inbound webhook pipeline. */
+export async function decide(
+  event: TownEvent,
+  ctx: DecideContext,
+): Promise<Effect[]> {
   const effects: Effect[] = [];
 
-  switch (event.type) {
-    case "memory.created": {
-      const seen = new Set<string>();
-      for (const topic of event.payload.topics) {
-        const plotKey = TOPIC_TO_PLOT[topic.toLowerCase()];
-        if (!plotKey) continue;
-        if (seen.has(plotKey)) continue;
-        seen.add(plotKey);
-        if (hasBuilding(ctx.plot, plotKey)) continue;
-        effects.push({
-          kind: "add-building",
-          plotKey,
-          reason: `memory topic "${topic}" mapped to ${plotKey}`,
-        });
-      }
-      return effects;
-    }
+  const tools = {
+    read_npc: tool({
+      description:
+        "Look up an NPC's full system prompt and description. Use this before " +
+        "proposing update_npc so the new wording reads as an evolution of the " +
+        "existing voice, not a replacement.",
+      inputSchema: z.object({
+        npcId: z.string().describe("NPC id from the roster below."),
+      }),
+      execute: async ({ npcId }) => {
+        const npc = ctx.npcs.find((n) => n.id === npcId);
+        if (!npc) return { found: false as const };
+        return {
+          found: true as const,
+          id: npc.id,
+          buildingId: npc.buildingId,
+          name: npc.name,
+          description: npc.description,
+          prompt: npc.prompt,
+        };
+      },
+    }),
 
-    case "identity.created": {
-      const homeNpc = ctx.npcs.find((n) => n.buildingId === "home");
-      if (!homeNpc) return effects;
-      // Only absorb the fact when the NPC still looks freshly-seeded.
-      // Once the user (or the CLI) has edited the description, leave it.
-      const isFreshSeed =
-        homeNpc.description.startsWith("Butler of the world") ||
-        homeNpc.description.trim() === "";
-      if (!isFreshSeed) return effects;
-      effects.push({
-        kind: "tweak-npc",
-        npcId: homeNpc.id,
-        fields: {
-          description:
-            `Butler of the world. Remembers: ${event.payload.fact}`,
-        },
-        reason: `absorb identity fact "${event.payload.fact}"`,
-      });
-      return effects;
+    add_building: tool({
+      description:
+        "Propose adding a new building to the town. Use only when a real " +
+        "thread of the user's life is missing a place. Pick a plotKey from " +
+        "the catalog list and skip if the matching building (or one of its " +
+        "instances) already exists.",
+      inputSchema: z.object({
+        plotKey: z
+          .string()
+          .describe("Catalog plotKey (e.g. studio, gym, cafe, workshop)."),
+        reason: z
+          .string()
+          .describe(
+            "One short sentence shown to the player explaining why this fits.",
+          ),
+      }),
+      execute: async ({ plotKey, reason }) => {
+        effects.push({ kind: "add-building", plotKey, reason });
+        return { proposed: "add-building" as const, plotKey };
+      },
+    }),
+
+    add_npc: tool({
+      description:
+        "Propose adding a second (or third) NPC to an existing building. " +
+        "Use sparingly — most buildings have exactly one resident. Only " +
+        "suggest when the event implies a distinct second character (a " +
+        "collaborator, a bandmate, a partner) belongs there.",
+      inputSchema: z.object({
+        buildingId: z
+          .string()
+          .describe("Existing building id from the plot summary below."),
+        name: z.string().describe("Display name shown on the speaker line."),
+        description: z
+          .string()
+          .describe("Short flavor-text shown when the player approaches."),
+        prompt: z
+          .string()
+          .describe(
+            "Full system prompt for the LLM when the player chats with this NPC.",
+          ),
+        reason: z.string(),
+      }),
+      execute: async ({ buildingId, name, description, prompt, reason }) => {
+        effects.push({
+          kind: "add-npc",
+          buildingId,
+          name,
+          description,
+          prompt,
+          reason,
+        });
+        return { proposed: "add-npc" as const, buildingId, name };
+      },
+    }),
+
+    update_npc: tool({
+      description:
+        "Propose patching an NPC's description and/or system prompt. Read " +
+        "the current text first via read_npc — your patch should evolve the " +
+        "voice, not overwrite it. Leave a field undefined to keep it.",
+      inputSchema: z.object({
+        npcId: z.string(),
+        description: z.string().optional(),
+        prompt: z.string().optional(),
+        reason: z.string(),
+      }),
+      execute: async ({ npcId, description, prompt, reason }) => {
+        const fields: Partial<Pick<NpcRowLite, "description" | "prompt">> = {};
+        if (description !== undefined) fields.description = description;
+        if (prompt !== undefined) fields.prompt = prompt;
+        if (Object.keys(fields).length === 0) {
+          return {
+            skipped: true as const,
+            why: "no description or prompt provided",
+          };
+        }
+        effects.push({ kind: "update-npc", npcId, fields, reason });
+        return { proposed: "update-npc" as const, npcId };
+      },
+    }),
+  };
+
+  const system = buildSystemPrompt(ctx);
+  const userMsg = buildUserMessage(event);
+
+  try {
+    await generateText({
+      model: getChatModel(),
+      tools,
+      stopWhen: stepCountIs(8),
+      system,
+      prompt: userMsg,
+    });
+  } catch (err) {
+    console.error("[decide] agent failed", err);
+    return [];
+  }
+
+  return effects;
+}
+
+// -----------------------------------------------------------------------------
+// Prompt builders
+// -----------------------------------------------------------------------------
+
+function buildSystemPrompt(ctx: DecideContext): string {
+  const plotKeys = catalog.plots.map((p) => `${p.id} — ${p.label}`).join("\n");
+
+  const placedBuildings = ctx.plot.buildings
+    .map((b) => `- ${b.id}  (plotKey=${b.plotKey})`)
+    .join("\n");
+
+  const npcRoster = ctx.npcs
+    .map(
+      (n) =>
+        `- ${n.id}  building=${n.buildingId}  name="${n.name}"  description="${trim(n.description, 80)}"`,
+    )
+    .join("\n");
+
+  return [
+    "You are the curator of a personal town that grows as a person tells their butler about their life.",
+    "Each event you receive describes a memory the user just shared (or extended). Your job is to propose small, tasteful changes to the town in response — never to apply them directly.",
+    "",
+    "## What you can do",
+    "1. `read_npc(npcId)` — peek at an NPC's full prompt + description before updating them. Free to call.",
+    "2. `add_building(plotKey, reason)` — propose a new building.",
+    "3. `add_npc(buildingId, name, description, prompt, reason)` — propose a new NPC inside an existing building.",
+    "4. `update_npc(npcId, description?, prompt?, reason)` — propose evolving an NPC's voice.",
+    "",
+    "All proposals queue as suggestions for the player to approve. Do nothing if nothing meaningful changed.",
+    "",
+    "## Catalog plotKeys you may reference",
+    plotKeys,
+    "",
+    "## Buildings currently in this user's town",
+    placedBuildings || "(none yet)",
+    "",
+    "## NPC roster (short)",
+    npcRoster || "(none yet)",
+    "",
+    "## Rules of taste",
+    "- Don't propose a building if a building with the same base plotKey already exists (e.g. don't add `studio` if any `studio` variant is placed).",
+    "- Don't propose `add_npc` unless the event clearly names a distinct second character. The HOME NPC absorbing a fact is `update_npc`, not `add_npc`.",
+    "- When in doubt, propose nothing. The player would rather be surprised once than nagged ten times.",
+    "- Each reason must be a single sentence the player will read in the suggestions sidebar.",
+  ].join("\n");
+}
+
+function buildUserMessage(event: TownEvent): string {
+  const lines: string[] = [];
+  lines.push(`Event type: ${event.type}`);
+  lines.push(`Memory id: ${event.payload.memoryUuid}`);
+  if (event.payload.summary) {
+    lines.push("", "Summary:", event.payload.summary);
+  }
+
+  const topics =
+    event.type === "memory.added"
+      ? event.payload.topics
+      : event.payload.topicsAdded;
+  if (topics.length > 0) {
+    lines.push("", `Topics ${event.type === "memory.added" ? "" : "added "}(${topics.length}):`);
+    for (const t of topics) {
+      const sim = t.similar
+        .slice(0, 5)
+        .map((s) => `${s.name}(${s.count})`)
+        .join(", ");
+      lines.push(
+        `- "${t.name}"  count=${t.count}` +
+          (sim ? `  similar: ${sim}` : ""),
+      );
     }
   }
+
+  if (event.payload.identityAspects.length > 0) {
+    lines.push("", "Identity statements (the user's own words):");
+    for (const a of event.payload.identityAspects) {
+      lines.push(`- ${a}`);
+    }
+  }
+
+  lines.push(
+    "",
+    "Decide which (if any) tools to call. Suggestions you make will be shown to the player for approval.",
+  );
+  return lines.join("\n");
+}
+
+function trim(s: string, max: number): string {
+  if (s.length <= max) return s;
+  return s.slice(0, max - 1) + "…";
 }

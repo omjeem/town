@@ -63,18 +63,27 @@ export function visitorCookieName(slug: string): string {
   return `town-visit-${slug}`;
 }
 
-// Visitor cookie shape — { n: name, c: codeAtEntry }. We re-check `c`
-// against the town's current shareCode on every request so a Reset in the
-// Share modal kicks existing visitors back to the gate.
-export type VisitorCookie = { n: string; c: string };
+// Visitor cookie shape — { n: name, c: codeAtEntry, ch: characterKey,
+// g: guestSessionId }. We re-check `c` against the town's current
+// shareCode on every request so a Reset in the Share modal kicks existing
+// visitors back to the gate. `g` is the stable identity used in chat
+// channel auth + persisted Conversation rows.
+export type VisitorCookie = { n: string; c: string; ch: string; g: string };
 
 export function parseVisitorCookie(raw: string | undefined): VisitorCookie | null {
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as { n?: unknown; c?: unknown };
+    const parsed = JSON.parse(raw) as {
+      n?: unknown;
+      c?: unknown;
+      ch?: unknown;
+      g?: unknown;
+    };
     if (typeof parsed.n !== "string" || parsed.n.length === 0) return null;
     if (typeof parsed.c !== "string" || parsed.c.length === 0) return null;
-    return { n: parsed.n, c: parsed.c };
+    if (typeof parsed.ch !== "string" || parsed.ch.length === 0) return null;
+    if (typeof parsed.g !== "string" || parsed.g.length === 0) return null;
+    return { n: parsed.n, c: parsed.c, ch: parsed.ch, g: parsed.g };
   } catch {
     return null;
   }

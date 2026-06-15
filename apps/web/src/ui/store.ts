@@ -44,6 +44,23 @@ export type TasksState = { open: true } | null;
 // Share modal — opened from the identity card dropdown.
 export type ShareState = { open: true } | null;
 
+// Closest remote player within talk-distance, set by the scene's
+// proximity tick. The InteractionPrompt reads from this to render
+// "SPACE to talk to <name>".
+export type ProximityState = {
+  participantKey: string;
+  name: string;
+  character: string;
+} | null;
+
+// Open DM panel — opened from the proximity prompt (SPACE) or from a
+// pending-reply pill. Centrifugo + DB-backed.
+export type DmState = {
+  townSlug: string;
+  otherKey: string;
+  otherName: string;
+} | null;
+
 // Reusable typewriter dialogue (HOME NPC, future NPCs). Lines render one at
 // a time and the action button reveals after the last line finishes.
 export type DialogueAction = {
@@ -84,6 +101,50 @@ export type InboxState = {
   fetchedAt: string;
 };
 
+// Pending PlotSuggestion list + the sidebar's open/closed state.
+//
+// The poller writes `list` + `count` on every probe. The HUD reads `count`
+// for the badge. Clicking the badge sets `open=true`, which renders the
+// right sidebar with the full list and Apply/Decline buttons per row.
+//
+// Effect payload is the raw discriminated Effect from decide.ts — we just
+// pass it through to the UI rather than re-shaping on the wire.
+export type SuggestionPayload =
+  | { kind: "add-building"; plotKey: string; reason: string }
+  | {
+      kind: "update-npc";
+      npcId: string;
+      fields: Record<string, string>;
+      reason: string;
+    }
+  | {
+      kind: "add-npc";
+      buildingId: string;
+      name: string;
+      description: string;
+      prompt: string;
+      reason: string;
+    };
+
+export type SuggestionItem = {
+  id: string;
+  kind: SuggestionPayload["kind"];
+  status: "pending" | "approved" | "declined";
+  payload: SuggestionPayload;
+  reason: string;
+  sourceEventId: string | null;
+  createdAt: string;
+};
+
+export type SuggestionsState = {
+  count: number;
+  list: SuggestionItem[];
+  // Drawer open/closed state.
+  open: boolean;
+  // ISO timestamp of the last successful poll.
+  fetchedAt: string;
+};
+
 // Currently playing Spotify track (CORE integration). Driven by
 // /api/core/spotify/now-playing on a 10s poll. Card hides itself when
 // `connected` is false or `playing` is false.
@@ -112,6 +173,9 @@ type State = {
   inbox: InboxState;
   nowPlaying: NowPlayingState;
   share: ShareState;
+  proximity: ProximityState;
+  dm: DmState;
+  suggestions: SuggestionsState;
 };
 
 let state: State = {
@@ -125,6 +189,14 @@ let state: State = {
   inbox: { count: 0, fetchedAt: new Date(0).toISOString() },
   nowPlaying: { connected: false, playing: false },
   share: null,
+  proximity: null,
+  dm: null,
+  suggestions: {
+    count: 0,
+    list: [],
+    open: false,
+    fetchedAt: new Date(0).toISOString(),
+  },
 };
 
 const listeners = new Set<() => void>();
@@ -231,6 +303,78 @@ export const ui = {
     emit();
   },
 
+  setProximity(proximity: ProximityState) {
+    // No-op if it's the same target — avoids re-renders during the every-
+    // frame proximity check.
+    const cur = state.proximity;
+    if (!proximity && !cur) return;
+    if (
+      proximity &&
+      cur &&
+      proximity.participantKey === cur.participantKey &&
+      proximity.name === cur.name &&
+      proximity.character === cur.character
+    ) {
+      return;
+    }
+    state = { ...state, proximity };
+    emit();
+  },
+
+  openDm(dm: NonNullable<DmState>) {
+    state = { ...state, dm, prompt: null };
+    emit();
+  },
+
+  closeDm() {
+    if (!state.dm) return;
+    state = { ...state, dm: null };
+    emit();
+  },
+
+  setSuggestions(next: Partial<SuggestionsState>) {
+    state = {
+      ...state,
+      suggestions: { ...state.suggestions, ...next },
+    };
+    emit();
+  },
+
+  openSuggestions() {
+    if (state.suggestions.open) return;
+    state = {
+      ...state,
+      suggestions: { ...state.suggestions, open: true },
+      prompt: null,
+    };
+    emit();
+  },
+
+  closeSuggestions() {
+    if (!state.suggestions.open) return;
+    state = {
+      ...state,
+      suggestions: { ...state.suggestions, open: false },
+    };
+    emit();
+  },
+
+  // Locally remove a suggestion after the API confirmed approve/decline,
+  // so the sidebar updates instantly without waiting for the next poll.
+  removeSuggestion(id: string) {
+    const list = state.suggestions.list.filter((s) => s.id !== id);
+    if (list.length === state.suggestions.list.length) return;
+    state = {
+      ...state,
+      suggestions: {
+        ...state.suggestions,
+        list,
+        count: list.length,
+      },
+    };
+    emit();
+  },
+
   // Convenience for kaplay player movement code: pause the world while a
   // modal-style surface is open so SPACE/ESC/typing-into-forms don't
   // double-trigger. Ambient overlays like the NPC dialogue intentionally
@@ -242,7 +386,9 @@ export const ui = {
       state.explorer !== null ||
       state.tasks !== null ||
       state.chat !== null ||
-      state.share !== null
+      state.share !== null ||
+      state.dm !== null ||
+      state.suggestions.open
     );
   },
 };

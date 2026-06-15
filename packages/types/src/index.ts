@@ -3,38 +3,33 @@
 //
 // Scoped to the inbound-event log. CORE's webhook (POST /api/events) parses
 // envelopes against these types and writes them as TownEventRow rows.
-// Nothing downstream materialises them yet — the plot renderer reads from
-// PlotRow directly (see @town/plot).
+// The events worker rehydrates them and converts each into PlotSuggestion
+// rows for the player to approve/decline from the in-game sidebar.
 // =============================================================================
 
 // -----------------------------------------------------------------------------
-// Event envelope — CORE → town. Webhook receives JSON-encoded envelopes;
-// validator parses by `type` discriminant.
+// Event envelope — CORE → town.
 // -----------------------------------------------------------------------------
 
-// Town accepts exactly two event types from CORE. Both are append-only;
-// town stores them as TownEventRow rows and the renderer reads them to
-// react (NPC dialogue, decor, future plot mutations).
+// Town accepts two event types from CORE. Both fire from
+// `graph-resolution.logic.ts` at the end of episode processing, after voice
+// aspects have been resolved.
 //
-//   identity.created — a new identity fact landed. Today these come from
-//                      voice transcription; the payload's `source` field
-//                      lets future producers (chat, manual, etc.) ride
-//                      the same channel.
-//   memory.created   — a new memory document landed. Carries the topics
-//                      it's about so town can light up the right surface
-//                      without re-classifying.
-export type TownEventType =
-  | "identity.created"
-  | "memory.created";
+//   memory.added   — first time a session reaches town. Carries the full set
+//                    of topics on the originating episode + any voice
+//                    aspects extracted from it.
+//   memory.updated — subsequent episodes in the same session. Carries the
+//                    delta (topicsAdded) + any newly-resolved aspects.
+export type TownEventType = "memory.added" | "memory.updated";
 
 export type EventEnvelope<T = unknown> = {
-  /** ULID. Idempotency key — town stores last seen and ignores duplicates. */
+  /** Stable unique id. Idempotency key — town dedupes on this. */
   id: string;
-  /** Town-side User.id. CORE resolves this from its own user model before
-   *  emitting; town does not do a lookup. */
+  /** CORE-side user id (the `sub` from /oauth/userinfo). Town looks up its
+   *  own User row by `coreUserId` before doing anything else. */
   userId: string;
   type: TownEventType;
-  /** ISO timestamp from CORE. */
+  /** ISO timestamp of when CORE finished resolving the episode. */
   occurredAt: string;
   payload: T;
   /** Envelope schema version. v1 = 1. */
@@ -42,46 +37,62 @@ export type EventEnvelope<T = unknown> = {
 };
 
 // -----------------------------------------------------------------------------
+// Shared payload pieces
+// -----------------------------------------------------------------------------
+
+/** A label on the originating episode, enriched with how prevalent it is in
+ *  the user's workspace and which other labels live nearby in embedding
+ *  space. Town uses these signals to weight topic→building mapping decisions. */
+export type Topic = {
+  /** Stable CORE-side Label id. Useful for cross-event dedup. */
+  id: string;
+  /** Human-readable Label.name (e.g. "Studio Time"). */
+  name: string;
+  /** # of Document rows in the same workspace that reference this label. */
+  count: number;
+  /** Top similar labels in the same workspace by embedding cosine, capped at 10. */
+  similar: TopicSibling[];
+};
+
+export type TopicSibling = {
+  id: string;
+  name: string;
+  count: number;
+  /** Cosine similarity score [0,1]. */
+  score: number;
+};
+
+/** Voice aspect statements resolved during episode ingest, each as a
+ *  free-form sentence in the user's own words (e.g. "I prefer terse code
+ *  review"). Town's curator absorbs the most relevant statement into the
+ *  HOME NPC's description when the NPC still carries its seed copy. */
+export type IdentityAspect = string;
+
+// -----------------------------------------------------------------------------
 // Event payloads
 // -----------------------------------------------------------------------------
 
-/** Source of the identity fact — extensible. Voice is the only producer
- *  today; "chat" / "manual" reserved for future surfaces. */
-export type IdentitySource = "voice" | "chat" | "manual";
-
-export type IdentityCreatedPayload = {
-  /** CORE-side identifier — same as the aspect uuid that produced the fact
-   *  for de-dup if CORE retries. */
-  identityUuid: string;
-  /** The identity fact, in the user's own words.
-   *  e.g. "I prefer terse code review", "I'm a software engineer". */
-  fact: string;
-  /** Where the fact came from. "voice" is the day-one channel. */
-  source: IdentitySource;
-  /** Optional confidence score [0, 1] from CORE's extractor. Omit if
-   *  unknown — town does not block on a missing value. */
-  confidence?: number;
-  /** When the fact became valid (CORE's clock). */
-  validAt: string;
+export type MemoryAddedPayload = {
+  /** CORE sessionId — stable across `memory.added` + future `memory.updated`. */
+  memoryUuid: string;
+  /** Latest Document.content for the session, or "" if compaction hasn't
+   *  produced one yet (compaction runs in parallel with ingest). */
+  summary: string;
+  /** Full set of topics on this originating episode. */
+  topics: Topic[];
+  /** Voice aspects resolved on this episode. */
+  identityAspects: IdentityAspect[];
 };
 
-export type MemoryCreatedPayload = {
-  /** CORE-side memory document id. Idempotency anchor. */
+export type MemoryUpdatedPayload = {
   memoryUuid: string;
-  /** Optional title CORE picked for the document. */
-  title?: string;
-  /** Short summary (1-3 sentences). Optional — town only needs the topics
-   *  to react; the summary is for UI surfaces that want to show context. */
-  summary?: string;
-  /** Topic labels the memory is about — used by town to pick which NPC
-   *  reacts, which decor lights up, etc. Free-form strings; CORE picks
-   *  from its own taxonomy. */
-  topics: string[];
-  /** When CORE finished writing the memory. */
-  createdAt: string;
+  summary: string;
+  /** Topics on this new episode — delta from town's perspective. */
+  topicsAdded: Topic[];
+  identityAspects: IdentityAspect[];
 };
 
 /** Discriminated union — narrow on `envelope.type`. */
 export type TownEvent =
-  | (EventEnvelope<IdentityCreatedPayload> & { type: "identity.created" })
-  | (EventEnvelope<MemoryCreatedPayload> & { type: "memory.created" });
+  | (EventEnvelope<MemoryAddedPayload> & { type: "memory.added" })
+  | (EventEnvelope<MemoryUpdatedPayload> & { type: "memory.updated" });

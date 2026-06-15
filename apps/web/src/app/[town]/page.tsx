@@ -10,6 +10,8 @@
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
+import { OWNER_DEFAULT_CHARACTER } from "@/lib/characters";
+import { prisma } from "@/lib/db";
 import { getSessionFromCookie } from "@/lib/session";
 import { getTownBySlug } from "@/lib/town";
 import { parseVisitorCookie, visitorCookieName } from "@/lib/town-code";
@@ -29,7 +31,16 @@ export default async function TownPage({
   const isOwner = !!session && session.user.id === town.ownerId;
 
   if (isOwner) {
-    return <TownGame />;
+    const owner = await prisma.user.findUnique({
+      where: { id: town.ownerId },
+      select: { character: true },
+    });
+    return (
+      <TownGame
+        ownerCharacter={owner?.character ?? OWNER_DEFAULT_CHARACTER}
+        townSlug={town.slug}
+      />
+    );
   }
 
   const jar = await cookies();
@@ -43,6 +54,7 @@ export default async function TownPage({
         townSlug={town.slug}
         townName={town.name}
         visitorName={visitor.n}
+        visitorCharacter={visitor.ch}
       />
     );
   }

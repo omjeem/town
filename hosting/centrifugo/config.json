@@ -1,0 +1,33 @@
+{
+  "client": {
+    "allowed_origins": ["http://localhost:3000", "http://localhost:3001"]
+  },
+  "engine": {
+    "type": "redis",
+    "redis": {
+      "address": ["redis://redis:6379"]
+    }
+  },
+  "channel": {
+    "without_namespace": {
+      "allow_subscribe_for_anonymous": false,
+      "allow_publish_for_client": false
+    },
+    "namespaces": [
+      {
+        "name": "positions",
+        "presence": true,
+        "allow_subscribe_for_client": true,
+        "allow_publish_for_subscriber": true,
+        "history_size": 0
+      },
+      {
+        "name": "dm",
+        "allow_subscribe_for_client": true,
+        "allow_publish_for_client": false,
+        "history_size": 50,
+        "history_ttl": "24h"
+      }
+    ]
+  }
+}

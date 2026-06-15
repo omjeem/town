@@ -2,35 +2,30 @@
 //
 // Validation: `parseEnvelope` confirms the structural shape required to
 // persist a TownEventRow — discriminant + ids + payload shape. Two event
-// types are supported today: identity.created and memory.created.
+// types are supported today: memory.added and memory.updated.
 //
 // Security: `verifyHmac` uses a constant-time compare over the hex digest
 // of sha256(secret, body). We compare hex strings of identical length so
 // `timingSafeEqual` is happy.
 //
 // Idempotency: `isDuplicate` is a single keyed lookup on TownEventRow.id —
-// the envelope's ULID is the dedupe key.
+// the envelope id is the dedupe key.
 
 import crypto from "node:crypto";
 import { prisma } from "@town/db";
 import type {
   EventEnvelope,
-  IdentityCreatedPayload,
-  IdentitySource,
-  MemoryCreatedPayload,
+  MemoryAddedPayload,
+  MemoryUpdatedPayload,
+  Topic,
+  TopicSibling,
   TownEvent,
   TownEventType,
 } from "@town/types";
 
 const KNOWN_TYPES: ReadonlySet<TownEventType> = new Set<TownEventType>([
-  "identity.created",
-  "memory.created",
-]);
-
-const IDENTITY_SOURCES: ReadonlySet<IdentitySource> = new Set<IdentitySource>([
-  "voice",
-  "chat",
-  "manual",
+  "memory.added",
+  "memory.updated",
 ]);
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -45,50 +40,82 @@ function asString(o: Record<string, unknown>, key: string): string {
   return v;
 }
 
-function asStringArray(o: Record<string, unknown>, key: string): string[] {
+function asNonEmptyArray(o: Record<string, unknown>, key: string): unknown[] {
   const v = o[key];
-  if (!Array.isArray(v) || !v.every((x) => typeof x === "string")) {
-    throw new Error(`envelope.payload.${key} must be string[]`);
+  if (!Array.isArray(v)) {
+    throw new Error(`envelope.payload.${key} must be an array`);
   }
-  return v as string[];
+  return v;
+}
+
+function asNumber(o: Record<string, unknown>, key: string): number {
+  const v = o[key];
+  if (typeof v !== "number" || !Number.isFinite(v)) {
+    throw new Error(`${key} must be a finite number`);
+  }
+  return v;
+}
+
+function validateTopicSibling(raw: unknown, path: string): TopicSibling {
+  if (!isObject(raw)) throw new Error(`${path} must be an object`);
+  return {
+    id: asString(raw, "id"),
+    name: asString(raw, "name"),
+    count: asNumber(raw, "count"),
+    score: asNumber(raw, "score"),
+  };
+}
+
+function validateTopic(raw: unknown, path: string): Topic {
+  if (!isObject(raw)) throw new Error(`${path} must be an object`);
+  const similar = raw.similar;
+  if (!Array.isArray(similar)) {
+    throw new Error(`${path}.similar must be an array`);
+  }
+  return {
+    id: asString(raw, "id"),
+    name: asString(raw, "name"),
+    count: asNumber(raw, "count"),
+    similar: similar.map((s, i) =>
+      validateTopicSibling(s, `${path}.similar[${i}]`),
+    ),
+  };
+}
+
+function validateIdentityAspects(raw: unknown, path: string): string[] {
+  if (!Array.isArray(raw)) {
+    throw new Error(`${path} must be an array of strings`);
+  }
+  return raw.map((v, i) => {
+    if (typeof v !== "string" || v.length === 0) {
+      throw new Error(`${path}[${i}] must be a non-empty string`);
+    }
+    return v;
+  });
 }
 
 function validatePayload(type: TownEventType, payload: unknown): void {
   if (!isObject(payload)) throw new Error("envelope.payload must be an object");
 
-  switch (type) {
-    case "identity.created": {
-      asString(payload, "identityUuid");
-      asString(payload, "fact");
-      const src = payload.source;
-      if (typeof src !== "string" || !IDENTITY_SOURCES.has(src as IdentitySource)) {
-        throw new Error(
-          `envelope.payload.source must be one of ${[...IDENTITY_SOURCES].join("|")}`,
-        );
-      }
-      if (
-        payload.confidence !== undefined &&
-        (typeof payload.confidence !== "number" ||
-          payload.confidence < 0 ||
-          payload.confidence > 1)
-      ) {
-        throw new Error("envelope.payload.confidence must be number in [0,1]");
-      }
-      asString(payload, "validAt");
-      return;
-    }
-    case "memory.created": {
-      asString(payload, "memoryUuid");
-      if (payload.title !== undefined && typeof payload.title !== "string") {
-        throw new Error("envelope.payload.title must be string or omitted");
-      }
-      if (payload.summary !== undefined && typeof payload.summary !== "string") {
-        throw new Error("envelope.payload.summary must be string or omitted");
-      }
-      asStringArray(payload, "topics");
-      asString(payload, "createdAt");
-      return;
-    }
+  asString(payload, "memoryUuid");
+  if (typeof payload.summary !== "string") {
+    throw new Error("envelope.payload.summary must be a string");
+  }
+  validateIdentityAspects(
+    payload.identityAspects,
+    "envelope.payload.identityAspects",
+  );
+
+  if (type === "memory.added") {
+    const topics = asNonEmptyArray(payload, "topics");
+    topics.forEach((t, i) =>
+      validateTopic(t, `envelope.payload.topics[${i}]`),
+    );
+  } else {
+    const topicsAdded = asNonEmptyArray(payload, "topicsAdded");
+    topicsAdded.forEach((t, i) =>
+      validateTopic(t, `envelope.payload.topicsAdded[${i}]`),
+    );
   }
 }
 
@@ -116,7 +143,6 @@ export function parseEnvelope(raw: unknown): TownEvent {
 
   validatePayload(type as TownEventType, raw.payload);
 
-  // The casts below are safe because validatePayload narrowed the shape.
   const envelope = {
     id,
     userId,
@@ -126,18 +152,14 @@ export function parseEnvelope(raw: unknown): TownEvent {
     version: 1 as const,
   };
 
-  switch (type as TownEventType) {
-    case "identity.created":
-      return envelope as EventEnvelope<IdentityCreatedPayload> & {
-        type: "identity.created";
-      };
-    case "memory.created":
-      return envelope as EventEnvelope<MemoryCreatedPayload> & {
-        type: "memory.created";
-      };
+  if (type === "memory.added") {
+    return envelope as EventEnvelope<MemoryAddedPayload> & {
+      type: "memory.added";
+    };
   }
-  // Unreachable — KNOWN_TYPES guard above.
-  throw new Error(`unhandled envelope.type: ${type}`);
+  return envelope as EventEnvelope<MemoryUpdatedPayload> & {
+    type: "memory.updated";
+  };
 }
 
 /**

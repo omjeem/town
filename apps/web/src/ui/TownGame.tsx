@@ -5,8 +5,13 @@ import { bootGame, type GameContext } from "../game/boot";
 import { refreshSession } from "../game/auth";
 import { startInboxPoller } from "../game/inbox";
 import { startNowPlayingPoller } from "../game/spotify";
+import { startSuggestionsPoller } from "../game/suggestions";
 import { startWorkspaceSync } from "../game/workspace";
 import { setViewerTownSlug } from "../game/plotClient";
+import { setPlayerCharacter } from "../game/character";
+import { startRealtime, type RealtimeHandle } from "../game/realtime";
+import { startPendingPoller } from "../game/dmPending";
+import { OWNER_DEFAULT_CHARACTER } from "../lib/characters";
 import { useUiState } from "./useUiStore";
 import { Hud } from "./Hud";
 import { InteractionPrompt } from "./InteractionPrompt";
@@ -17,7 +22,12 @@ import { Dialogue } from "./Dialogue";
 import { Chat } from "./Chat";
 import { NowPlaying } from "./NowPlaying";
 import { Share } from "./Share";
+import { Suggestions } from "./Suggestions";
+import { Dm } from "./Dm";
+import { RemoteCards } from "./RemoteCards";
 import { VisitorHud } from "./VisitorHud";
+import { PALETTE } from "../game/config";
+import { ui } from "./store";
 
 // The mount point: a canvas owned by React, populated by kaplay in useEffect,
 // and a sibling overlay layer for the React-rendered UI (HUD, prompt, panels).
@@ -31,12 +41,19 @@ import { VisitorHud } from "./VisitorHud";
 // Owner is the default so the existing root `/` page keeps working
 // unchanged.
 export type TownGameProps =
-  | { viewerMode?: "owner" }
+  | {
+      viewerMode?: "owner";
+      ownerCharacter?: string;
+      // Omitted only when rendering the guest playground at `/` — that
+      // path has no Town and no realtime.
+      townSlug?: string;
+    }
   | {
       viewerMode: "visitor";
       townSlug: string;
       townName: string;
       visitorName: string;
+      visitorCharacter: string;
     };
 
 export function TownGame(props: TownGameProps = {}) {
@@ -53,6 +70,9 @@ export function TownGame(props: TownGameProps = {}) {
     inbox,
     nowPlaying,
     share,
+    proximity,
+    dm,
+    suggestions,
   } = useUiState();
 
   const isVisitor = props.viewerMode === "visitor";
@@ -61,19 +81,31 @@ export function TownGame(props: TownGameProps = {}) {
     if (!canvasRef.current) return;
     if (ctxRef.current) return;
 
-    // Route plot fetches to the right town BEFORE the scene mounts.
+    // Route plot fetches + pick the player sprite BEFORE the scene mounts.
     if (isVisitor) {
-      setViewerTownSlug((props as { townSlug: string }).townSlug);
+      const v = props as { townSlug: string; visitorCharacter: string };
+      setViewerTownSlug(v.townSlug);
+      setPlayerCharacter(v.visitorCharacter);
     } else {
+      const o = props as { ownerCharacter?: string };
       setViewerTownSlug(null);
+      setPlayerCharacter(o.ownerCharacter ?? OWNER_DEFAULT_CHARACTER);
     }
 
     ctxRef.current = bootGame(canvasRef.current);
 
     if (isVisitor) {
-      // Visitor surfaces no owner-scoped feeds. Plot fetch goes through
-      // /api/plot?town=<slug> via plotClient and that's it.
+      // Visitor: skip owner-scoped pollers, but still join the realtime
+      // bus so they see (and are seen by) the owner + other visitors.
+      const slug = (props as { townSlug: string }).townSlug;
+      let visitorRt: RealtimeHandle | null = null;
+      void startRealtime({ slug }).then((handle) => {
+        visitorRt = handle;
+      });
+      const stopPending = startPendingPoller(slug);
       return () => {
+        visitorRt?.stop();
+        stopPending();
         ctxRef.current = null;
       };
     }
@@ -82,10 +114,24 @@ export function TownGame(props: TownGameProps = {}) {
     const stopInbox = startInboxPoller();
     const stopWorkspace = startWorkspaceSync();
     const stopNowPlaying = startNowPlayingPoller();
+    const stopSuggestions = startSuggestionsPoller();
+
+    let rt: RealtimeHandle | null = null;
+    let stopPending: (() => void) | null = null;
+    const ownerSlug = (props as { townSlug?: string }).townSlug;
+    if (ownerSlug) {
+      void startRealtime({ slug: ownerSlug }).then((handle) => {
+        rt = handle;
+      });
+      stopPending = startPendingPoller(ownerSlug);
+    }
     return () => {
       stopInbox();
       stopWorkspace();
       stopNowPlaying();
+      stopSuggestions();
+      rt?.stop();
+      stopPending?.();
       ctxRef.current = null;
     };
   }, [isVisitor, props]);
@@ -97,6 +143,10 @@ export function TownGame(props: TownGameProps = {}) {
         className="absolute inset-0 h-full w-full"
         style={{ imageRendering: "pixelated" }}
       />
+
+      {/* React-rendered cards floating above each remote player. Picks
+          up positions from kaplay via the projection helper. */}
+      <RemoteCards canvasRef={canvasRef} />
 
       {/* HUD — owner-mode renders the identity badge; visitor-mode renders
           the "Visiting X" card. */}
@@ -114,9 +164,12 @@ export function TownGame(props: TownGameProps = {}) {
         </div>
       ) : null}
 
-      {/* Spotify card — owner only. */}
+      {/* Spotify card + Suggestions badge stack — owner only. Suggestions
+          first so it sits at the top-right corner where the user expects
+          a notifications affordance. */}
       {!isVisitor ? (
-        <div className="absolute right-4 top-4 z-30">
+        <div className="pointer-events-auto absolute right-4 top-4 z-30 flex flex-col items-end gap-2">
+          <SuggestionsBadge count={suggestions.count} />
           <NowPlaying state={nowPlaying} />
         </div>
       ) : null}
@@ -124,6 +177,18 @@ export function TownGame(props: TownGameProps = {}) {
       {prompt ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-8 z-30 flex justify-center">
           <InteractionPrompt prompt={prompt} />
+        </div>
+      ) : proximity ? (
+        // Bottom-center prompt for the closest nearby player. Same vocab
+        // as the building-interaction prompts so SPACE always means the
+        // same thing visually.
+        <div className="pointer-events-none absolute inset-x-0 bottom-8 z-30 flex justify-center">
+          <InteractionPrompt
+            prompt={{
+              label: `SPACE to talk to ${proximity.name}`,
+              accent: "#1db954",
+            }}
+          />
         </div>
       ) : null}
 
@@ -136,6 +201,39 @@ export function TownGame(props: TownGameProps = {}) {
       {dialogue ? <Dialogue dialogue={dialogue} /> : null}
       {chat ? <Chat chat={chat} /> : null}
       {!isVisitor && share ? <Share /> : null}
+      {!isVisitor && suggestions.open ? (
+        <Suggestions list={suggestions.list} />
+      ) : null}
+      {dm ? (
+        <Dm
+          townSlug={dm.townSlug}
+          otherKey={dm.otherKey}
+          otherName={dm.otherName}
+        />
+      ) : null}
     </div>
+  );
+}
+
+// Top-right pill: 🛎 + count. Renders nothing when count = 0 so the corner
+// stays quiet until the butler actually has something to propose.
+function SuggestionsBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => ui.openSuggestions()}
+      className="nb-card flex items-center gap-2 px-3 py-2 text-left"
+      style={{ background: PALETTE.h60, color: "#1a1d22" }}
+      title="Open suggestions"
+      aria-label={`${count} suggestion${count === 1 ? "" : "s"} waiting`}
+    >
+      <span aria-hidden className="text-base leading-none">
+        🛎
+      </span>
+      <span className="text-[12px] font-bold leading-tight">
+        {count === 1 ? "1 suggestion" : `${count} suggestions`}
+      </span>
+    </button>
   );
 }

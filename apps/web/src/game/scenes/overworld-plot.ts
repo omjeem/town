@@ -20,10 +20,17 @@ import type { KAPLAYCtx } from "kaplay";
 import { TILE, VIEW_W, VIEW_H, INK, PALETTE, hex } from "../config";
 import { theme } from "../theme";
 import { makePlayer, type Tile } from "../entities/player";
+import { attachRemotePlayers } from "../entities/remotePlayer";
 import { getSession, onSessionChange } from "../auth";
 import { openGuestCta } from "../guestCta";
 import { ui } from "../../ui/store";
 import { loadPlot, subscribePlot } from "../plotClient";
+import {
+  getActiveTownSlug,
+  getRemotePlayers,
+  getSelfIdentity,
+  publishLocalPosition,
+} from "../realtime";
 import {
   defaultPlot,
   type Manifest,
@@ -288,6 +295,7 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
 
     let unsubscribe: (() => void) | null = null;
     let unsubSession: (() => void) | null = null;
+    let detachRemotes: (() => void) | null = null;
 
     async function boot(initialPlot?: Plot, initialVersion?: number) {
       const initialPayload = initialPlot
@@ -408,6 +416,9 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
         : { tx: Math.floor(worldW / 2), ty: Math.floor(worldH / 2) };
 
       const onArrive = (tile: Tile) => {
+        // Realtime: every tile change is one publish. Quantized by design —
+        // no per-tween-frame spam.
+        publishLocalPosition({ tx: tile.tx, ty: tile.ty, facing: player.facing });
         const owner = doorOwner.get(tile.tx + "," + tile.ty);
         if (!owner) return;
         // Route into the legacy interior scene by category. Future: read
@@ -423,6 +434,17 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
 
       const player = makePlayer(k, spawn, isBlocked, onArrive);
 
+      // First publish so anyone already in the room sees where we spawned.
+      publishLocalPosition({
+        tx: player.tile.tx,
+        ty: player.tile.ty,
+        facing: player.facing,
+      });
+
+      // Spawn / move / despawn remote players as the realtime channel
+      // pushes updates. Returns a teardown for scene-leave.
+      detachRemotes = attachRemotePlayers(k);
+
       // Camera — follow the player at 1:1 scale, clamped so the view
       // never reaches past the world edge. The kaplay canvas's own
       // stretch+letterbox handles fitting VIEW_W × VIEW_H to the
@@ -435,7 +457,75 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
         const ty = player.pos.y + TILE / 2;
         const cx = Math.max(halfW, Math.min(worldPxW - halfW, tx));
         const cy = Math.max(halfH, Math.min(worldPxH - halfH, ty));
-        k.setCamPos(cx, cy);
+        // Snap to integer pixels — kaplay's pixel-art rendering floors
+        // sub-pixel camera positions, and any fractional drift makes
+        // tilemap edges alias as the camera pans.
+        k.setCamPos(Math.round(cx), Math.round(cy));
+      });
+
+      // Proximity tick — runs every frame but only mutates the UI store
+      // when the closest target actually changes. PROX_RANGE is Chebyshev
+      // tiles (5x5 area around the player).
+      const PROX_RANGE = 2;
+      const PROX_LEAVE_RANGE = 4; // wider than enter so we don't flicker
+      let proxKey: string | null = null;
+      k.onUpdate(() => {
+        const me = getSelfIdentity();
+        if (!me) {
+          if (proxKey !== null) {
+            proxKey = null;
+            ui.setProximity(null);
+          }
+          return;
+        }
+        let bestKey: string | null = null;
+        let bestName = "";
+        let bestCharacter = "";
+        let bestDist = Infinity;
+        for (const r of getRemotePlayers()) {
+          const d = Math.max(
+            Math.abs(r.tx - player.tile.tx),
+            Math.abs(r.ty - player.tile.ty),
+          );
+          // Hysteresis: keep an existing target until it drifts outside
+          // PROX_LEAVE_RANGE; only newcomers must be within PROX_RANGE.
+          const ceiling =
+            r.participantKey === proxKey ? PROX_LEAVE_RANGE : PROX_RANGE;
+          if (d <= ceiling && d < bestDist) {
+            bestKey = r.participantKey;
+            bestName = r.name;
+            bestCharacter = r.character;
+            bestDist = d;
+          }
+        }
+        if (bestKey !== proxKey) {
+          proxKey = bestKey;
+          ui.setProximity(
+            bestKey
+              ? {
+                  participantKey: bestKey,
+                  name: bestName,
+                  character: bestCharacter,
+                }
+              : null,
+          );
+        }
+      });
+
+      // SPACE opens the DM panel with the current proximity target. We
+      // listen here instead of inside <InteractionPrompt> because the
+      // canvas always has keyboard focus when no overlay is open.
+      k.onKeyPress("space", () => {
+        if (ui.isPaused()) return;
+        const target = ui.getState().proximity;
+        if (!target) return;
+        const slug = getActiveTownSlug();
+        if (!slug) return;
+        ui.openDm({
+          townSlug: slug,
+          otherKey: target.participantKey,
+          otherName: target.name,
+        });
       });
 
       // Publish the real session to the HUD, then keep it in sync as the
@@ -467,7 +557,9 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
     k.onSceneLeave(() => {
       if (unsubscribe) unsubscribe();
       if (unsubSession) unsubSession();
+      if (detachRemotes) detachRemotes();
       ui.setHud(null);
+      ui.setProximity(null);
     });
   });
 }

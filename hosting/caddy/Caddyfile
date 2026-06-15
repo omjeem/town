@@ -1,0 +1,25 @@
+# Caddy front-door for town.getcore.me.
+#
+# Auto-acquires a Let's Encrypt cert for {$PUBLIC_HOST} (set in compose env).
+# Routes:
+#   /connection/*        → centrifugo WebSocket
+#   everything else      → Next.js app
+#
+# We deliberately do NOT expose /api/publish externally — Next publishes to
+# Centrifugo over the docker network, never via the public host.
+
+{$PUBLIC_HOST} {
+	encode gzip
+
+	# Centrifugo client WebSocket (and any /connection/* sub-paths it adds).
+	@centrifugo path /connection/*
+	reverse_proxy @centrifugo centrifugo:8000
+
+	# Next.js — everything else.
+	reverse_proxy web:3000
+
+	log {
+		output stderr
+		format console
+	}
+}

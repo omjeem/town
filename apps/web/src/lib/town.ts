@@ -22,6 +22,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { prisma } from "./db";
+import { OWNER_DEFAULT_CHARACTER } from "./characters";
 import { seedNpcs } from "./plot";
 import {
   generateShareCode,
@@ -122,6 +123,13 @@ export async function pickTown({ ownerId, name, slug: explicitSlug }: PickTownIn
     }
   }
   if (!town) throw lastError ?? new Error("town-create-failed");
+
+  // Owners default to the postman sprite. updateMany with `character: null`
+  // means we won't clobber a future user-picked override.
+  await prisma.user.updateMany({
+    where: { id: ownerId, character: null },
+    data: { character: OWNER_DEFAULT_CHARACTER },
+  });
 
   // Link or create the PlotRow. Existing PlotRows keep their layout
   // (deterministic from userId seed, but visitor-curated edits are

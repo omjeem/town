@@ -1,0 +1,137 @@
+# Production stack for town.getcore.me — runs the whole town behind a
+# single TLS endpoint via Caddy.
+#
+# Layout
+#   caddy       — public on :80/:443, auto Let's Encrypt cert,
+#                 reverse-proxies / → web and /connection/* → centrifugo.
+#   web         — Next.js app on :3000 (internal).
+#   centrifugo  — Realtime bus on :8000 (internal).
+#   redis       — Centrifugo engine + future queue store.
+#   postgres    — Town database.
+#
+# Configurable via `hosting/.env`:
+#   PUBLIC_HOST                  e.g. town.getcore.me
+#   CORE_OAUTH_*                 CORE client creds + redirect URI
+#   CENTRIFUGO_TOKEN_HMAC_SECRET strong secret, also in hosting/.env mirror
+#   CENTRIFUGO_API_KEY           strong secret
+#   CENTRIFUGO_PUBLIC_URL        wss://${PUBLIC_HOST}/connection/websocket
+#   ANTHROPIC_API_KEY / OPENAI_API_KEY (whichever LLM_PROVIDER you pick)
+#
+# Quick start on EC2:
+#   cd hosting && cp .env.example .env   # fill in the secrets + PUBLIC_HOST
+#   docker compose up -d
+#   docker compose logs -f caddy         # watch the cert acquire
+#   docker compose exec web pnpm --filter @town/db db:migrate
+#
+# Centrifugo-only against a host-local Redis (dev convenience):
+#   docker compose up -d --no-deps centrifugo
+#   The `extra_hosts: redis:host-gateway` entry below routes the in-config
+#   `redis://redis:6379` to the host loopback when redis isn't in compose.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - centrifugo
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-town}
+      POSTGRES_USER: ${POSTGRES_USER:-town}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # No port forwards — Postgres stays inside the docker network.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-town} -d $${POSTGRES_DB:-town}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  centrifugo:
+    image: centrifugo/centrifugo:v6
+    container_name: centrifugo
+    restart: unless-stopped
+    command: centrifugo --config=/centrifugo/config.json
+    volumes:
+      - ./centrifugo/config.json:/centrifugo/config.json:ro
+    environment:
+      CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: ${CENTRIFUGO_TOKEN_HMAC_SECRET}
+      CENTRIFUGO_HTTP_API_KEY: ${CENTRIFUGO_API_KEY}
+      # Restricting the WebSocket origin to the public host.
+      CENTRIFUGO_CLIENT_ALLOWED_ORIGINS: '["https://${PUBLIC_HOST}"]'
+    extra_hosts:
+      - "redis:host-gateway"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: hosting/web/Dockerfile
+    container_name: web
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-town}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-town}?schema=core
+      # CORE OAuth
+      CORE_OAUTH_BASE: ${CORE_OAUTH_BASE}
+      CORE_OAUTH_CLIENT_ID: ${CORE_OAUTH_CLIENT_ID}
+      CORE_OAUTH_CLIENT_SECRET: ${CORE_OAUTH_CLIENT_SECRET}
+      CORE_OAUTH_REDIRECT_URI: https://${PUBLIC_HOST}/api/auth/callback
+      # Webhook
+      TOWN_WEBHOOK_SECRET: ${TOWN_WEBHOOK_SECRET}
+      # LLM
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      # Centrifugo — server-side HTTP publish stays inside the docker
+      # network; the JWT secret is shared with the centrifugo container.
+      CENTRIFUGO_API_BASE: http://centrifugo:8000
+      CENTRIFUGO_API_KEY: ${CENTRIFUGO_API_KEY}
+      CENTRIFUGO_TOKEN_HMAC_SECRET: ${CENTRIFUGO_TOKEN_HMAC_SECRET}
+      # The PUBLIC URL the browser dials. Shipped to the client through
+      # /api/towns/[slug]/realtime-token so it's read per-request from
+      # the container env (no rebuild needed when you change it).
+      CENTRIFUGO_PUBLIC_URL: wss://${PUBLIC_HOST}/connection/websocket
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      centrifugo:
+        condition: service_started
+
+volumes:
+  pgdata:
+  redisdata:
+  caddy_data:
+  caddy_config:

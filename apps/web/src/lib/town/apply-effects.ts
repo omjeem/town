@@ -1,6 +1,5 @@
-// Persist the Effect[] from decide() to Postgres in a single transaction
-// per user. Bumps PlotRow.version on any plot mutation so the kaplay
-// scene's poller picks up the change on its next tick.
+// Apply ONE approved effect for a user. Runs when a PlotSuggestion is
+// approved via /api/suggestions/[id]/approve.
 //
 // add-building: walk the catalog's PLOT_PRIORITY in order, find the first
 // plotKey that matches the requested base (e.g. "studio" → "studio" or
@@ -8,14 +7,22 @@
 // user's plot, then regenerate the plot via the seed-based generator with
 // activeCount = current count + 1. We don't surgically inject — letting
 // the generator place the new building keeps clearings + roads + decor
-// consistent with the rest of the town. The new building's NPC is seeded
-// from the same role-template map seedNpcs uses.
+// consistent with the rest of the town. seedNpcs() then materialises the
+// default NPC for the new building (idempotent — only fills empties).
+//
+// update-npc: patch the Npc row's description and/or prompt.
+//
+// add-npc: insert a new Npc row attached to an existing buildingId.
+//
+// On any plot mutation we bump PlotRow.version so the kaplay scene's
+// poller picks up the change.
+
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import { catalog } from "@town/catalog";
 import { generatePlot, PLOT_PRIORITY, baseKey } from "@town/plot-gen";
 import type { Manifest, Plot } from "@town/plot";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 
 import { prisma } from "@/lib/db";
 import { seedNpcs } from "@/lib/plot";
@@ -36,68 +43,85 @@ function getManifest(): Manifest {
 }
 
 export interface ApplyResult {
-  buildingsAdded: number;
-  npcsTweaked: number;
+  applied: boolean;
+  reason?: string;
 }
 
-/** Apply effects for one user. Returns counts so the worker can log a
- *  one-line summary per event. */
-export async function applyEffects(
+/** Apply a single approved effect. Returns whether the effect actually
+ *  resulted in a write (some effects no-op if the world already moved on,
+ *  e.g. the building already exists). */
+export async function applyEffect(
   userId: string,
-  effects: Effect[],
+  effect: Effect,
 ): Promise<ApplyResult> {
-  let buildingsAdded = 0;
-  let npcsTweaked = 0;
-  if (effects.length === 0) return { buildingsAdded, npcsTweaked };
-
-  // Read current plot once outside the transaction (read-only).
-  const row = await prisma.plotRow.findUnique({ where: { userId } });
-  if (!row) return { buildingsAdded, npcsTweaked };
-  let plot = row.json as unknown as Plot;
-  let plotMutated = false;
-
-  for (const effect of effects) {
-    if (effect.kind === "add-building") {
-      const resolvedKey = pickInstanceKey(effect.plotKey, plot);
-      if (!resolvedKey) continue;
-      const newCount = plot.buildings.length + 1;
-      plot = generatePlot({
-        seed: plot.seed,
-        catalog,
-        manifest: getManifest(),
-        activeCount: nextActiveCount(plot, resolvedKey, newCount),
-        id: plot.id,
-      });
-      buildingsAdded += 1;
-      plotMutated = true;
-      continue;
+  if (effect.kind === "add-building") {
+    const row = await prisma.plotRow.findUnique({ where: { userId } });
+    if (!row) return { applied: false, reason: "user has no plot row" };
+    const plot = row.json as unknown as Plot;
+    const resolvedKey = pickInstanceKey(effect.plotKey, plot);
+    if (!resolvedKey) {
+      return { applied: false, reason: "no catalog room for another instance" };
     }
-    if (effect.kind === "tweak-npc") {
-      await prisma.npc.update({
-        where: { id: effect.npcId },
-        data: effect.fields,
-      });
-      npcsTweaked += 1;
-      continue;
-    }
-  }
-
-  if (plotMutated) {
-    await prisma.$transaction(async (tx) => {
-      await tx.plotRow.update({
-        where: { userId },
-        data: {
-          json: plot as unknown as object,
-          version: { increment: 1 },
-        },
-      });
+    const target = plot.buildings.length + 1;
+    const regenerated = generatePlot({
+      seed: plot.seed,
+      catalog,
+      manifest: getManifest(),
+      activeCount: nextActiveCount(plot, resolvedKey, target),
+      id: plot.id,
     });
-    // Seed NPCs for any new buildings we just added (seedNpcs is
-    // idempotent via skipDuplicates + per-row uniqueness checks).
-    await seedNpcs(userId, plot);
+    await prisma.plotRow.update({
+      where: { userId },
+      data: {
+        json: regenerated as unknown as object,
+        version: { increment: 1 },
+      },
+    });
+    await seedNpcs(userId, regenerated);
+    return { applied: true };
   }
 
-  return { buildingsAdded, npcsTweaked };
+  if (effect.kind === "update-npc") {
+    const exists = await prisma.npc.findUnique({
+      where: { id: effect.npcId },
+      select: { id: true },
+    });
+    if (!exists) return { applied: false, reason: "npc no longer exists" };
+    await prisma.npc.update({
+      where: { id: effect.npcId },
+      data: effect.fields,
+    });
+    return { applied: true };
+  }
+
+  if (effect.kind === "add-npc") {
+    // Confirm the building still exists in the user's plot before we
+    // attach an orphan NPC.
+    const row = await prisma.plotRow.findUnique({ where: { userId } });
+    if (!row) return { applied: false, reason: "user has no plot row" };
+    const plot = row.json as unknown as Plot;
+    const ok = plot.buildings.some((b) => b.id === effect.buildingId);
+    if (!ok) {
+      return { applied: false, reason: "building no longer in plot" };
+    }
+    await prisma.npc.create({
+      data: {
+        userId,
+        buildingId: effect.buildingId,
+        name: effect.name,
+        description: effect.description,
+        prompt: effect.prompt,
+      },
+    });
+    // Bump plot version so renderers re-pull NPC roster.
+    await prisma.plotRow.update({
+      where: { userId },
+      data: { version: { increment: 1 } },
+    });
+    return { applied: true };
+  }
+
+  return { applied: false, reason: "unknown effect kind" };
 }
 
 /** Find the first instance-suffix variant of `plotKey` (e.g. "studio",
@@ -120,8 +144,5 @@ function pickInstanceKey(plotKey: string, plot: Plot): string | null {
 function nextActiveCount(plot: Plot, newKey: string, target: number): number {
   const idx = PLOT_PRIORITY.indexOf(newKey);
   if (idx < 0) return target;
-  // activeCount = idx + 1 ensures the new key (and everything before it)
-  // is in scope; if the plot was already taller (e.g. the user previously
-  // unlocked something deeper in the priority list), keep that count.
   return Math.max(target, idx + 1, plot.buildings.length + 1);
 }

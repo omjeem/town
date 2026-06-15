@@ -22,6 +22,10 @@ model User {
   email       String
   name        String
   workspaceId String?
+  // Sprite key the user appears as in any town they visit. Owner picks
+  // this at onboarding (defaults to the postman). One of the keys defined
+  // in @/lib/characters.ts.
+  character   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -33,6 +37,7 @@ model User {
   plot         PlotRow?
   npcs         Npc[]
   town         Town?
+  suggestions  PlotSuggestion[]
 
   @@index([email])
 }
@@ -59,8 +64,48 @@ model Town {
   // they don't have to re-enter on subsequent visits.
   shareCode  String   @unique
   plot       PlotRow?
+  conversations Conversation[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+// A pairwise chat between two players inside one town. Participants are
+// identified by a stable "key" string:
+//   • "user:<userId>"   — signed-in player
+//   • "guest:<guestId>" — unsigned visitor, key kept in the visitor cookie
+//
+// `aKey` < `bKey` always (string-sorted) so the composite unique index
+// works regardless of who messages first.
+//
+// Only the two participants ever read these rows. The town owner has no
+// special read access — the API gates lookup on `aKey ∈ {viewer}`.
+model Conversation {
+  id            String    @id @default(cuid())
+  townId        String
+  town          Town      @relation(fields: [townId], references: [id], onDelete: Cascade)
+  aKey          String
+  bKey          String
+  lastMessageAt DateTime  @default(now())
+  // When non-null, points at the most recent message that hasn't been
+  // answered by the *other* party. The proximity-pill UI uses this to
+  // know whose head the "needs reply" indicator should hover above.
+  pendingFromKey String?
+  createdAt     DateTime  @default(now())
+  messages      Message[]
+
+  @@unique([townId, aKey, bKey])
+  @@index([townId, lastMessageAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  fromKey        String
+  text           String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
 }
 
 // One row per active sign-in. The browser cookie holds `id` (opaque).
@@ -219,4 +264,33 @@ model Npc {
 
   @@index([userId])
   @@index([userId, buildingId])
+}
+
+// Queued plot/NPC change waiting for the player's approval. The events
+// worker no longer mutates the plot directly — it converts each Effect
+// from decide() into a PlotSuggestion row (status = "pending"). The
+// player approves or declines from in-game; approval runs applyEffects
+// for that single suggestion and marks the row resolved.
+//
+// `kind` mirrors the Effect discriminator from apps/web/src/lib/town/decide.ts:
+//   "add-building"  payload: { plotKey, reason }           — also seeds 1 default NPC
+//   "update-npc"    payload: { npcId, fields, reason }     — patch name/description/prompt
+//   "add-npc"       payload: { buildingId, name, description, prompt, reason }
+//
+// `sourceEventId` points at the TownEventRow that produced this
+// suggestion so we can trace back to the originating CORE event.
+model PlotSuggestion {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind          String
+  status        String    @default("pending")
+  payload       Json
+  reason        String
+  sourceEventId String?
+  createdAt     DateTime  @default(now())
+  resolvedAt    DateTime?
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
 }

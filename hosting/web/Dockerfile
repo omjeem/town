@@ -1,0 +1,41 @@
+# Multi-stage build for apps/web.
+#
+# Stages
+#   deps   — install workspace dependencies via pnpm.
+#   build  — generate Prisma client + compile Next.
+#   runner — minimal image that serves the built app on :3000.
+#
+# Build context is the repo root (see hosting/docker-compose.yml).
+
+FROM node:22-alpine AS deps
+RUN corepack enable && corepack prepare pnpm@latest --activate
+WORKDIR /app
+# Workspace manifests first so `pnpm install` can be cached when only app
+# code (not deps) changes.
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json turbo.json tsconfig.base.json ./
+COPY apps/web/package.json ./apps/web/
+COPY packages/catalog/package.json ./packages/catalog/
+COPY packages/db/package.json ./packages/db/
+COPY packages/plot/package.json ./packages/plot/
+COPY packages/plot-gen/package.json ./packages/plot-gen/
+COPY packages/town-cli/package.json ./packages/town-cli/
+COPY packages/types/package.json ./packages/types/
+RUN pnpm install --frozen-lockfile
+
+FROM node:22-alpine AS build
+RUN corepack enable && corepack prepare pnpm@latest --activate
+WORKDIR /app
+COPY --from=deps /app /app
+COPY . .
+# Prisma client must be generated against the schema before Next compiles.
+RUN pnpm --filter @town/db exec prisma generate --schema=./prisma/schema.prisma
+RUN pnpm --filter @town/web build
+
+FROM node:22-alpine AS runner
+RUN corepack enable && corepack prepare pnpm@latest --activate
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3000
+COPY --from=build /app /app
+EXPOSE 3000
+CMD ["pnpm", "--filter", "@town/web", "start"]

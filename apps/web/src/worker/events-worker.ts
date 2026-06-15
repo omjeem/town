@@ -1,5 +1,15 @@
 // BullMQ worker that consumes /town-events jobs.
 //
+// Pipeline per job:
+//   1. Resolve the envelope: TownEventRow → typed TownEvent.
+//   2. Map CORE userId (envelope.userId) → town User.id via coreUserId.
+//   3. Load the user's plot + NPC roster.
+//   4. Run the LLM decide() agent → Effect[].
+//   5. Persist each effect as a PlotSuggestion (status="pending").
+//
+// The worker NEVER mutates the plot directly. Suggestions land in the
+// sidebar; the player approves/declines from in-game.
+//
 // Two ways to run it:
 //
 //   1. Inline with Next — instrumentation.ts calls startEventsWorker() on
@@ -9,14 +19,12 @@
 //   2. Standalone — `pnpm --filter @town/web worker` runs this file
 //      directly. Use this when you want to scale the worker fleet
 //      independently of the HTTP server.
-//
-// Both paths share the same `startEventsWorker` so behaviour is identical.
 
 import { Worker, type Job } from "bullmq";
 
 import { prisma } from "../lib/db";
 import { decide, type NpcRowLite } from "../lib/town/decide";
-import { applyEffects } from "../lib/town/apply-effects";
+import { recordSuggestions } from "../lib/town/suggestions";
 import {
   EVENTS_QUEUE_NAME,
   type EventJobData,
@@ -30,10 +38,21 @@ async function processJob(job: Job<EventJobData>): Promise<void> {
   const row = await prisma.townEventRow.findUnique({
     where: { id: eventId },
   });
-  if (!row) {
-    // Row got nuked between enqueue and consume — nothing to act on.
+  if (!row) return;
+
+  // envelope.userId is CORE's user id; town stores it on User.coreUserId.
+  const user = await prisma.user.findUnique({
+    where: { coreUserId: row.userId },
+    select: { id: true },
+  });
+  if (!user) {
+    console.warn(
+      `[worker] no town user for coreUserId=${row.userId}; skipping event ${eventId}`,
+    );
+    await markProcessed(eventId);
     return;
   }
+  const townUserId = user.id;
 
   // Rehydrate the loose DB row into the discriminated TownEvent shape.
   // parseEnvelope already validated the payload at write time, so trust
@@ -48,34 +67,34 @@ async function processJob(job: Job<EventJobData>): Promise<void> {
   } as TownEvent;
 
   const plotRow = await prisma.plotRow.findUnique({
-    where: { userId: row.userId },
+    where: { userId: townUserId },
   });
   if (!plotRow) {
     console.warn(
-      `[worker] user ${row.userId} has no plot row; skipping event ${eventId}`,
+      `[worker] user ${townUserId} has no plot row; skipping event ${eventId}`,
     );
     await markProcessed(eventId);
     return;
   }
   const npcs: NpcRowLite[] = await prisma.npc.findMany({
-    where: { userId: row.userId },
-    select: { id: true, buildingId: true, name: true, description: true, prompt: true },
+    where: { userId: townUserId },
+    select: {
+      id: true,
+      buildingId: true,
+      name: true,
+      description: true,
+      prompt: true,
+    },
   });
 
-  const effects = decide(envelope, {
+  const effects = await decide(envelope, {
     plot: plotRow.json as unknown as Plot,
     npcs,
   });
 
-  if (effects.length === 0) {
-    console.log(`[worker] ${eventId} ${envelope.type} - no effects`);
-    await markProcessed(eventId);
-    return;
-  }
-
-  const result = await applyEffects(row.userId, effects);
+  const written = await recordSuggestions(townUserId, eventId, effects);
   console.log(
-    `[worker] ${eventId} ${envelope.type} buildings+${result.buildingsAdded} npcs~${result.npcsTweaked}`,
+    `[worker] ${eventId} ${envelope.type} → ${written} suggestion(s) queued`,
   );
   await markProcessed(eventId);
 }
@@ -143,7 +162,6 @@ export function startEventsWorker(): StartedWorker {
 import { fileURLToPath } from "node:url";
 
 const isMain =
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 
 if (isMain) {

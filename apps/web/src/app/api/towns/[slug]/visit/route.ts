@@ -13,6 +13,9 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { pickVisitorCharacter } from "@/lib/characters";
+import { generateGuestId } from "@/lib/participant";
+import { getSessionFromCookie } from "@/lib/session";
 import { getTownBySlug } from "@/lib/town";
 import { normalizeCode, visitorCookieName } from "@/lib/town-code";
 
@@ -45,10 +48,25 @@ export async function POST(req: Request, ctx: { params: Promise<Params> }) {
     return NextResponse.json({ error: "bad-code" }, { status: 401 });
   }
 
+  // Character: signed-in visitors get a stable pick keyed off their user id
+  // (same avatar every time). Guests get a fresh random one each first
+  // visit, then carry it via the cookie.
+  const session = await getSessionFromCookie();
+  const character = session
+    ? pickVisitorCharacter(session.user.id)
+    : pickVisitorCharacter();
+
+  const guestId = generateGuestId();
+
   const jar = await cookies();
   jar.set(
     visitorCookieName(slug),
-    JSON.stringify({ n: name, c: town.shareCode }),
+    JSON.stringify({
+      n: name,
+      c: town.shareCode,
+      ch: character,
+      g: guestId,
+    }),
     {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

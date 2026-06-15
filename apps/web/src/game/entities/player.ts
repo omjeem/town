@@ -1,5 +1,6 @@
 import type { KAPLAYCtx, GameObj } from "kaplay";
 import { TILE, MOVE_TIME, type Facing } from "../config";
+import { getPlayerCharacter } from "../character";
 import { ui } from "../../ui/store";
 
 export type Tile = { tx: number; ty: number };
@@ -42,9 +43,11 @@ export function makePlayer(
 
   // Sprite child — offset up so feet sit on the tile bottom. We hold a
   // reference so the idle + walk animations can nudge its local position.
+  // Sprite key comes from game/character.ts so visitors render as a
+  // different avatar than the owner.
   const spriteBaselineY = TILE - PLAYER_SPRITE_H;
   const sprite = parent.add([
-    k.sprite("player"),
+    k.sprite(getPlayerCharacter()),
     k.pos(0, spriteBaselineY),
     k.z(50),
   ]);
@@ -89,19 +92,18 @@ export function makePlayer(
     k.tween(
       0, 1, MOVE_TIME,
       (t) => {
-        parent.pos = k.vec2(fromX + (toX - fromX) * t, fromY + (toY - fromY) * t);
-        // Step bounce — two sine arcs per tile (left foot + right foot)
-        // peaking ~3px above baseline. `|sin(t · 2π)|` traces zero →
-        // peak → zero → peak → zero across the tile, giving the
-        // double-thump cadence of a walk.
-        const bounce = Math.abs(Math.sin(t * 2 * Math.PI)) * 3;
-        sprite.pos.y = spriteBaselineY - bounce;
-        // Horizontal sway perpendicular to the step direction, scaled by
-        // the matching footstep arc so it grows and shrinks with the
-        // bounce. parity flips per step so the sway alternates sides.
-        const sway = Math.sin(t * Math.PI) * 1.2 * parity;
-        const horiz = dy !== 0 ? sway : 0; // only sway sideways on N/S moves
-        sprite.pos.x = horiz;
+        // Snap to integer pixels every frame so the rendered position
+        // doesn't toggle between fractional floors and stutter.
+        parent.pos = k.vec2(
+          Math.round(fromX + (toX - fromX) * t),
+          Math.round(fromY + (toY - fromY) * t),
+        );
+        // No per-step bob — at MOVE_TIME=120ms any vertical oscillation
+        // on a horizontal slide reads as a glitch rather than a stride.
+        // The parent's smooth slide alone carries the motion cue.
+        sprite.pos.y = spriteBaselineY;
+        sprite.pos.x = 0;
+        void parity; // kept for future per-step variation
       },
       k.easings.linear,
     ).onEnd(() => {
