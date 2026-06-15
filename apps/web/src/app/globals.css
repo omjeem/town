@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+/* ============================================================================
+ * core town theme — getcore.me pale blue-grey wallpaper + neobrutalism cards.
+ *
+ * Tokens:
+ *   --paper   off-white card surface
+ *   --ink     near-black border / text
+ *   --shadow  hard offset drop shadow color (no blur)
+ *   --wall    body wallpaper color (matches getcore.me)
+ * ========================================================================== */
+
+:root {
+  --paper: #f6f3ea;
+  --ink: #1a1d22;
+  --shadow: #0e1116;
+  --wall: #c5d0dc;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  color: var(--ink);
+
+  /* getcore.me wallpaper: pale blue-grey with a subtle two-layer speckle. */
+  background-color: var(--wall);
+  background-image:
+    radial-gradient(rgba(20, 23, 28, 0.18) 1px, transparent 1px),
+    radial-gradient(rgba(20, 23, 28, 0.10) 1px, transparent 1px);
+  background-size: 6px 6px, 11px 11px;
+  background-position: 0 0, 3px 4px;
+}
+
+/* ============================================================================
+ * Neobrutalism utility classes — used by Hud, Panel, InteractionPrompt, etc.
+ * Pattern: paper fill, 2px black border, 3px hard offset shadow, no rounding.
+ * ========================================================================== */
+
+.nb-card {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  box-shadow: 3px 3px 0 0 var(--shadow);
+}
+
+.nb-button {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  box-shadow: 2px 2px 0 0 var(--shadow);
+  color: var(--ink);
+  transition: transform 60ms ease-out, box-shadow 60ms ease-out;
+  cursor: pointer;
+}
+.nb-button:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 0 var(--shadow);
+}
+.nb-button:active {
+  transform: translate(1px, 1px);
+  box-shadow: 0 0 0 0 var(--shadow);
+}
+
+.nb-key {
+  background: #ffffff;
+  border: 2px solid var(--ink);
+  box-shadow: 1px 1px 0 0 var(--shadow);
+  color: var(--ink);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+.nb-tile {
+  border: 2px solid var(--ink);
+  box-shadow: 2px 2px 0 0 var(--shadow);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), Arial, sans-serif;
+}
+
+.nb-input {
+  background: #ffffff;
+  border: 2px solid var(--ink);
+  box-shadow: inset 2px 2px 0 0 rgba(14, 17, 22, 0.08);
+  color: var(--ink);
+  outline: none;
+}
+.nb-input:focus {
+  box-shadow: inset 2px 2px 0 0 rgba(14, 17, 22, 0.12),
+              0 0 0 2px rgba(230, 115, 51, 0.4);
+}
+
+/* ============================================================================
+ * Modal pop-in — game-feel entrance for Panel / Explorer / Tasks overlays.
+ *
+ * Backdrop fades in quickly; the card scales + slides in with a slight
+ * overshoot (cubic-bezier back-out) so it lands with a satisfying snap
+ * instead of a flat fade. The whole motion completes in ~280ms so it never
+ * gets in the way of input.
+ *
+ * Reduced-motion users get a plain fade-in.
+ * ========================================================================== */
+
+@keyframes nb-modal-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes nb-modal-card-in {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.85);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.nb-modal-backdrop {
+  animation: nb-modal-backdrop-in 180ms ease-out both;
+  will-change: opacity;
+}
+
+.nb-modal-card {
+  animation: nb-modal-card-in 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform-origin: center center;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nb-modal-backdrop,
+  .nb-modal-card {
+    animation-duration: 120ms;
+    animation-timing-function: ease-out;
+  }
+  @keyframes nb-modal-card-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+}

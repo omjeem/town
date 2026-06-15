@@ -1,0 +1,74 @@
+{
+  "trees": [
+    { "id": "tree-01", "file": "tree-01.png", "tileW": 2, "tileH": 2 },
+    { "id": "tree-02", "file": "tree-02.png", "tileW": 2, "tileH": 2 },
+    { "id": "tree-03", "file": "tree-03.png", "tileW": 2, "tileH": 2 },
+    { "id": "tree-04", "file": "tree-04.png", "tileW": 2, "tileH": 2 },
+    { "id": "tree-05", "file": "tree-05.png", "tileW": 2, "tileH": 3 },
+    { "id": "tree-06", "file": "tree-06.png", "tileW": 2, "tileH": 3 },
+    { "id": "tree-07", "file": "tree-07.png", "tileW": 2, "tileH": 3 },
+    { "id": "tree-08", "file": "tree-08.png", "tileW": 3, "tileH": 3 },
+    { "id": "tree-09", "file": "tree-09.png", "tileW": 3, "tileH": 3 },
+    { "id": "tree-10", "file": "tree-10.png", "tileW": 3, "tileH": 3 },
+    { "id": "tree-11", "file": "tree-11.png", "tileW": 4, "tileH": 4 },
+    { "id": "tree-12", "file": "tree-12.png", "tileW": 4, "tileH": 5 }
+  ],
+  "bushes": [
+    { "id": "bush-01", "file": "bush-01.png", "tileW": 1, "tileH": 1 },
+    { "id": "bush-02", "file": "bush-02.png", "tileW": 1, "tileH": 1 },
+    { "id": "bush-03", "file": "bush-03.png", "tileW": 1, "tileH": 2 },
+    { "id": "bush-04", "file": "bush-04.png", "tileW": 1, "tileH": 2 },
+    { "id": "bush-05", "file": "bush-05.png", "tileW": 2, "tileH": 1 },
+    { "id": "bush-06", "file": "bush-06.png", "tileW": 2, "tileH": 2 },
+    { "id": "bush-07", "file": "bush-07.png", "tileW": 2, "tileH": 2 },
+    { "id": "bush-08", "file": "bush-08.png", "tileW": 3, "tileH": 2 }
+  ],
+  "flowers": [
+    { "id": "flower-01", "file": "flower-01.png", "tileW": 1, "tileH": 1 },
+    { "id": "flower-02", "file": "flower-02.png", "tileW": 1, "tileH": 2 },
+    { "id": "flower-03", "file": "flower-03.png", "tileW": 1, "tileH": 2 },
+    { "id": "flower-04", "file": "flower-04.png", "tileW": 1, "tileH": 2 },
+    { "id": "flower-05", "file": "flower-05.png", "tileW": 1, "tileH": 1 },
+    { "id": "flower-06", "file": "flower-06.png", "tileW": 1, "tileH": 2 }
+  ],
+  "stumps": [
+    { "id": "stump-01", "file": "stump-01.png", "tileW": 2, "tileH": 1 },
+    { "id": "stump-02", "file": "stump-02.png", "tileW": 2, "tileH": 1 }
+  ],
+  "grass": [
+    { "id": "grass-01", "file": "grass-01.png", "tileW": 1, "tileH": 1 },
+    { "id": "grass-02", "file": "grass-02.png", "tileW": 1, "tileH": 1 },
+    { "id": "grass-03", "file": "grass-03.png", "tileW": 1, "tileH": 1 },
+    { "id": "grass-04", "file": "grass-04.png", "tileW": 1, "tileH": 1 }
+  ],
+  "mushrooms": [
+    { "id": "mushroom-01", "file": "mushroom-01.png", "tileW": 1, "tileH": 1 },
+    { "id": "mushroom-02", "file": "mushroom-02.png", "tileW": 1, "tileH": 1 },
+    { "id": "mushroom-03", "file": "mushroom-03.png", "tileW": 1, "tileH": 1 },
+    { "id": "mushroom-04", "file": "mushroom-04.png", "tileW": 1, "tileH": 1 }
+  ],
+  "rocks": [
+    { "id": "rock-01", "file": "rock-01.png", "tileW": 1, "tileH": 1 },
+    { "id": "rock-02", "file": "rock-02.png", "tileW": 1, "tileH": 1 },
+    { "id": "rock-03", "file": "rock-03.png", "tileW": 1, "tileH": 1 },
+    { "id": "rock-04", "file": "rock-04.png", "tileW": 1, "tileH": 1 }
+  ],
+  "dirtPatches": [
+    { "id": "dirt-patch-01", "file": "dirt-patch-01.png", "tileW": 1, "tileH": 1 },
+    { "id": "dirt-patch-02", "file": "dirt-patch-02.png", "tileW": 1, "tileH": 1 },
+    { "id": "dirt-patch-03", "file": "dirt-patch-03.png", "tileW": 1, "tileH": 1 },
+    { "id": "dirt-patch-04", "file": "dirt-patch-04.png", "tileW": 1, "tileH": 1 }
+  ],
+  "apron": [
+    { "id": "stone-01", "file": "stone-01.png", "tileW": 1, "tileH": 1 }
+  ],
+  "buildings": [
+    { "id": "gym", "file": "buildings/gym.png", "tileW": 14, "tileH": 11 },
+    { "id": "cafe", "file": "buildings/cafe.png", "tileW": 7, "tileH": 9 },
+    { "id": "studio", "file": "buildings/studio.png", "tileW": 8, "tileH": 9 },
+    { "id": "stage", "file": "buildings/stage.png", "tileW": 8, "tileH": 15 },
+    { "id": "practice", "file": "buildings/practice.png", "tileW": 7, "tileH": 13 },
+    { "id": "workshop", "file": "buildings/workshop.png", "tileW": 10, "tileH": 8 },
+    { "id": "station", "file": "buildings/station.png", "tileW": 8, "tileH": 13 }
+  ]
+}

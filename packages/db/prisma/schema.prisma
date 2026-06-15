@@ -1,0 +1,222 @@
+// Town-Next persistence.
+//
+// We store CORE OAuth2 access/refresh tokens server-side and hand the browser
+// only an opaque session id cookie. Every CORE API call goes through a
+// Next.js Route Handler that looks up the token by session id and calls
+// app.getcore.me with `Authorization: Bearer <token>`.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// A signed-in town visitor. `coreUserId` is the `sub` returned by CORE's
+// /oauth/userinfo — the stable identity across re-logins and email changes.
+model User {
+  id          String   @id @default(cuid())
+  coreUserId  String   @unique
+  email       String
+  name        String
+  workspaceId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sessions     Session[]
+  townEvents   TownEventRow[]
+  integrations IntegrationRow[]
+  aspects      AspectRow[]
+  labels       LabelRow[]
+  plot         PlotRow?
+  npcs         Npc[]
+  town         Town?
+
+  @@index([email])
+}
+
+// A user's public, shareable town. The slug is the URL segment (e.g.
+// /harshith) and the share code gates non-owner visitors. One town per
+// user for now — when we need multi-town we'll drop the `@unique` on
+// ownerId.
+//
+// Plot is connected here via PlotRow.townId. Onboarding creates the Town
+// and links the user's existing PlotRow (if any) to it, so we don't
+// regenerate the layout for existing users.
+model Town {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  // Human-readable name the owner picked at onboarding. Displayed on the
+  // visitor gate ("You're about to enter Harshith's Town") and used as the
+  // default panel title.
+  name       String
+  ownerId    String   @unique
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  // 6-char base32 code rotated via the Share modal's Reset button.
+  // Visitors must present this once; we then drop a per-slug cookie so
+  // they don't have to re-enter on subsequent visits.
+  shareCode  String   @unique
+  plot       PlotRow?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// One row per active sign-in. The browser cookie holds `id` (opaque).
+// `accessToken` is what we use to call CORE; `refreshToken` lets us mint a
+// new access token without re-prompting the user. Both stay server-side.
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken  String
+  refreshToken String?
+  // When the access token expires. We refresh lazily when it's within ~60s of
+  // expiry rather than running a background job.
+  tokenExpiresAt DateTime
+  // When the session itself expires (cookie + row both get torn down).
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  lastUsedAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Short-lived row covering one in-flight OAuth handshake. We need to remember
+// the PKCE code_verifier and the random `state` between the redirect to
+// app.getcore.me and the callback. Rows older than 10 minutes are stale and
+// can be GC'd by the next callback.
+model OAuthState {
+  state         String   @id
+  codeVerifier  String
+  // Where to send the user after a successful login (defaults to "/").
+  redirectAfter String?
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime
+
+  @@index([expiresAt])
+}
+
+// Per-user Plot — the source of truth for what their town looks like.
+// `json` is the full Plot from @town/plot. `version` increments on every
+// write so the client can poll cheaply ("?since=N", server only sends the
+// row when the stored version is higher).
+//
+// Bootstrap: when /api/plot GETs for a user without a row, we generate a
+// seeded default (3 buildings: home, library, store) via @town/plot-gen
+// and insert it. After that the row is the only source of truth — events
+// + AI + manual edits all flow through writes here, and the renderer
+// re-reads on every change.
+model PlotRow {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // The town this plot belongs to. Nullable for transition: existing rows
+  // get linked when their owner finishes onboarding. New PlotRows created
+  // by onboarding always have this set.
+  townId    String?  @unique
+  town      Town?    @relation(fields: [townId], references: [id], onDelete: SetNull)
+  json      Json
+  version   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Raw inbound event log. `id` is the envelope's ULID, used as an
+// idempotency key (`isDuplicate` checks for an existing row). The payload
+// is stored verbatim so we can replay history through the rules engine
+// later if the rules change.
+model TownEventRow {
+  id          String    @id
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String
+  occurredAt  DateTime
+  payload     Json
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([userId, occurredAt])
+  @@index([userId, type])
+}
+
+// Mirror of CORE's per-user integration connection state. The rules engine
+// upserts on `integration.connected` and clears `disconnectedAt` on a
+// reconnect; `integration.disconnected` stamps `disconnectedAt`.
+model IntegrationRow {
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug           String
+  category       String
+  scopes         String[]
+  connectedAt    DateTime
+  disconnectedAt DateTime?
+
+  @@id([userId, slug])
+  @@index([userId])
+}
+
+// Mirror of CORE Label entities (the user's CORE-side label library).
+// Labels aren't a TownEvent type — they're additive context for the
+// curator. Bootstrap pulls them once via /api/v1/labels and stores them
+// here for `buildUserProfile` to read. Unique on (userId, name) so
+// re-running bootstrap is idempotent without us holding CORE's id.
+model LabelRow {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // CORE's own label id when present — preserved for future de-dup
+  // strategies but not required because (userId, name) is the gate.
+  coreLabelId String?
+  name        String
+  color       String?
+  kind        String?
+  seenAt      DateTime @default(now())
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// Mirror of CORE Aspect entities. Keyed by CORE's aspect uuid so
+// `aspect.invalidated` events can look up + supersede a row without us
+// holding our own surrogate id.
+model AspectRow {
+  uuid          String    @id
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aspect        String
+  fact          String
+  validAt       DateTime
+  invalidAt     DateTime?
+  invalidatedBy String?
+
+  @@index([userId, aspect])
+  @@index([userId, invalidAt])
+}
+
+// Per-user NPC roster. Every building in a user's plot can host one or
+// more NPCs the player can talk to. The DB row holds the durable knobs
+// (name / description / system prompt) and the `town` CLI mirrors each
+// row out to an .mdx file in the plot directory so editors can iterate.
+//
+// `buildingId` references PlotRow.json.buildings[].id but is not an FK
+// (PlotRow.json is a JSON blob; the application enforces referential
+// integrity at write time).
+model Npc {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  buildingId  String
+  // Display name shown on the speaker line, e.g. "Hudson".
+  name        String
+  // Short flavor-text shown when the player approaches.
+  description String
+  // System prompt fed to the LLM when the player chats with this NPC.
+  prompt      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, buildingId])
+}

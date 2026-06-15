@@ -1,0 +1,92 @@
+// Client-side plot fetcher + polling subscriber.
+//
+// The kaplay scene calls loadPlot() once at scene start to render, then
+// subscribes via subscribePlot() so it re-enters itself whenever the
+// stored plot version changes. The polling cadence is intentionally
+// generous (3s) — plot edits aren't real-time-critical, and the probe
+// endpoint returns only the version int so it's cheap.
+//
+// `viewerTownSlug` (settable via setViewerTownSlug) routes the fetch to
+// /api/plot?town=<slug> so visitors of another town read that town's plot
+// instead of their own. The owner's UI leaves it null and gets the
+// signed-in user's plot as before.
+
+import type { Plot } from "@town/plot";
+
+const POLL_MS = 3000;
+
+export interface PlotPayload {
+  plot: Plot;
+  version: number;
+}
+
+let activeAbort: AbortController | null = null;
+let viewerTownSlug: string | null = null;
+
+export function setViewerTownSlug(slug: string | null): void {
+  viewerTownSlug = slug;
+}
+
+function url(probe: boolean): string {
+  const qs = new URLSearchParams();
+  if (viewerTownSlug) qs.set("town", viewerTownSlug);
+  if (probe) qs.set("probe", "1");
+  const q = qs.toString();
+  return q ? `/api/plot?${q}` : "/api/plot";
+}
+
+export async function loadPlot(): Promise<PlotPayload | null> {
+  try {
+    const res = await fetch(url(false), { cache: "no-store" });
+    if (!res.ok) return null;
+    return (await res.json()) as PlotPayload;
+  } catch {
+    return null;
+  }
+}
+
+/** Long-poll wrapper: fires `onChange` every time the stored plot's version
+ *  bumps past the one passed in. Returns an unsubscribe. */
+export function subscribePlot(
+  initialVersion: number,
+  onChange: (payload: PlotPayload) => void,
+): () => void {
+  if (activeAbort) activeAbort.abort();
+  const abort = new AbortController();
+  activeAbort = abort;
+  let lastVersion = initialVersion;
+  let stopped = false;
+
+  async function loop() {
+    while (!stopped) {
+      await new Promise((r) => setTimeout(r, POLL_MS));
+      if (stopped) break;
+      try {
+        const probe = await fetch(url(true), {
+          cache: "no-store",
+          signal: abort.signal,
+        });
+        if (!probe.ok) continue;
+        const { version } = (await probe.json()) as { version: number | null };
+        if (version === null || version === lastVersion) continue;
+        const full = await fetch(url(false), {
+          cache: "no-store",
+          signal: abort.signal,
+        });
+        if (!full.ok) continue;
+        const payload = (await full.json()) as PlotPayload;
+        lastVersion = payload.version;
+        onChange(payload);
+      } catch {
+        // Network blip — try again next tick.
+      }
+    }
+  }
+  void loop();
+
+  return () => {
+    stopped = true;
+    abort.abort();
+    if (activeAbort === abort) activeAbort = null;
+  };
+}

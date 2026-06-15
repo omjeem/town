@@ -1,0 +1,1803 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>town-next variant catalog</title>
+  <style>
+    :root {
+      --bg: #0e1116;
+      --ink: #f5edd4;
+      --ink-dim: #b9b09a;
+      --panel: #1a1d22;
+      --panel-2: #2a2d32;
+      --rule: #f5edd4;
+      --green: #5cb87a;
+      --yellow: #e8c44a;
+      --green-ink: #0e1116;
+      --yellow-ink: #2a2010;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0 24px 64px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      line-height: 1.45;
+    }
+    header.page {
+      padding: 32px 0 8px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 30px;
+      margin: 0 0 6px;
+      letter-spacing: 0.01em;
+    }
+    p.tagline {
+      margin: 0 0 12px;
+      opacity: 0.85;
+      max-width: 720px;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      align-items: center;
+      margin: 8px 0 0;
+      font-size: 12px;
+      color: var(--ink-dim);
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .pill.has-art { background: var(--green); color: var(--green-ink); }
+    .pill.needs-art { background: var(--yellow); color: var(--yellow-ink); }
+    .counter {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--ink-dim);
+    }
+    nav.plots {
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      padding: 12px 0;
+      border-bottom: 2px solid var(--rule);
+      z-index: 10;
+      max-width: 1200px;
+      margin: 16px auto 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0 18px;
+    }
+    nav.plots a {
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 4px 0;
+    }
+    nav.plots a:hover { text-decoration: underline; }
+    section.plot {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding-top: 28px;
+    }
+    section.plot h2 {
+      font-size: 22px;
+      margin: 0 0 4px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--rule);
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+    section.plot h2 .meta {
+      font-size: 12px;
+      opacity: 0.6;
+      font-weight: normal;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin: 18px 0 8px;
+    }
+    article.card {
+      background: var(--panel);
+      border: 2px solid var(--rule);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+    }
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .canonical {
+      font-size: 19px;
+      font-weight: 700;
+      margin: 0;
+      line-height: 1.15;
+    }
+    .accent {
+      width: 18px;
+      height: 18px;
+      border: 1px solid var(--rule);
+      flex-shrink: 0;
+      display: inline-block;
+      margin-top: 2px;
+    }
+    .id {
+      font-size: 11px;
+      opacity: 0.55;
+      letter-spacing: 0.01em;
+    }
+    .profession {
+      font-size: 12px;
+      color: var(--ink-dim);
+      margin: 0;
+    }
+    .sprites {
+      display: flex;
+      gap: 8px;
+      background: var(--panel-2);
+      padding: 8px;
+      border: 1px solid #2f3338;
+      align-items: center;
+      min-height: 96px;
+    }
+    .sprites img,
+    .sprites canvas {
+      display: block;
+      max-height: 96px;
+      max-width: 100%;
+      width: auto;
+      height: auto;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    .sprites canvas {
+      background: transparent;
+    }
+    .sprites .slot .props-flag {
+      font-size: 10px;
+      color: var(--green);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .sprites .slot {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
+    }
+    .sprites .slot-label {
+      font-size: 10px;
+      opacity: 0.5;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .sprites .empty {
+      font-size: 11px;
+      opacity: 0.5;
+      font-style: italic;
+    }
+    .vibe {
+      font-size: 11px;
+      opacity: 0.75;
+      margin: 0;
+    }
+    .needs-art-badge {
+      position: absolute;
+      top: 14px;
+      right: 42px;
+    }
+
+    /* ===== Town Layout Playground ===== */
+    section.playground {
+      max-width: 1200px;
+      margin: 0 auto 28px;
+      padding: 20px 0 16px;
+      border-bottom: 2px solid var(--rule);
+    }
+    .playground h2 {
+      font-size: 22px;
+      margin: 0 0 4px;
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+    .playground h2 .meta {
+      font-size: 12px;
+      opacity: 0.6;
+      font-weight: normal;
+    }
+    .playground p.tagline-2 {
+      margin: 0 0 14px;
+      opacity: 0.8;
+      font-size: 13px;
+    }
+    .play-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding: 12px;
+      background: var(--panel);
+      border: 2px solid var(--rule);
+    }
+    .play-controls .row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .play-controls label {
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .play-controls input[type="text"] {
+      background: var(--bg);
+      color: var(--ink);
+      border: 1px solid var(--rule);
+      padding: 4px 8px;
+      font-family: inherit;
+      font-size: 13px;
+      width: 160px;
+    }
+    .play-controls input[type="range"] {
+      width: 220px;
+      accent-color: var(--ink);
+    }
+    .play-controls .presets {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .play-controls .preset {
+      background: var(--panel-2);
+      color: var(--ink);
+      border: 1px solid var(--rule);
+      padding: 3px 10px;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .play-controls .preset:hover {
+      background: var(--ink);
+      color: var(--bg);
+    }
+    .play-controls .preset[data-active="true"] {
+      background: var(--ink);
+      color: var(--bg);
+    }
+    .map-frame {
+      background: #54935b;
+      border: 2px solid var(--rule);
+      position: relative;
+      overflow: hidden;
+    }
+    #town-map {
+      display: block;
+      width: 100%;
+      height: auto;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    #layout-summary {
+      margin-top: 10px;
+      font-size: 11px;
+      opacity: 0.75;
+      line-height: 1.7;
+      word-break: break-word;
+    }
+    #layout-summary code {
+      background: var(--panel-2);
+      padding: 1px 5px;
+      border-radius: 2px;
+      font-size: 11px;
+    }
+    .algorithm-note {
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: var(--panel-2);
+      border-left: 3px solid var(--ink);
+      font-size: 11px;
+      opacity: 0.9;
+      line-height: 1.55;
+    }
+    .algorithm-note strong {
+      color: var(--ink);
+    }
+    .json-output {
+      margin-top: 14px;
+      background: var(--panel);
+      border: 2px solid var(--rule);
+      padding: 12px;
+    }
+    .json-output > summary {
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .json-output > summary::-webkit-details-marker { display: none; }
+    .json-output > summary::before {
+      content: '▶';
+      font-size: 10px;
+      opacity: 0.6;
+      transition: transform 0.15s;
+    }
+    .json-output[open] > summary::before { transform: rotate(90deg); }
+    .json-output .json-meta {
+      font-size: 11px;
+      opacity: 0.6;
+      font-weight: normal;
+    }
+    .json-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0 8px;
+    }
+    .json-controls button {
+      background: var(--ink);
+      color: var(--bg);
+      border: none;
+      padding: 5px 12px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .json-controls button:hover { opacity: 0.85; }
+    .json-controls .copy-status {
+      font-size: 11px;
+      opacity: 0;
+      transition: opacity 0.2s;
+      color: var(--green);
+    }
+    .json-controls .copy-status.visible { opacity: 1; }
+    #plot-json {
+      background: var(--bg);
+      color: var(--ink);
+      border: 1px solid var(--rule);
+      padding: 10px 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      max-height: 360px;
+      overflow: auto;
+      margin: 0;
+      white-space: pre;
+    }
+  </style>
+</head>
+<body>
+  <header class="page">
+    <h1>town-next variant catalog</h1>
+    <p class="tagline">Every option the town can offer, keyed by canonical sign name.</p>
+    <div class="legend">
+      <span class="pill has-art">has art</span>
+      <span class="pill needs-art">needs art</span>
+      <span>each card is one variant; sprites are 16x16 pixel art, rendered crisp</span>
+    </div>
+    <div class="counter" id="counter">Loading variants&hellip;</div>
+  </header>
+
+  <nav class="plots" id="plot-nav"></nav>
+
+  <section class="playground" id="playground">
+    <h2><span>Town Layout Playground</span><span class="meta">expansion algorithm preview · same seed = same town</span></h2>
+    <p class="tagline-2">Different users get different towns. Pick a seed, slide the stage to see how the town grows as plots come online.</p>
+
+    <div class="play-controls">
+      <div class="row">
+        <label>Seed
+          <input id="seed-input" type="text" value="core" autocomplete="off" />
+        </label>
+        <div class="presets" id="seed-presets">
+          <button class="preset" data-seed="core" data-stage="6">core (default.json)</button>
+          <button class="preset" data-seed="harshith">harshith</button>
+          <button class="preset" data-seed="maya">maya</button>
+          <button class="preset" data-seed="sam">sam</button>
+          <button class="preset" data-seed="alex">alex</button>
+          <button class="preset" data-seed="priya">priya</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Stage
+          <input id="stage-slider" type="range" min="3" max="30" value="6" />
+          <span id="stage-display">6 / 30 plots active</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="map-frame">
+      <svg id="town-map" viewBox="0 0 90 80" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+
+    <div id="layout-summary"></div>
+
+    <div class="algorithm-note">
+      <strong>What a "plot" is:</strong> an organic clearing carved out of an endless forest. There is no visible parcel border — the irregular shape of the clearing is the only cue that a plot owns this area. The building sits inside the clearing; bushes, flowers, and grass tufts fill the space between the building and the tree line.<br /><br />
+      <strong>How expansion works:</strong> The world is a dense forest by default. Plots come online in priority order: <code>home → office → library → store → gym → cafe → studio → stage → practice → workshop → station</code>. HOME always lands in the center; remaining plots get assigned by a deterministic shuffle, seeded by <code>hash(seed, plotKey)</code> — same user, same town. As each plot activates, an irregular clearing is carved out of the forest around it (radius noise per angle bucket, derived from the plot key), and a winding 2-tile-wide dirt road connects HOME to the new building via a seeded bezier. Decor inside each clearing is scattered by <code>hash(seed, plotKey, slot)</code> so two users with the same building still get visibly different yards.
+    </div>
+
+    <details class="json-output" id="plot-json-wrap">
+      <summary>
+        <span>Plot JSON</span>
+        <span class="json-meta" id="plot-json-meta">— matches the @town/plot schema; paste into <code>packages/plot/src/default.json</code></span>
+      </summary>
+      <div class="json-controls">
+        <button id="copy-json" type="button">Copy JSON</button>
+        <button id="download-json" type="button">Download .json</button>
+        <span class="copy-status" id="copy-status">copied!</span>
+      </div>
+      <pre id="plot-json">Loading…</pre>
+    </details>
+  </section>
+
+  <main id="plots"></main>
+
+  <script>
+    // Catalog cache — populated once, reused by the variant cards renderer
+    // AND the playground's Plot JSON builder. Plot keys not present here
+    // (cafe / stage / practice / station today) get visualised via the
+    // extras manifest but are skipped in the JSON output, matching what
+    // generatePlot() in @town/plot-gen does.
+    let PG_CATALOG = null;
+
+    async function pgLoadCatalog() {
+      if (PG_CATALOG) return PG_CATALOG;
+      const res = await fetch('variants.json?ts=' + Date.now());
+      if (!res.ok) throw new Error('failed to fetch variants.json');
+      PG_CATALOG = await res.json();
+      return PG_CATALOG;
+    }
+
+    (async function () {
+      let data;
+      try {
+        data = await pgLoadCatalog();
+      } catch {
+        document.getElementById('counter').textContent = 'Failed to load variants.json.';
+        return;
+      }
+      const plots = data.plots || [];
+
+      let totalVariants = 0;
+      let totalNeedsArt = 0;
+      for (const plot of plots) {
+        for (const v of plot.variants) {
+          totalVariants += 1;
+          if (isNeedsArt(v)) totalNeedsArt += 1;
+        }
+      }
+      document.getElementById('counter').textContent =
+        'Showing ' + totalVariants + ' variants across ' + plots.length + ' plots — ' +
+        totalNeedsArt + ' waiting on art.';
+
+      const nav = document.getElementById('plot-nav');
+      for (const plot of plots) {
+        const a = document.createElement('a');
+        a.href = '#' + plot.id;
+        a.textContent = plot.label;
+        nav.appendChild(a);
+      }
+
+      const main = document.getElementById('plots');
+      for (const plot of plots) {
+        main.appendChild(renderPlot(plot));
+      }
+    })();
+
+    function isNeedsArt(v, plotInterior) {
+      const ext = (v.exteriorSpriteCandidates || []).length;
+      const inte = (plotInterior && plotInterior.spriteCandidates || []).length;
+      return v.needsArt === true || (ext === 0 && inte === 0);
+    }
+
+    function renderPlot(plot) {
+      const section = document.createElement('section');
+      section.className = 'plot';
+      section.id = plot.id;
+
+      const h2 = document.createElement('h2');
+      const title = document.createElement('span');
+      title.textContent = plot.label;
+      h2.appendChild(title);
+      const meta = document.createElement('span');
+      meta.className = 'meta';
+      const count = plot.variants.length;
+      const need = plot.variants.filter(v => isNeedsArt(v, plot.interior)).length;
+      meta.textContent = count + ' variants · ' + plot.category + (need ? ' · ' + need + ' need art' : '');
+      h2.appendChild(meta);
+      section.appendChild(h2);
+
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      for (const variant of plot.variants) {
+        grid.appendChild(renderCard(variant, plot.interior));
+      }
+      section.appendChild(grid);
+      return section;
+    }
+
+    function renderCard(v, plotInterior) {
+      const card = document.createElement('article');
+      card.className = 'card';
+
+      const head = document.createElement('div');
+      head.className = 'card-head';
+      const canon = document.createElement('h3');
+      canon.className = 'canonical';
+      canon.textContent = v.canonical;
+      head.appendChild(canon);
+      const accent = document.createElement('span');
+      accent.className = 'accent';
+      accent.style.background = v.paletteAccent || 'transparent';
+      accent.title = v.paletteAccent || '';
+      head.appendChild(accent);
+      card.appendChild(head);
+
+      const id = document.createElement('div');
+      id.className = 'id';
+      id.textContent = v.id;
+      card.appendChild(id);
+
+      if (v.profession) {
+        const prof = document.createElement('p');
+        prof.className = 'profession';
+        prof.textContent = v.profession;
+        card.appendChild(prof);
+      }
+
+      const sprites = document.createElement('div');
+      sprites.className = 'sprites';
+      sprites.appendChild(renderSpriteSlot('exterior', v.exteriorSpriteCandidates));
+      // Interior is now shared at the plot level — the variant only
+      // owns the NPC spawn point that sits inside it.
+      const interiorCandidates = plotInterior ? plotInterior.spriteCandidates : null;
+      const interiorProps = plotInterior ? plotInterior.props : null;
+      sprites.appendChild(renderSpriteSlot('interior', interiorCandidates, interiorProps, v.npcPosition));
+      card.appendChild(sprites);
+
+      if (v.vibe) {
+        const vibe = document.createElement('p');
+        vibe.className = 'vibe';
+        vibe.textContent = v.vibe;
+        card.appendChild(vibe);
+      }
+
+      if (isNeedsArt(v)) {
+        const badge = document.createElement('span');
+        badge.className = 'pill needs-art needs-art-badge';
+        badge.textContent = 'needs art';
+        card.appendChild(badge);
+      } else {
+        const badge = document.createElement('span');
+        badge.className = 'pill has-art needs-art-badge';
+        badge.textContent = 'has art';
+        card.appendChild(badge);
+      }
+
+      return card;
+    }
+
+    function renderSpriteSlot(label, candidates, interiorProps, npcPosition) {
+      const slot = document.createElement('div');
+      slot.className = 'slot';
+      const lbl = document.createElement('span');
+      lbl.className = 'slot-label';
+      lbl.textContent = label;
+      slot.appendChild(lbl);
+      if (!candidates || candidates.length === 0) {
+        const empty = document.createElement('span');
+        empty.className = 'empty';
+        empty.textContent = '— none —';
+        slot.appendChild(empty);
+        return slot;
+      }
+      // Interior slot — composite shell + (optional) shared props + the
+      // variant's NPC marker onto a canvas. Even when props is empty,
+      // the canvas path is used so the NPC ring still draws on top of
+      // the bare shell. That's how variants in the same category stay
+      // visually distinct: same room, NPC stands in a different spot.
+      if (label === 'interior' && (interiorProps || npcPosition)) {
+        const canvas = document.createElement('canvas');
+        canvas.alt = 'interior composite';
+        composeInterior(canvas, candidates[0], interiorProps || [], npcPosition);
+        slot.appendChild(canvas);
+        const flag = document.createElement('span');
+        flag.className = 'props-flag';
+        const propsBit = (interiorProps && interiorProps.length)
+          ? '+ ' + interiorProps.length + ' props'
+          : 'shared shell';
+        flag.textContent = propsBit +
+          (npcPosition ? ' · NPC @ (' + npcPosition.tx + ',' + npcPosition.ty + ')' : '');
+        slot.appendChild(flag);
+        return slot;
+      }
+      const img = document.createElement('img');
+      img.src = candidates[0];
+      img.alt = label + ' sprite';
+      img.loading = 'lazy';
+      slot.appendChild(img);
+      if (candidates.length > 1) {
+        const more = document.createElement('span');
+        more.className = 'slot-label';
+        more.textContent = '+' + (candidates.length - 1) + ' more';
+        slot.appendChild(more);
+      }
+      return slot;
+    }
+
+    // Cache loaded sprites so multiple cards reusing the same shell or
+    // prop don't re-fetch.
+    const SPRITE_CACHE = new Map();
+    function loadSprite(src) {
+      if (SPRITE_CACHE.has(src)) return SPRITE_CACHE.get(src);
+      const p = new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('failed to load ' + src));
+        img.src = src;
+      });
+      SPRITE_CACHE.set(src, p);
+      return p;
+    }
+
+    // Composite an empty interior shell + a list of props onto `canvas`.
+    // Shell path is relative to the catalog dir (e.g. interiors/home/generic-home-1.png).
+    // Each prop's `sprite` is a path under /sprites/interiors/ (e.g. apartment/sofa).
+    // Coordinates are in 16px tiles; sprite is drawn at natural size with its
+    // top-left at (tx*16, ty*16). Pixel art rendering — no smoothing.
+    async function composeInterior(canvas, shellSrc, props, npcPosition) {
+      try {
+        const shell = await loadSprite(shellSrc);
+        canvas.width = shell.naturalWidth;
+        canvas.height = shell.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(shell, 0, 0);
+        for (const p of props) {
+          try {
+            const sprite = await loadSprite('/sprites/interiors/' + p.sprite + '.png');
+            ctx.drawImage(sprite, (p.tx || 0) * 16, (p.ty || 0) * 16);
+          } catch (e) {
+            // Single missing prop shouldn't kill the rest of the composite.
+            console.warn('prop failed', p, e);
+          }
+        }
+        // NPC marker — a translucent yellow ring on the target tile so the
+        // designer can see WHERE the NPC will spawn before any sprite art
+        // is wired up. Game-side this becomes a real npcs[] entry.
+        if (npcPosition) {
+          const cx = (npcPosition.tx + 0.5) * 16;
+          const cy = (npcPosition.ty + 0.5) * 16;
+          ctx.save();
+          ctx.fillStyle = 'rgba(255, 220, 60, 0.35)';
+          ctx.strokeStyle = '#ffdc3c';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = '#2a2010';
+          ctx.font = 'bold 8px ui-monospace, monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('NPC', cx, cy);
+          ctx.restore();
+        }
+      } catch (e) {
+        console.warn('composeInterior failed', shellSrc, e);
+      }
+    }
+
+    // ===== Town Layout Playground =====
+    //
+    // Deterministic grid-based expansion. World is a 4x3 cell grid. HOME
+    // always lands at cell (1, 1) — the center — for any non-default
+    // seed. Other plots get assigned to remaining cells via a seeded
+    // shuffle, so two users with different ids see structurally
+    // different towns but the same user always sees the same town. The
+    // empty seed ("default") reproduces the frozen 4-building positions
+    // baked into the live src/town/layout-solver.ts for visual parity
+    // with the current live overworld.
+    const PG = {
+      // 30-slot priority list.
+      // Slots 0-2: day-0 core trio (HOME, LIBRARY, STORE) — every user
+      //            has these from day one. Positions are fixed for every
+      //            seed (see CORE_CELLS in pgGenerateLayout).
+      // Slots 3-29: behavioural unlocks placed per-(seed, plotKey) hash,
+      //             independent of each other. Adding a NEW plot type at
+      //             the end of this list does NOT move any existing plot.
+      // Suffix "-N" on a key means another instance of the base plot
+      // (e.g. office-2 reuses the office sprite); pgBaseKey() strips it.
+      PLOT_PRIORITY: [
+        // Day-0 trio (fixed positions)
+        'home', 'library', 'store',
+        // Tier 1 unlocks
+        'office', 'cafe', 'workshop', 'studio',
+        'stage', 'practice', 'station', 'gym',
+        // Tier 2 growth (repeat instances)
+        'workshop-2', 'office-2', 'studio-2', 'library-2',
+        'cafe-2', 'home-2', 'practice-2', 'station-2',
+        'workshop-3',
+        // Tier 3 mature (more instances)
+        'studio-3', 'office-3', 'cafe-3', 'home-3',
+        'library-3', 'workshop-4', 'studio-4', 'office-4',
+        'cafe-4', 'gym-2',
+      ],
+      PLOT_ACCENT: {
+        home: '#e67333',
+        office: '#0381e9',
+        library: '#886dbc',
+        store: '#b0617c',
+        cafe: '#dcb016',
+        studio: '#2b9684',
+        stage: '#a165a1',
+        practice: '#7b8a34',
+        workshop: '#4187c0',
+        station: '#d75056',
+        gym: '#3aa66e',
+      },
+      PLOT_LABEL: {
+        home: 'HOME', office: 'OFFICE', library: 'LIBRARY', store: 'STORE',
+        cafe: 'CAFE', studio: 'STUDIO', stage: 'STAGE',
+        practice: 'PRACTICE', workshop: 'WORKSHOP', station: 'STATION',
+        gym: 'GYM',
+      },
+      // World expanded to 90×80 tiles to fit a 6×5 cell grid (30 cells).
+      // CELL_W/H stays 15×16 so existing 13/15-tile-tall sprites still
+      // breathe without overlapping their north/south neighbours.
+      WORLD_W: 90, WORLD_H: 80,
+      CELL_W: 15, CELL_H: 16,
+      COLS: 6, ROWS: 5,
+      PLOT_W: 10, PLOT_H: 7,
+    };
+
+    // Strip trailing "-N" instance suffix from a plot key so sprite,
+    // color and label lookups can find the canonical entry.
+    // e.g. pgBaseKey('office-2') === 'office'.
+    function pgBaseKey(k) {
+      return k.replace(/-\d+$/, '');
+    }
+
+    function pgHash(s) {
+      let h = 1779033703 ^ s.length;
+      for (let i = 0; i < s.length; i++) {
+        h = Math.imul(h ^ s.charCodeAt(i), 3432918353);
+        h = (h << 13) | (h >>> 19);
+      }
+      return h >>> 0;
+    }
+
+    function pgShuffle(arr, seed) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = pgHash(seed + '::' + i) % (i + 1);
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function pgCellToPlot(cell, jitterKey) {
+      const baseTx = cell.col * PG.CELL_W + (PG.CELL_W - PG.PLOT_W) / 2;
+      const baseTy = cell.row * PG.CELL_H + (PG.CELL_H - PG.PLOT_H) / 2;
+      // Per-cell jitter so buildings don't all line up on the grid.
+      // ±1.5 tiles, deterministic from jitterKey (seed + plotKey).
+      const h = pgHash((jitterKey || 'default') + '::jit::' + cell.col + ',' + cell.row);
+      const jx = ((h & 0xFFFF) / 65535 - 0.5) * 3;
+      const jy = (((h >>> 16) & 0xFFFF) / 65535 - 0.5) * 3;
+      return {
+        tx: Math.max(4, Math.min(PG.WORLD_W - PG.PLOT_W - 4, baseTx + jx)),
+        ty: Math.max(4, Math.min(PG.WORLD_H - PG.PLOT_H - 4, baseTy + jy)),
+        w: PG.PLOT_W,
+        h: PG.PLOT_H,
+      };
+    }
+
+    function pgAllCells() {
+      const out = [];
+      for (let r = 0; r < PG.ROWS; r++) {
+        for (let c = 0; c < PG.COLS; c++) out.push({ col: c, row: r });
+      }
+      return out;
+    }
+
+    // A "plot" is the whole parcel — the cell boundary plus everything
+    // inside it: the building, the yard, scattered trees, flower beds.
+    // The building rect is just one prop on the plot. Each plot also
+    // owns its own decoration scatter, deterministically generated from
+    // the same seed so two users have visibly different forests + flower
+    // patterns around the same canonical building.
+    function pgGenerateLayout(seed, activeCount) {
+      const effectiveSeed = seed && seed.length ? seed : 'town';
+      const active = PG.PLOT_PRIORITY.slice(0, activeCount);
+      const out = {};
+
+      function recordPlot(plotKey, building, cell) {
+        out[plotKey] = { ...building, plotKey, cell };
+      }
+
+      // ---- Day-0 core trio: HOME / LIBRARY / STORE ----
+      // These three exist for every user from day one and sit in fixed
+      // cells regardless of seed. HOME in the geometric centre, LIBRARY
+      // to the west, STORE to the east — reads as a small settlement
+      // even before any other plot unlocks.
+      const homeCol = Math.floor((PG.COLS - 1) / 2);
+      const homeRow = Math.floor((PG.ROWS - 1) / 2);
+      const CORE_CELLS = {
+        home:    { col: homeCol,     row: homeRow },
+        library: { col: homeCol - 1, row: homeRow },
+        store:   { col: homeCol + 1, row: homeRow },
+      };
+
+      const allCells = pgAllCells();
+      const usedKeys = new Set();
+      for (const key of Object.keys(CORE_CELLS)) {
+        if (!active.includes(key)) continue;
+        const cell = CORE_CELLS[key];
+        recordPlot(key, pgCellToPlot(cell, effectiveSeed + '::' + key), cell);
+        usedKeys.add(cell.col + ',' + cell.row);
+      }
+
+      // ---- Behavioural unlocks ----
+      // Each non-core plot is placed independently from its own seeded
+      // hash into the pool of remaining cells. Properties:
+      //   1. Same user, same plot key → same position every time.
+      //   2. Different users → different positions for the same plot key.
+      //   3. Adding a new plot type at the end of PLOT_PRIORITY does
+      //      NOT move any plot already placed.
+      // Conflicts (two plots wanting the same cell) are resolved by
+      // bumping the hash with a salt until a free cell is picked.
+      for (const plotKey of active) {
+        if (plotKey in CORE_CELLS) continue;
+        const remaining = allCells.filter(c => !usedKeys.has(c.col + ',' + c.row));
+        if (remaining.length === 0) break;
+        let picked = null;
+        for (let salt = 0; salt < 8; salt++) {
+          const h = pgHash(effectiveSeed + '::plot::' + plotKey + (salt ? ('::salt::' + salt) : ''));
+          const candidate = remaining[h % remaining.length];
+          if (!usedKeys.has(candidate.col + ',' + candidate.row)) {
+            picked = candidate;
+            break;
+          }
+        }
+        if (!picked) picked = remaining[0];
+        recordPlot(plotKey, pgCellToPlot(picked, effectiveSeed + '::' + plotKey), picked);
+        usedKeys.add(picked.col + ',' + picked.row);
+      }
+      return out;
+    }
+
+    // Compute the organic clearing radius for a building at a given
+    // direction. We treat the building's *effective* extents (max of
+    // layout rect and actual sprite tile dims) as an ellipse, find the
+    // ellipse edge at this angle, and inflate by a fixed margin plus
+    // per-angle noise. This means tall sprites like the STAGE clock
+    // tower (8x15 on a 10x7 rect) carve a tall clearing instead of a
+    // short round one — no forest peeking through the spire when the
+    // sprite extends well above its layout rect.
+    function pgClearingRadiusAt(plotKey, b, angle) {
+      const effW = Math.max(b.w, b.spriteW || b.w);
+      const effH = Math.max(b.h, b.spriteH || b.h);
+      const halfW = effW / 2;
+      const halfH = effH / 2;
+      const ca = Math.cos(angle);
+      const sa = Math.sin(angle);
+      const denom = Math.sqrt((ca / halfW) * (ca / halfW) + (sa / halfH) * (sa / halfH));
+      const buildingEdge = denom > 0 ? 1 / denom : Math.max(halfW, halfH);
+      const base = buildingEdge + 3.5;
+      const bucket = Math.round(angle * 6 / Math.PI);
+      const h = pgHash(plotKey + '::edge::' + bucket);
+      const noise = ((h & 0xFFFF) / 65535 - 0.5) * 3.0;
+      return base + noise;
+    }
+
+    function pgInClearing(buildings, tx, ty) {
+      for (let i = 0; i < buildings.length; i++) {
+        const b = buildings[i];
+        const cx = b.tx + b.w / 2;
+        const cy = b.ty + b.h / 2;
+        const dx = tx - cx;
+        const dy = ty - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
+        const r = pgClearingRadiusAt(b.plotKey, b, angle);
+        if (dist < r) return true;
+      }
+      return false;
+    }
+
+    // South-edge midpoint of a building — treated as the front door,
+    // so paths terminate at the entry instead of being clipped inside
+    // the footprint.
+    function pgEntryPoint(b) {
+      return { x: b.tx + b.w / 2, y: b.ty + b.h + 0.5 };
+    }
+
+    // Walk a quadratic bezier from b1 entry to b2 entry, with a seeded
+    // control point offset so the path bends naturally instead of going
+    // straight. Returns the set of tile positions the road occupies
+    // (path is 2 tiles wide so it reads as a real road, not a thread).
+    function pgRoadTiles(seed, b1, b2) {
+      const e1 = pgEntryPoint(b1);
+      const e2 = pgEntryPoint(b2);
+      const x1 = e1.x;
+      const y1 = e1.y;
+      const x2 = e2.x;
+      const y2 = e2.y;
+      const midX = (x1 + x2) / 2;
+      const midY = (y1 + y2) / 2;
+      const h = pgHash((seed || 'default') + '::road::' + b1.plotKey + '->' + b2.plotKey);
+      const offX = ((h & 0xFFFF) / 65535 - 0.5) * 6;
+      const offY = (((h >>> 16) & 0xFFFF) / 65535 - 0.5) * 6;
+      const cx = midX + offX;
+      const cy = midY + offY;
+      const dist = Math.hypot(x2 - x1, y2 - y1);
+      const steps = Math.max(24, Math.ceil(dist * 3));
+      const tiles = new Set();
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const u = 1 - t;
+        const x = u * u * x1 + 2 * u * t * cx + t * t * x2;
+        const y = u * u * y1 + 2 * u * t * cy + t * t * y2;
+        const ix = Math.floor(x);
+        const iy = Math.floor(y);
+        // 2x2 brush — gives consistent width regardless of direction.
+        // A 1x2 horizontal brush breaks into stragglers on near-vertical
+        // segments; the 2x2 keeps the road connected.
+        tiles.add(ix + ',' + iy);
+        tiles.add((ix + 1) + ',' + iy);
+        tiles.add(ix + ',' + (iy + 1));
+        tiles.add((ix + 1) + ',' + (iy + 1));
+      }
+      return tiles;
+    }
+
+    // Sprite manifest cache — loaded once at boot.
+    let PG_MANIFEST = null;
+
+    // Cache of variant-exterior sprite dimensions in tile units (1 tile = 16px).
+    // Populated lazily by pgEnsureBuildingDims so SVG <image> elements get
+    // width/height that match the sprite's native size — same anchoring as
+    // the kaplay overworld scene.
+    const PG_SPRITE_DIMS = new Map();
+
+    function pgLoadImageDims(src) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({
+          tileW: img.naturalWidth / 16,
+          tileH: img.naturalHeight / 16,
+        });
+        img.onerror = () => resolve(null);
+        img.src = src;
+      });
+    }
+
+    async function pgEnsureBuildingDims(exteriorPaths) {
+      const pending = [];
+      for (const path of exteriorPaths) {
+        if (PG_SPRITE_DIMS.has(path)) continue;
+        pending.push(
+          pgLoadImageDims('../' + path).then((dims) => {
+            if (dims) PG_SPRITE_DIMS.set(path, dims);
+          }),
+        );
+      }
+      if (pending.length) await Promise.all(pending);
+    }
+
+    async function pgLoadManifest() {
+      if (PG_MANIFEST) return PG_MANIFEST;
+      const res = await fetch('../extras/MANIFEST.json?ts=' + Date.now());
+      PG_MANIFEST = await res.json();
+      return PG_MANIFEST;
+    }
+
+    // Building footprint test — used to suppress road tiles that pass
+    // through a building, and to keep clearing decor from overlapping
+    // the building rect.
+    function pgInBuilding(buildings, tx, ty, inflate) {
+      const pad = inflate || 0;
+      for (let i = 0; i < buildings.length; i++) {
+        const b = buildings[i];
+        if (tx >= b.tx - pad && tx < b.tx + b.w + pad &&
+            ty >= b.ty - pad && ty < b.ty + b.h + pad) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Weighted picker — bigger trees show up less often. Returns a
+    // sprite descriptor { id, tileW, tileH }. Greens get a 2x weight
+    // bias so the forest reads summer-green even if the manifest
+    // ratio drifts.
+    const PG_GREEN_TREE_IDS = new Set([
+      'tree-01', 'tree-02', 'tree-03', 'tree-05',
+      'tree-06', 'tree-07', 'tree-08', 'tree-10',
+      'tree-11', 'tree-12',
+    ]);
+    // Pink/orange "spring" canopies (tree-04, tree-09) read as a
+    // different season than the rest of the green forest, so they're
+    // dropped from the scatter entirely.
+    const PG_SPRING_TREE_IDS = new Set(['tree-04', 'tree-09']);
+    function pgPickTree(trees, hash) {
+      // Weight: smaller tile area → higher weight; greens doubled.
+      let total = 0;
+      const weights = trees.map(t => {
+        const area = t.tileW * t.tileH;
+        let w = Math.max(1, 24 - area * 1.5);
+        if (PG_GREEN_TREE_IDS.has(t.id)) w *= 2;
+        total += w;
+        return w;
+      });
+      let r = (hash >>> 0) % Math.max(1, Math.floor(total));
+      for (let i = 0; i < trees.length; i++) {
+        if (r < weights[i]) return trees[i];
+        r -= weights[i];
+      }
+      return trees[0];
+    }
+
+    // 9-slice autotile sprite picker for road tiles. Neighbors that
+    // are grass (i.e. not in pathSet) determine which edge sprite to
+    // use. Diagonals are intentionally ignored — the cardinal grid
+    // already produces clean rounded corners in practice.
+    function pathSpriteFor(pathSet, x, y) {
+      const isPath = (xx, yy) => pathSet.has(xx + ',' + yy);
+      const nG = !isPath(x, y - 1);
+      const sG = !isPath(x, y + 1);
+      const wG = !isPath(x - 1, y);
+      const eG = !isPath(x + 1, y);
+      if (nG && wG) return 'path_tl';
+      if (nG && eG) return 'path_tr';
+      if (sG && wG) return 'path_bl';
+      if (sG && eG) return 'path_br';
+      if (nG) return 'path_t';
+      if (sG) return 'path_b';
+      if (wG) return 'path_l';
+      if (eG) return 'path_r';
+      return 'path_c';
+    }
+
+    // 9-slice autotile picker for pond tiles. Same shape as the path
+    // picker — neighbours that are not pond determine which edge.
+    function pondSpriteFor(pondSet, x, y) {
+      const isPond = (xx, yy) => pondSet.has(xx + ',' + yy);
+      const nG = !isPond(x, y - 1);
+      const sG = !isPond(x, y + 1);
+      const wG = !isPond(x - 1, y);
+      const eG = !isPond(x + 1, y);
+      if (nG && wG) return 'pond_tl';
+      if (nG && eG) return 'pond_tr';
+      if (sG && wG) return 'pond_bl';
+      if (sG && eG) return 'pond_br';
+      if (nG) return 'pond_t';
+      if (sG) return 'pond_b';
+      if (wG) return 'pond_l';
+      if (eG) return 'pond_r';
+      return 'pond_c';
+    }
+
+    async function pgRenderMap() {
+      const seedEl = document.getElementById('seed-input');
+      const sliderEl = document.getElementById('stage-slider');
+      const seed = seedEl.value;
+      const stage = parseInt(sliderEl.value, 10);
+      document.getElementById('stage-display').textContent = stage + ' / 30 plots active';
+
+      // Highlight matching preset.
+      document.querySelectorAll('#seed-presets .preset').forEach(btn => {
+        btn.dataset.active = (btn.dataset.seed === seed) ? 'true' : 'false';
+      });
+
+      const layout = pgGenerateLayout(seed, stage);
+      const svg = document.getElementById('town-map');
+      svg.setAttribute('viewBox', '0 0 ' + PG.WORLD_W + ' ' + PG.WORLD_H);
+
+      const M = PG_MANIFEST;
+      if (!M) {
+        // Manifest still loading — bail; bootPlayground triggers a
+        // re-render once it resolves.
+        return;
+      }
+
+      // Index the catalog by plot id so building rendering + the JSON
+      // output below can resolve plotKey → variant exterior + npc info.
+      const catalogPlotsById = {};
+      if (PG_CATALOG && Array.isArray(PG_CATALOG.plots)) {
+        for (const p of PG_CATALOG.plots) catalogPlotsById[p.id] = p;
+      }
+      // Preload every variant-exterior PNG referenced by this layout so
+      // we know its tile dimensions before building render. Without this
+      // SVG <image> can't size the sprite and would either render at 0
+      // or at the wrong proportions.
+      const exteriorPaths = [];
+      for (const plotKey of Object.keys(layout)) {
+        const cp = catalogPlotsById[pgBaseKey(plotKey)];
+        const variant = cp && cp.variants && cp.variants[0];
+        const ext = variant && (variant.exteriorSpriteCandidates || [])[0];
+        if (ext) exteriorPaths.push(ext);
+      }
+      await pgEnsureBuildingDims(exteriorPaths);
+
+      // 2. Annotate each plot with the actual sprite dims (if it
+      //    renders via an extras building). pgClearingRadiusAt uses
+      //    spriteW/spriteH to grow the tree clearing to match the
+      //    sprite's footprint — necessary now that tall sprites are
+      //    bottom-anchored and extend well above the plot rect.
+      const _bldById = {};
+      for (const _b of (M.buildings || [])) _bldById[_b.id] = _b;
+      const buildings = [];
+      for (const plotKey of Object.keys(layout)) {
+        const pos = layout[plotKey];
+        if (!pos) continue;
+        const sb = _bldById[pgBaseKey(plotKey)];
+        if (sb) {
+          pos.spriteW = sb.tileW;
+          pos.spriteH = sb.tileH;
+        }
+        buildings.push(pos);
+      }
+
+      // --- JSON accumulators: every scatter pass below also pushes its
+      //     placements into these arrays so we can hand a copy-pastable
+      //     @town/plot Plot blob back to the user. See `plot` build at the
+      //     bottom of pgRenderMap.
+      const decorList = [];
+      const pondList = [];
+      const pathList = [];
+
+      // 3. Compute road tiles: HOME → every other building, bezier per
+      //    pgRoadTiles. Suppress tiles that fall inside any building's
+      //    footprint so roads terminate at the edge.
+      const pathTiles = new Set();
+      const home = layout.home;
+      if (home) {
+        for (const plotKey of Object.keys(layout)) {
+          if (plotKey === 'home') continue;
+          const other = layout[plotKey];
+          if (!other) continue;
+          const tiles = pgRoadTiles(seed, home, other);
+          const perPair = [];
+          for (const key of tiles) {
+            const [xs, ys] = key.split(',');
+            const x = parseInt(xs, 10);
+            const y = parseInt(ys, 10);
+            if (pgInBuilding(buildings, x + 0.5, y + 0.5, 0)) continue;
+            pathTiles.add(key);
+            perPair.push([x, y]);
+          }
+          pathList.push({ from: 'home', to: plotKey, tiles: perPair });
+        }
+      }
+
+      // 4. Render — defs first, then background, roads, forest, decor,
+      //    buildings. No grid, no parcel borders. `treeContent` is the
+      //    deferred buffer for tree <use> elements; we append it after
+      //    smaller forest decor so canopies draw on top (kaplay parity).
+      let svgContent = '';
+      let treeContent = '';
+
+      // --- a. Defs ---
+      let defs = '<defs>';
+      // Grass variants from the new manifest.
+      for (const g of M.grass) {
+        defs += '<image id="spr-' + g.id + '" href="../extras/' + g.file +
+                '" x="0" y="0" width="' + g.tileW + '" height="' + g.tileH +
+                '" preserveAspectRatio="none" />';
+      }
+      // Trees, bushes, flowers, stumps.
+      for (const t of M.trees) {
+        defs += '<image id="spr-' + t.id + '" href="../extras/' + t.file +
+                '" x="0" y="0" width="' + t.tileW + '" height="' + t.tileH +
+                '" preserveAspectRatio="none" />';
+      }
+      for (const b of M.bushes) {
+        defs += '<image id="spr-' + b.id + '" href="../extras/' + b.file +
+                '" x="0" y="0" width="' + b.tileW + '" height="' + b.tileH +
+                '" preserveAspectRatio="none" />';
+      }
+      for (const f of M.flowers) {
+        defs += '<image id="spr-' + f.id + '" href="../extras/' + f.file +
+                '" x="0" y="0" width="' + f.tileW + '" height="' + f.tileH +
+                '" preserveAspectRatio="none" />';
+      }
+      for (const s of M.stumps) {
+        defs += '<image id="spr-' + s.id + '" href="../extras/' + s.file +
+                '" x="0" y="0" width="' + s.tileW + '" height="' + s.tileH +
+                '" preserveAspectRatio="none" />';
+      }
+      // Extras: mushrooms, additional rocks.
+      const extrasGroups = ['mushrooms', 'rocks'];
+      for (const grp of extrasGroups) {
+        const arr = M[grp] || [];
+        for (const item of arr) {
+          defs += '<image id="spr-' + item.id + '" href="../extras/' + item.file +
+                  '" x="0" y="0" width="' + item.tileW + '" height="' + item.tileH +
+                  '" preserveAspectRatio="none" />';
+        }
+      }
+      // Building sprites — declared at native tile dims; <use> places.
+      const buildingDefs = M.buildings || [];
+      for (const b of buildingDefs) {
+        defs += '<image id="spr-building-' + b.id + '" href="../extras/' + b.file +
+                '" x="0" y="0" width="' + b.tileW + '" height="' + b.tileH +
+                '" preserveAspectRatio="xMidYMid meet" />';
+      }
+      // 9-slice path tiles (live in /sprites/, parent of /catalog/).
+      const PATH_SPRITE_IDS = [
+        'path_tl', 'path_t', 'path_tr',
+        'path_l',  'path_c', 'path_r',
+        'path_bl', 'path_b', 'path_br',
+      ];
+      for (const id of PATH_SPRITE_IDS) {
+        defs += '<image id="spr-' + id + '" href="../' + id + '.png" x="0" y="0" ' +
+                'width="1" height="1" preserveAspectRatio="none" />';
+      }
+      // 9-slice pond tiles (same pattern as paths — one small pond per
+      // town breaks up the green monotony without dominating the frame).
+      const POND_SPRITE_IDS = [
+        'pond_tl', 'pond_t', 'pond_tr',
+        'pond_l',  'pond_c', 'pond_r',
+        'pond_bl', 'pond_b', 'pond_br',
+      ];
+      for (const id of POND_SPRITE_IDS) {
+        defs += '<image id="spr-' + id + '" href="../' + id + '.png" x="0" y="0" ' +
+                'width="1" height="1" preserveAspectRatio="none" />';
+      }
+      defs += '<image id="spr-grass-base" href="../grass.png" x="0" y="0" width="1" height="1" preserveAspectRatio="none" />';
+      defs += '<pattern id="pat-grass" patternUnits="userSpaceOnUse" width="1" height="1">' +
+              '<use href="#spr-grass-base" /></pattern>';
+      defs += '</defs>';
+      svgContent += defs;
+
+      // --- b. Background grass: solid green base. We used to scatter
+      //         3% of tiles with M.grass variants for color variation,
+      //         but grass-01..04 in the extras pack are terrain edge
+      //         tiles (grass→dirt corners) with hard brown borders,
+      //         not pure grass. Sprinkled across the world they read
+      //         as rectangular "tile cookies" with brown frames. Variety
+      //         now comes from the tree, bush, flower, mushroom, and
+      //         rock scatter — the solid green base is plenty. ---
+      svgContent += '<rect width="' + PG.WORLD_W + '" height="' + PG.WORLD_H + '" fill="#6b9a4b" />';
+
+      // --- c. (removed) Stone aprons used to draw a grey band around
+      //         each building. They dominated the view and read as
+      //         "black tiles" at zoom, so the grass shows through
+      //         instead. apronTiles stays an empty Set so the
+      //         downstream .has() suppression checks remain valid. ---
+      const apronTiles = new Set();
+
+      // --- c2. Ponds: 2-4 small water features per town, varying in
+      //         size and shape. Each pond's count, size and position is
+      //         seeded so it's stable per user but different per seed.
+      //         Trees / decor / paths skip pond tiles + a 1-tile buffer
+      //         downstream so canopies don't lean over the water. ---
+      const pondTiles = new Set();
+      // Seeded count: 2, 3 or 4 ponds.
+      const pondCount = 2 + pgHash((seed || 'town') + '::pond-count') % 3;
+      // Candidate dimensions (w, h). Mix of small puddles and small lakes.
+      const POND_DIMS = [
+        { w: 3, h: 2 }, { w: 3, h: 2 },           // small puddle (weighted)
+        { w: 4, h: 3 }, { w: 4, h: 3 },           // medium pond
+        { w: 5, h: 3 }, { w: 5, h: 4 },           // small lake
+        { w: 6, h: 4 },                           // long lake
+      ];
+      for (let pIdx = 0; pIdx < pondCount; pIdx++) {
+        const dimHash = pgHash((seed || 'town') + '::pond-dim::' + pIdx);
+        const dim = POND_DIMS[dimHash % POND_DIMS.length];
+        const pondW = dim.w, pondH = dim.h;
+        let pondPlaced = false;
+        for (let attempt = 0; attempt < 80 && !pondPlaced; attempt++) {
+          const h = pgHash((seed || 'town') + '::pond-pos::' + pIdx + '::' + attempt);
+          const px = 3 + (h & 0xFFFF) % (PG.WORLD_W - pondW - 6);
+          const py = 3 + ((h >>> 16) & 0xFFFF) % (PG.WORLD_H - pondH - 6);
+          let conflict = false;
+          // 1-tile buffer around the pond so it doesn't sit on a building
+          // or a road. Building-clearing check omitted — with 30 plots
+          // filling the world, most tiles fall inside some clearing.
+          for (let dy = -1; dy <= pondH && !conflict; dy++) {
+            for (let dx = -1; dx <= pondW && !conflict; dx++) {
+              const tx = px + dx, ty = py + dy;
+              if (pgInBuilding(buildings, tx + 0.5, ty + 0.5, 1.0)) conflict = true;
+              else if (pathTiles.has(tx + ',' + ty)) conflict = true;
+              else if (pondTiles.has(tx + ',' + ty)) conflict = true;
+            }
+          }
+          if (conflict) continue;
+          for (let dy = 0; dy < pondH; dy++) {
+            for (let dx = 0; dx < pondW; dx++) {
+              pondTiles.add((px + dx) + ',' + (py + dy));
+            }
+          }
+          pondList.push({ tx: px, ty: py, w: pondW, h: pondH });
+          pondPlaced = true;
+        }
+      }
+
+      // Build a one-tile-inflated set of tiles where trees / decor must
+      // not land. Includes pond tiles plus their cardinal neighbours so
+      // tall tree canopies don't lean into the water from the edge.
+      const pondNoTreeTiles = new Set();
+      for (const key of pondTiles) {
+        const [xs, ys] = key.split(',');
+        const x = parseInt(xs, 10);
+        const y = parseInt(ys, 10);
+        pondNoTreeTiles.add(x + ',' + y);
+        pondNoTreeTiles.add((x + 1) + ',' + y);
+        pondNoTreeTiles.add((x - 1) + ',' + y);
+        pondNoTreeTiles.add(x + ',' + (y + 1));
+        pondNoTreeTiles.add(x + ',' + (y - 1));
+      }
+
+      // --- d. Road tiles via 9-slice autotile (drawn before trees so
+      //         trees can't cover the road; trees also suppressed on
+      //         road tiles below). With the apron gone these paths are
+      //         the only walkable surface, so they need to be visible
+      //         and reach every building. ---
+      for (const key of pathTiles) {
+        const [xs, ys] = key.split(',');
+        const x = parseInt(xs, 10);
+        const y = parseInt(ys, 10);
+        const spriteId = pathSpriteFor(pathTiles, x, y);
+        svgContent += '<use href="#spr-' + spriteId + '" x="' + x + '" y="' + y + '" />';
+      }
+
+      // --- d0. Pond (one small water feature, autotiled like the road).
+      //          Drawn before trees so suppression checks below can skip
+      //          tree placement on pond tiles. ---
+      for (const key of pondTiles) {
+        const [xs, ys] = key.split(',');
+        const x = parseInt(xs, 10);
+        const y = parseInt(ys, 10);
+        const spriteId = pondSpriteFor(pondTiles, x, y);
+        svgContent += '<use href="#spr-' + spriteId + '" x="' + x + '" y="' + y + '" />';
+      }
+
+      // --- d. Forest: tree canopy at the world edges, thinning toward
+      //         the centre so the town core reads as a real settlement
+      //         rather than three houses in a giant forest. Suppress on
+      //         paths, ponds, and building clearings. ---
+      const FOREST_X_MAX = PG.WORLD_W - 2;
+      const FOREST_Y_MAX = PG.WORLD_H - 3;
+      // Drop off-season canopies (spring/autumn) — forest is summer-green.
+      const forestTrees = M.trees.filter(t => !PG_SPRING_TREE_IDS.has(t.id));
+      // Centre-falloff: gap probability is 18% at the edge of the world
+      // and climbs to 60% in the centre. The centre of the map should
+      // feel populated, not forested.
+      const worldCx = PG.WORLD_W / 2;
+      const worldCy = PG.WORLD_H / 2;
+      const worldMaxDist = Math.hypot(worldCx, worldCy);
+      // Helper: would a tree at (tx, ty) with size (tw, th) overlap any
+      // tile in the given Set? Used to guarantee canopies never land on
+      // pond, path, or building footprints. The "anchor only" check from
+      // the previous version let 2x3 / 3x3 / 4x5 canopies hang over
+      // roads and ponds because only (tx, ty) was being tested.
+      function pgCanopyHits(set, tx, ty, tw, th) {
+        for (let dy = 0; dy < th; dy++) {
+          for (let dx = 0; dx < tw; dx++) {
+            if (set.has((tx + dx) + ',' + (ty + dy))) return true;
+          }
+        }
+        return false;
+      }
+
+      let forestCount = 0;
+      for (let y = 0; y < FOREST_Y_MAX; y++) {
+        for (let x = 0; x < FOREST_X_MAX; x++) {
+          if (pathTiles.has(x + ',' + y)) continue;
+          if (pondTiles.has(x + ',' + y)) continue;
+          if (apronTiles.has(x + ',' + y)) continue;
+          // Sample clearing check at canopy bottom (one row down +
+          // half a tile centered) — lets crowns peek into the edge.
+          if (pgInClearing(buildings, x + 0.5, y + 1.5)) continue;
+          const fh = pgHash('forest::' + seed + '::' + x + '::' + y);
+          // Distance-from-centre based gap probability.
+          const dx = x + 0.5 - worldCx;
+          const dy = y + 0.5 - worldCy;
+          const distNorm = Math.min(1, Math.hypot(dx, dy) / worldMaxDist);
+          // distNorm: 0 at centre → 1 at corner.
+          // gapPct: 60% at centre, drops to 18% at the corner.
+          const gapPct = 18 + (1 - distNorm) * 42;
+          if ((fh % 100) < gapPct) continue;
+          const tree = pgPickTree(forestTrees, fh);
+          // Bigger trees need to fit: if canopy would push past the
+          // forest edge, fall back to the smallest 2x2.
+          let chosen = tree;
+          if (x + chosen.tileW > PG.WORLD_W || y + chosen.tileH > PG.WORLD_H) {
+            chosen = forestTrees[0];
+          }
+          // Canopy must not overlap the pond (with 1-tile buffer), the
+          // road, or apron tiles. If the chosen tree would overlap,
+          // try shrinking to a 2x2; if even that overlaps, skip the tile.
+          if (pgCanopyHits(pondNoTreeTiles, x, y, chosen.tileW, chosen.tileH) ||
+              pgCanopyHits(pathTiles, x, y, chosen.tileW, chosen.tileH)) {
+            const smallest = forestTrees[0];
+            if (pgCanopyHits(pondNoTreeTiles, x, y, smallest.tileW, smallest.tileH) ||
+                pgCanopyHits(pathTiles, x, y, smallest.tileW, smallest.tileH)) {
+              continue;
+            }
+            chosen = smallest;
+          }
+          // Tiny sub-tile jitter so the canopy doesn't look gridded.
+          const jx = (((fh >>> 7) & 0xF) / 64) - 0.05;
+          const jy = (((fh >>> 11) & 0xF) / 64) - 0.05;
+          // Trees draw LAST (after smaller forest decor) so canopies sit
+          // visually on top of stumps / mushrooms / rocks — matches the
+          // kaplay scene where trees are z=8 and small decor is z=5.
+          treeContent += '<use href="#spr-' + chosen.id + '" x="' +
+                        (x + jx).toFixed(3) + '" y="' + (y + jy).toFixed(3) + '" />';
+          decorList.push({ tx: +(x + jx).toFixed(3), ty: +(y + jy).toFixed(3), group: 'trees', spriteId: chosen.id });
+          forestCount++;
+        }
+      }
+
+      // --- e. Stumps + mushrooms + scatter rocks sparsely in forest
+      //         floor. Densities:
+      //           - stumps: ~1 per 50 forest tiles
+      //           - mushrooms: ~1 per 30 forest tiles
+      //           - scatter rocks: ~1 per 80 forest tiles
+      //         Skipped on road tiles and inside clearings. ---
+      const mushrooms = (M.mushrooms || []);
+      const scatterRocks = (M.rocks || []);
+      for (let y = 0; y < FOREST_Y_MAX; y++) {
+        for (let x = 0; x < FOREST_X_MAX; x++) {
+          if (pathTiles.has(x + ',' + y)) continue;
+          if (pondNoTreeTiles.has(x + ',' + y)) continue;
+          if (apronTiles.has(x + ',' + y)) continue;
+          if (pgInClearing(buildings, x + 0.5, y + 1.5)) continue;
+          const sh = pgHash('stump::' + seed + '::' + x + '::' + y);
+          if ((sh % 50) === 0) {
+            const stump = M.stumps[sh % M.stumps.length];
+            svgContent += '<use href="#spr-' + stump.id + '" x="' + x + '" y="' + y + '" />';
+            decorList.push({ tx: x, ty: y, group: 'stumps', spriteId: stump.id });
+          }
+          if (mushrooms.length) {
+            const mh = pgHash('mush::' + seed + '::' + x + '::' + y);
+            if ((mh % 30) === 0) {
+              const mush = mushrooms[mh % mushrooms.length];
+              svgContent += '<use href="#spr-' + mush.id + '" x="' + x + '" y="' + y + '" />';
+              decorList.push({ tx: x, ty: y, group: 'mushrooms', spriteId: mush.id });
+            }
+          }
+          if (scatterRocks.length) {
+            const rh = pgHash('frock::' + seed + '::' + x + '::' + y);
+            if ((rh % 80) === 0) {
+              const rk = scatterRocks[rh % scatterRocks.length];
+              svgContent += '<use href="#spr-' + rk.id + '" x="' + x + '" y="' + y + '" />';
+              decorList.push({ tx: x, ty: y, group: 'rocks', spriteId: rk.id });
+            }
+          }
+        }
+      }
+
+      // --- e2. Clearing-fringe rocks: thin band just inside the
+      //          clearing edge (between 90% and 100% of clearing
+      //          radius). Reads as natural rocky perimeter around the
+      //          stone apron. Seeded per (seed, plotKey, slot). ---
+      if (scatterRocks.length) {
+        for (const plotKey of Object.keys(layout)) {
+          const b = layout[plotKey];
+          if (!b) continue;
+          const cx = b.tx + b.w / 2;
+          const cy = b.ty + b.h / 2;
+          for (let slot = 0; slot < 5; slot++) {
+            const h = pgHash('fringe-rock::' + seed + '::' + plotKey + '::' + slot);
+            const ang = ((h & 0xFFFF) / 65535) * Math.PI * 2;
+            const baseR = pgClearingRadiusAt(plotKey, b, ang);
+            const r = baseR * (0.88 + ((h >>> 16) & 0xFFFF) / 65535 * 0.10);
+            const tx = cx + Math.cos(ang) * r;
+            const ty = cy + Math.sin(ang) * r;
+            if (tx < 0.5 || ty < 0.5 ||
+                tx >= PG.WORLD_W - 1.5 || ty >= PG.WORLD_H - 1.5) continue;
+            if (pathTiles.has(Math.floor(tx) + ',' + Math.floor(ty))) continue;
+            if (pondTiles.has(Math.floor(tx) + ',' + Math.floor(ty))) continue;
+            if (apronTiles.has(Math.floor(tx) + ',' + Math.floor(ty))) continue;
+            if (pgInBuilding(buildings, tx, ty, 0.6)) continue;
+            const rk = scatterRocks[h % scatterRocks.length];
+            svgContent += '<use href="#spr-' + rk.id + '" x="' +
+                          tx.toFixed(2) + '" y="' + ty.toFixed(2) + '" />';
+            decorList.push({ tx: +tx.toFixed(2), ty: +ty.toFixed(2), group: 'rocks', spriteId: rk.id });
+          }
+        }
+      }
+
+      // --- e3. (removed) Dirt-patch scatter at building entries. The
+      //          dirt-patch sprite set contained a solid brown 16x16
+      //          tile (dirt-patch-02) and a bush-on-brown-rect
+      //          (dirt-patch-03) that read as square cookies on the
+      //          grass instead of organic dirt. The path system now
+      //          arrives at the front door on its own, so the gap-
+      //          filler is no longer needed. ---
+
+      // --- f. Per-clearing decor: bushes, flowers, tufts.
+      //         Deterministic per (seed, plotKey, slot). Avoid building
+      //         footprint (inflated by 0.8 tiles). ---
+      for (const plotKey of Object.keys(layout)) {
+        const b = layout[plotKey];
+        if (!b) continue;
+        const cx = b.tx + b.w / 2;
+        const cy = b.ty + b.h / 2;
+
+        // ~3 bushes, ~3 flower planters, ~4 grass tufts inside the
+        // clearing. Use rejection sampling against the clearing radius +
+        // the building footprint.
+        function placeInClearing(prefix, count, sprites, group, maxAttempts) {
+          const placed = [];
+          for (let slot = 0; slot < count; slot++) {
+            for (let attempt = 0; attempt < (maxAttempts || 12); attempt++) {
+              const h = pgHash(prefix + '::' + seed + '::' + plotKey + '::' + slot + '::' + attempt);
+              const ang = ((h & 0xFFFF) / 65535) * Math.PI * 2;
+              // Radial position from 60% to 95% of clearing radius —
+              // sit between the building and the forest edge.
+              const baseR = pgClearingRadiusAt(plotKey, b, ang);
+              const r = baseR * (0.55 + ((h >>> 16) & 0xFFFF) / 65535 * 0.4);
+              const tx = cx + Math.cos(ang) * r;
+              const ty = cy + Math.sin(ang) * r;
+              if (tx < 0.5 || ty < 0.5 ||
+                  tx >= PG.WORLD_W - 1.5 || ty >= PG.WORLD_H - 2.5) continue;
+              if (pgInBuilding(buildings, tx, ty, 0.8)) continue;
+              if (pondTiles.has(Math.floor(tx) + ',' + Math.floor(ty))) continue;
+              if (apronTiles.has(Math.floor(tx) + ',' + Math.floor(ty))) continue;
+              if (!pgInClearing(buildings, tx, ty)) continue;
+              const sprite = sprites[h % sprites.length];
+              placed.push({ x: tx, y: ty, sprite });
+              break;
+            }
+          }
+          for (const p of placed) {
+            svgContent += '<use href="#spr-' + p.sprite.id + '" x="' +
+                          p.x.toFixed(2) + '" y="' + p.y.toFixed(2) + '" />';
+            decorList.push({ tx: +p.x.toFixed(2), ty: +p.y.toFixed(2), group: group, spriteId: p.sprite.id });
+          }
+        }
+        placeInClearing('bush', 3, M.bushes, 'bushes');
+        placeInClearing('flower', 3, M.flowers, 'flowers');
+        // grass-XX tufts dropped — those sprites are terrain edge tiles
+        // (brown→green corners), not pure grass, and read as bordered
+        // rectangles when placed solo on the green base.
+      }
+
+      // Append the deferred tree layer so canopies cover smaller forest
+      // decor (stumps / mushrooms / rocks). Same z-ordering kaplay uses.
+      svgContent += treeContent;
+
+      // --- g. Buildings (drawn on top of decor + roads). Single rendering
+      //         path: every building uses its catalog variant's exterior
+      //         sprite (Plot.exteriorSprite), bottom-center-anchored on
+      //         the plot rect — same anchoring the kaplay overworld scene
+      //         uses, so the SVG preview and the game render identically.
+      //         Sprite dimensions come from the cached PNG natural size
+      //         (pre-loaded by pgEnsureBuildingDims before render).
+      for (const plotKey of Object.keys(layout)) {
+        const pos = layout[plotKey];
+        if (!pos) continue;
+        const baseKey = pgBaseKey(plotKey);
+        const accent = PG.PLOT_ACCENT[baseKey] || '#888';
+        const label = PG.PLOT_LABEL[baseKey] || baseKey.toUpperCase();
+        const cp = catalogPlotsById[baseKey];
+        const variant = cp && cp.variants && cp.variants[0];
+        const exteriorSprite = variant && (variant.exteriorSpriteCandidates || [])[0];
+        const dims = exteriorSprite ? PG_SPRITE_DIMS.get(exteriorSprite) : null;
+
+        if (exteriorSprite && dims) {
+          // Bottom-anchor the sprite's south edge to the plot's south
+          // edge; horizontally centre on the plot rect.
+          const bw = dims.tileW;
+          const bh = dims.tileH;
+          const bx = pos.tx + pos.w / 2 - bw / 2;
+          const by = pos.ty + pos.h - bh;
+          svgContent +=
+            '<image href="../' + exteriorSprite +
+            '" x="' + bx.toFixed(2) + '" y="' + by.toFixed(2) +
+            '" width="' + bw + '" height="' + bh + '" />';
+        } else {
+          // Fallback: catalog entry missing OR sprite dims still loading.
+          // Keep a labeled rect so the layout reads while we wait.
+          const fontSize = Math.min(2.0, pos.w / Math.max(label.length, 6) * 1.4);
+          svgContent +=
+            '<g>' +
+              '<rect x="' + pos.tx + '" y="' + pos.ty + '" width="' + pos.w +
+              '" height="' + pos.h + '" fill="' + accent +
+              '" stroke="#0e1116" stroke-width="0.3" />' +
+              '<rect x="' + pos.tx + '" y="' + (pos.ty + pos.h - 1.2) +
+              '" width="' + pos.w + '" height="1.2" fill="rgba(14,17,22,0.35)" />' +
+              '<text x="' + (pos.tx + pos.w / 2) + '" y="' +
+              (pos.ty + pos.h / 2) + '" text-anchor="middle" dominant-baseline="middle" fill="#0e1116" font-size="' +
+              fontSize.toFixed(2) + '" font-family="ui-monospace, monospace" font-weight="700">' +
+              label + '</text>' +
+            '</g>';
+        }
+      }
+
+      svg.innerHTML = svgContent;
+
+      // Summary line.
+      const summary = document.getElementById('layout-summary');
+      const lines = [];
+      for (const plotKey of PG.PLOT_PRIORITY) {
+        const pos = layout[plotKey];
+        if (!pos) continue;
+        lines.push('<code>' + plotKey + '</code> at <code>(' + Math.round(pos.tx) + ', ' + Math.round(pos.ty) + ')</code>');
+      }
+      summary.innerHTML = lines.join(' &nbsp;·&nbsp; ');
+
+      // ---------------- Plot JSON output (copy / download) ----------------
+      //
+      // Mirrors what `generatePlot` in @town/plot-gen produces, so the blob
+      // can be pasted straight into packages/plot/src/default.json (the
+      // file `@town/plot`'s `defaultPlot` export reads). Plot keys without
+      // a catalog entry (cafe / stage / practice / station today) are
+      // visible in the SVG but skipped from JSON buildings/npcs — same
+      // behaviour as the server-side generator. `catalogPlotsById` was
+      // already built at the top of pgRenderMap for the building render.
+      const plotBuildings = [];
+      const plotNpcs = [];
+      for (const plotKey of Object.keys(layout)) {
+        const pos = layout[plotKey];
+        if (!pos) continue;
+        const cp = catalogPlotsById[pgBaseKey(plotKey)];
+        if (!cp || !cp.variants || !cp.variants.length) continue;
+        const variant = cp.variants[0];
+        const exteriorSprite = (variant.exteriorSpriteCandidates || [])[0] || '';
+        plotBuildings.push({
+          id: plotKey,
+          plotKey: plotKey,
+          variantId: variant.id,
+          category: cp.category,
+          tx: Math.round(pos.tx),
+          ty: Math.round(pos.ty),
+          w: pos.w,
+          h: pos.h,
+          exteriorSprite,
+        });
+        const npc = variant.npcPosition || { tx: 0, ty: 0, label: 'occupant' };
+        plotNpcs.push({
+          buildingId: plotKey,
+          tx: npc.tx,
+          ty: npc.ty,
+          label: npc.label,
+        });
+      }
+      // Drop paths whose `to` was filtered out above (no catalog entry).
+      const liveBuildingIds = new Set(plotBuildings.map(b => b.id));
+      const plotPaths = pathList.filter(p => liveBuildingIds.has(p.to));
+
+      const plot = {
+        schemaVersion: 1,
+        id: (seed && seed.length ? seed : 'default') + '-plot',
+        seed: seed || '',
+        world: { w: PG.WORLD_W, h: PG.WORLD_H, tileSize: 16 },
+        buildings: plotBuildings,
+        paths: plotPaths,
+        ponds: pondList,
+        decor: decorList,
+        npcs: plotNpcs,
+      };
+
+      const jsonStr = JSON.stringify(plot, null, 2);
+      const preEl = document.getElementById('plot-json');
+      if (preEl) preEl.textContent = jsonStr;
+      const metaEl = document.getElementById('plot-json-meta');
+      if (metaEl) {
+        const kb = (jsonStr.length / 1024).toFixed(1);
+        metaEl.innerHTML = '— ' + plot.buildings.length + ' buildings · ' +
+          plot.paths.length + ' paths · ' + plot.ponds.length + ' ponds · ' +
+          plot.decor.length + ' decor · ' + kb + ' KB';
+      }
+      // Stash the latest JSON on a closure-accessible spot so the copy /
+      // download handlers (wired once in bootPlayground) can read it.
+      pgRenderMap._lastJson = jsonStr;
+      pgRenderMap._lastSeed = seed || 'default';
+    }
+
+    // Wire controls + initial render.
+    (async function bootPlayground() {
+      const seedEl = document.getElementById('seed-input');
+      const sliderEl = document.getElementById('stage-slider');
+      const presets = document.querySelectorAll('#seed-presets .preset');
+
+      seedEl.addEventListener('input', pgRenderMap);
+      sliderEl.addEventListener('input', pgRenderMap);
+      presets.forEach(btn => {
+        btn.addEventListener('click', () => {
+          seedEl.value = btn.dataset.seed;
+          // Presets can also pin a stage value so they reproduce a known
+          // baked plot exactly — e.g. the "core (default.json)" preset
+          // snaps the stage to 6 so the playground matches the no-login
+          // guest view in the kaplay scene.
+          if (btn.dataset.stage) sliderEl.value = btn.dataset.stage;
+          pgRenderMap();
+        });
+      });
+
+      // Copy / download wiring for the Plot JSON panel.
+      const copyBtn = document.getElementById('copy-json');
+      const dlBtn = document.getElementById('download-json');
+      const statusEl = document.getElementById('copy-status');
+      function flashStatus(text) {
+        if (!statusEl) return;
+        statusEl.textContent = text;
+        statusEl.classList.add('visible');
+        clearTimeout(flashStatus._t);
+        flashStatus._t = setTimeout(() => statusEl.classList.remove('visible'), 1500);
+      }
+      if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+          const text = pgRenderMap._lastJson || '';
+          if (!text) return;
+          try {
+            await navigator.clipboard.writeText(text);
+            flashStatus('copied!');
+          } catch {
+            // Fallback for non-secure contexts: select the <pre> so ⌘C works.
+            const pre = document.getElementById('plot-json');
+            if (pre) {
+              const range = document.createRange();
+              range.selectNodeContents(pre);
+              const sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(range);
+              flashStatus('selected — ⌘C');
+            }
+          }
+        });
+      }
+      if (dlBtn) {
+        dlBtn.addEventListener('click', () => {
+          const text = pgRenderMap._lastJson || '';
+          if (!text) return;
+          const blob = new Blob([text], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = (pgRenderMap._lastSeed || 'default') + '-plot.json';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          flashStatus('saved');
+        });
+      }
+
+      // The catalog is needed to resolve variants for the JSON output, so
+      // load it in parallel with the manifest before the first render.
+      try {
+        await Promise.all([pgLoadManifest(), pgLoadCatalog()]);
+      } catch (err) {
+        console.error('Failed to load sprite manifest or catalog', err);
+      }
+      pgRenderMap();
+    })();
+  </script>
+</body>
+</html>
