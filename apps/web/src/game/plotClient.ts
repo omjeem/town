@@ -27,6 +27,20 @@ export function setViewerTownSlug(slug: string | null): void {
   viewerTownSlug = slug;
 }
 
+/** True when the active viewer is looking at their own town. Used by
+ *  scenes that want to gate owner-only content (e.g. the system
+ *  Founder NPC stays hidden when a visitor walks into the store). */
+export function isViewerOwner(): boolean {
+  return viewerTownSlug === null;
+}
+
+/** The slug of the town the viewer is currently touring, or null when
+ *  they're on their own town. Surfaces context that React-side flows
+ *  (e.g. the NPC chat transport) need to hand to the server. */
+export function getViewerTownSlug(): string | null {
+  return viewerTownSlug;
+}
+
 function url(probe: boolean): string {
   const qs = new URLSearchParams();
   if (viewerTownSlug) qs.set("town", viewerTownSlug);

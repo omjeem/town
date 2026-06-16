@@ -6,6 +6,7 @@ import { getSession, logout, startLogin } from "../auth";
 import { GUEST_CTA_KEY, openGuestCta } from "../guestCta";
 import { getWorkspace } from "../workspace";
 import { ui } from "../../ui/store";
+import { isViewerOwner } from "../plotClient";
 
 // ===========================================================================
 // Interior scene — one generic scene used for all four buildings.
@@ -33,6 +34,10 @@ type Interactable = {
   // Stable identifier for the React panel so re-publishing the same
   // interactable's panel doesn't unmount/remount.
   key: string;
+  // When true, the interactable is only mounted for the town's owner
+  // (visitors viewing someone else's town won't see / trigger it).
+  // Used for system-owned NPCs like the Founder.
+  ownerOnly?: boolean;
   // Accent color used for the floating prompt strip. Required when this
   // interactable uses `onTrigger` (no Panel to read the accent from);
   // optional when a `panel` is provided (we'll fall back to panel.accent).
@@ -75,6 +80,9 @@ type Npc = {
   tx: number;
   ty: number;
   sprite: string;
+  // Same semantics as Interactable.ownerOnly — hide the sprite (and
+  // its tile collision) when a visitor is touring.
+  ownerOnly?: boolean;
 };
 
 // Multi-tile static prop (e.g. ATM, kiosk). `tx,ty` is the bottom-left tile
@@ -548,11 +556,14 @@ function openHomeChat() {
 // "Hi, I'm {name}. {description}" with a [Talk to {name}] action that
 // hands off to <Chat /> via ui.openChat().
 function openNpcGreeting(opts: {
-  /** npcId for /api/npc-chat — Npc.id, system NPC id, or a buildingId. */
+  /** npcId for the chat endpoint — Npc.id, system NPC id, or a buildingId. */
   npcId: string;
   name: string;
   description: string;
   accent: string;
+  /** Override the chat API URL. Defaults to /api/npc-chat. The Founder
+   *  uses /api/founder-chat for its own prompt + tools. */
+  chatApi?: string;
 }): void {
   if (!getSession()) {
     ui.openDialogue({
@@ -592,6 +603,7 @@ function openNpcGreeting(opts: {
           description: opts.description,
           accent: opts.accent,
           mode: "direct",
+          ...(opts.chatApi ? { chatApi: opts.chatApi } : {}),
         }),
     },
     secondary: {
@@ -869,8 +881,9 @@ const INTERIORS: Record<BuildingKey, InteriorSpec> = {
     title: "STORE",
     npcs: [
       // Creator stands centered on the floor — close enough to greet but
-      // not blocking either prop.
-      { tx: 7, ty: 5, sprite: "founder" },
+      // not blocking either prop. System NPC, owner-only: visitors
+      // touring someone else's town don't see the Founder.
+      { tx: 7, ty: 5, sprite: "founder", ownerOnly: true },
       // Shopkeeper stands by the back wall, north-west of the founder, so
       // the floor still feels populated when the player enters.
       { tx: 5, ty: 3, sprite: "store_shopkeeper" },
@@ -885,14 +898,18 @@ const INTERIORS: Record<BuildingKey, InteriorSpec> = {
       { tx: 11, ty: 8, w: 3, h: 5, sprite: "store_booth", spritePxH: 80 },
     ],
     interacts: [
-      // CORE founder — system NPC. Always at the store regardless of the
-      // user's plot. The system prompt + name come from the MDX file at
-      // apps/web/src/data/system-npcs/core-founder.mdx.
+      // CORE founder — system NPC. Always at the store for the OWNER
+      // (visitors viewing another town don't see him: ownerOnly skips
+      // both the sprite above and this interactable). System prompt
+      // + name come from apps/web/src/data/system-npcs/core-founder.mdx.
+      // Chat routes through /api/founder-chat — separate prompt + tools
+      // from the regular NPC chat.
       {
         tx: 7, ty: 5,
         key: "store-founder",
         label: "",
         accent: theme.buildings.STORE.accent,
+        ownerOnly: true,
         autoTrigger: {
           dwellMs: 200,
           onEnter: () =>
@@ -902,6 +919,7 @@ const INTERIORS: Record<BuildingKey, InteriorSpec> = {
               description:
                 "Hangs out at the store. Tracks the CORE roadmap — knows what's coming.",
               accent: theme.buildings.STORE.accent,
+              chatApi: "/api/founder-chat",
             }),
           onLeave: () => ui.closeDialogue(),
         },
@@ -975,7 +993,17 @@ export type InteriorOpts = {
 
 export function registerInteriorScene(k: KAPLAYCtx) {
   k.scene("interior", (opts: InteriorOpts) => {
-    const spec = INTERIORS[opts.building];
+    const baseSpec = INTERIORS[opts.building];
+    // Drop owner-only sprites + interacts when a visitor is touring
+    // another user's town. System NPCs (Founder) currently use this.
+    const ownerView = isViewerOwner();
+    const spec = ownerView
+      ? baseSpec
+      : {
+          ...baseSpec,
+          npcs: (baseSpec.npcs ?? []).filter((n) => !n.ownerOnly),
+          interacts: (baseSpec.interacts ?? []).filter((it) => !it.ownerOnly),
+        };
 
     // Backdrop — single uniform dark color for every interior. We push the
     // same color into kaplay's letterbox so the bars around the view also

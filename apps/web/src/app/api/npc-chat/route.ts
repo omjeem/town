@@ -32,7 +32,7 @@ import { getChatModel } from "@/lib/chat-model";
 import { getCoreToken } from "@/lib/core-token";
 import { prisma } from "@/lib/db";
 import { ensureNpcsForUser } from "@/lib/plot";
-import { getSystemNpcs } from "@/lib/system-npcs";
+import { resolveViewer } from "@/lib/viewer";
 
 export const runtime = "nodejs";
 // Allow long-running streams.
@@ -42,6 +42,11 @@ const BodySchema = z.object({
   npcId: z.string().min(1),
   mode: z.enum(["direct", "invited"]).default("direct"),
   invitee: z.object({ name: z.string().min(1) }).optional(),
+  // Set by the client whenever the player is touring someone else's
+  // town. Server uses it to look up NPCs against the TOWN OWNER's user
+  // id (not the caller) and to brief the model that the speaker is a
+  // visitor. Absent on the owner's own town.
+  townSlug: z.string().min(1).optional(),
   messages: z.array(
     z.object({
       id: z.string().optional(),
@@ -55,6 +60,14 @@ const BodySchema = z.object({
     }),
   ),
 });
+
+// Speaker context fed to the model so it knows whether the player is
+// the town owner (default) or a touring visitor.
+interface ViewerContext {
+  isOwner: boolean;
+  /** Player display name — owner's CORE name, or visitor's gate name. */
+  name: string;
+}
 
 const BASE_PROMPT = `You are an in-town NPC in a tiny pixel-art world called Town.
 The player has walked up to you and started a conversation. You are not an
@@ -82,19 +95,12 @@ async function resolveNpc(
   npcId: string,
   userId: string,
 ): Promise<NpcInfo | null> {
-  // 1. System NPC (e.g. "core-founder").
-  const sys = getSystemNpcs()[npcId];
-  if (sys) {
-    return {
-      id: sys.id,
-      name: sys.name,
-      description: sys.description,
-      prompt: sys.prompt,
-    };
-  }
-  // 2. User-owned Npc row by id (cuid).
+  // Only user-owned NPCs run through this route. System NPCs (Founder)
+  // have their own endpoints with bespoke prompts + tools — callers
+  // must address them there.
+  // 1. User-owned Npc row by id (cuid).
   let row = await prisma.npc.findFirst({ where: { id: npcId, userId } });
-  // 3. Fallback — treat the ref as a buildingId. Lets callers that only
+  // 2. Fallback — treat the ref as a buildingId. Lets callers that only
   //    know the building (e.g. interior.ts's openHomeChat) skip the
   //    intermediate "look up my home NPC id" round-trip.
   if (!row) {
@@ -112,17 +118,23 @@ async function resolveNpc(
 function buildSystemPrompt(
   npc: NpcInfo,
   mode: "direct" | "invited",
-  invitee?: { name: string },
+  invitee: { name: string } | undefined,
+  viewer: ViewerContext,
 ): string {
   const modeBlock =
     mode === "invited" && invitee
       ? `\nMode: the player has invited ${invitee.name} to this conversation. ` +
         `Acknowledge ${invitee.name} when it makes sense; you can address either of them.`
       : `\nMode: direct one-on-one between you and the player.`;
+  const viewerBlock = viewer.isOwner
+    ? `Speaker: ${viewer.name} — the owner of this town. You know them; greet warmly.`
+    : `Speaker: ${viewer.name} — a visitor touring this town, NOT the owner. They were let in via the share code. Be welcoming but don't reveal owner-only context (drafts, in-progress thoughts, private memory). When memory_search returns results, those belong to the SPEAKER's own CORE memory — fair game to use.`;
   return [
     BASE_PROMPT,
     "",
     `You are ${npc.name}. ${npc.description}`,
+    "",
+    viewerBlock,
     "",
     "Voice / behaviour:",
     npc.prompt.trim(),
@@ -148,12 +160,39 @@ export async function POST(req: Request) {
     );
   }
 
-  let npc = await resolveNpc(body.npcId, resolved.user.id);
-  // Auto-heal: if the user's PlotRow predates the Npc table, seed the
+  // Identity routing.
+  //   • townSlug present → resolveViewer figures out the town owner +
+  //     visitor flag from the slug + visitor cookie. NPC lookup runs
+  //     against the OWNER's user id so visitors talk to the owner's
+  //     NPCs, and the prompt knows the visitor's name.
+  //   • townSlug absent → legacy owner-mode path. Look up NPCs against
+  //     the caller's own user id.
+  let npcOwnerId: string;
+  let viewer: ViewerContext;
+  if (body.townSlug) {
+    const view = await resolveViewer(body.townSlug);
+    if ("error" in view) {
+      return new Response(
+        JSON.stringify({ error: view.error }),
+        {
+          status: view.error === "not-found" ? 404 : 403,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    }
+    npcOwnerId = view.town.ownerId;
+    viewer = { isOwner: view.isOwner, name: view.displayName };
+  } else {
+    npcOwnerId = resolved.user.id;
+    viewer = { isOwner: true, name: resolved.user.name || "the owner" };
+  }
+
+  let npc = await resolveNpc(body.npcId, npcOwnerId);
+  // Auto-heal: if the owner's PlotRow predates the Npc table, seed the
   // role-specific NPCs from their plot's buildings, then retry.
   if (!npc) {
-    await ensureNpcsForUser(resolved.user.id);
-    npc = await resolveNpc(body.npcId, resolved.user.id);
+    await ensureNpcsForUser(npcOwnerId);
+    npc = await resolveNpc(body.npcId, npcOwnerId);
   }
   if (!npc) {
     return new Response(JSON.stringify({ error: "npc-not-found" }), {
@@ -162,7 +201,7 @@ export async function POST(req: Request) {
     });
   }
 
-  const system = buildSystemPrompt(npc, body.mode, body.invitee);
+  const system = buildSystemPrompt(npc, body.mode, body.invitee, viewer);
   const coreToken = await getCoreToken(req);
 
   // Normalise the incoming messages to AI-SDK UIMessage shape so

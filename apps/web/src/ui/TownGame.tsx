@@ -147,11 +147,39 @@ export function TownGame(props: TownGameProps = {}) {
     };
   }, [isVisitor, props]);
 
+  // Refocus the canvas every time the last open modal closes. Modal
+  // inputs / buttons keep DOM focus after they unmount; that focus is
+  // technically "nowhere" but Chrome/Firefox still route arrow keys to
+  // the previously-focused element instead of bubbling to kaplay's
+  // canvas-level keydown listener — which is why the player can't
+  // immediately walk after pressing Esc to close a chat / panel.
+  // Blurring + re-focusing the canvas wires arrows straight back to
+  // the game loop with no extra click.
+  const anyModalOpen =
+    !!chat ||
+    !!dialogue ||
+    !!panel ||
+    !!invite ||
+    !!shareImage ||
+    !!dm ||
+    !!tasks ||
+    !!explorer ||
+    suggestions.open;
+  useEffect(() => {
+    if (anyModalOpen) return;
+    const active = document.activeElement as HTMLElement | null;
+    if (active && active !== document.body) active.blur?.();
+    canvasRef.current?.focus?.();
+  }, [anyModalOpen]);
+
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-[#0e1116]">
+    <div className="relative h-screen w-screen overflow-hidden bg-ink-shadow">
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 h-full w-full"
+        // tabIndex makes the canvas focusable so canvasRef.current.focus()
+        // actually lands keyboard focus here when a modal closes.
+        tabIndex={0}
+        className="absolute inset-0 h-full w-full focus:outline-none"
         style={{ imageRendering: "pixelated" }}
       />
 
@@ -240,7 +268,7 @@ function SuggestionsBadge({ count }: { count: number }) {
       type="button"
       onClick={() => ui.openSuggestions()}
       className="nb-card flex items-center gap-2 px-3 py-2 text-left"
-      style={{ background: PALETTE.h60, color: "#1a1d22" }}
+      style={{ background: PALETTE.h240, color: "var(--ink)" }}
       title="Open suggestions"
       aria-label={`${count} suggestion${count === 1 ? "" : "s"} waiting`}
     >

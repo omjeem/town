@@ -177,19 +177,19 @@ export function Dm({
       style={{ maxHeight: "70vh" }}
     >
       <div className="nb-card flex flex-1 flex-col overflow-hidden">
-        <div className="flex items-center justify-between gap-3 border-b-2 border-[#1a1d22] px-3 py-2">
+        <div className="flex items-center justify-between gap-3 border-b-2 border-ink px-3 py-2">
           <div className="flex flex-col">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-[#1a1d22] opacity-60">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-ink opacity-60">
               Talking to
             </div>
-            <div className="text-sm font-bold leading-tight text-[#1a1d22]">
+            <div className="text-sm font-bold leading-tight text-ink">
               {otherName}
             </div>
           </div>
           <button
             type="button"
             onClick={() => ui.closeDm()}
-            className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60 hover:opacity-100"
+            className="text-xs font-bold uppercase tracking-wide text-ink opacity-60 hover:opacity-100"
           >
             Close
           </button>
@@ -201,11 +201,11 @@ export function Dm({
           style={{ minHeight: "12rem", maxHeight: "40vh" }}
         >
           {loading ? (
-            <div className="text-xs font-bold text-[#1a1d22] opacity-60">
+            <div className="text-xs font-bold text-ink opacity-60">
               Loading…
             </div>
           ) : messages.length === 0 ? (
-            <div className="text-xs font-bold text-[#1a1d22] opacity-60">
+            <div className="text-xs font-bold text-ink opacity-60">
               Say hi to start the conversation.
             </div>
           ) : (
@@ -215,7 +215,7 @@ export function Dm({
                 <div
                   key={m.id}
                   className={
-                    "nb-tile max-w-[80%] px-2 py-1 text-xs font-bold text-[#1a1d22] " +
+                    "nb-tile max-w-[80%] px-2 py-1 text-xs font-bold text-ink " +
                     (mine ? "self-end" : "self-start")
                   }
                   style={{
@@ -229,7 +229,7 @@ export function Dm({
           )}
         </div>
 
-        <div className="flex items-center gap-2 border-t-2 border-[#1a1d22] px-3 py-2">
+        <div className="flex items-center gap-2 border-t-2 border-ink px-3 py-2">
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -241,7 +241,7 @@ export function Dm({
             }}
             placeholder="Say something…"
             maxLength={2000}
-            className="nb-tile flex-1 bg-[var(--paper)] px-2 py-1 text-sm font-bold text-[#1a1d22] outline-none"
+            className="nb-tile flex-1 bg-paper px-2 py-1 text-sm font-bold text-ink outline-none"
             disabled={sending}
             autoFocus
           />
@@ -263,8 +263,8 @@ export function Dm({
 
         {error ? (
           <div
-            className="border-t-2 border-[#1a1d22] px-3 py-1 text-xs font-bold"
-            style={{ color: "#b91c1c" }}
+            className="border-t-2 border-ink px-3 py-1 text-xs font-bold"
+            style={{ color: "var(--destructive)" }}
           >
             {error}
           </div>

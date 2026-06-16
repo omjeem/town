@@ -233,17 +233,17 @@ export function ShareImage() {
       <div className="nb-card flex w-full max-w-xl flex-col gap-4 p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60">
+            <div className="text-xs font-bold uppercase tracking-wide text-ink opacity-60">
               Share
             </div>
-            <h2 className="mt-1 text-2xl font-black leading-tight text-[#1a1d22]">
+            <h2 className="mt-1 text-2xl font-black leading-tight text-ink">
               {townName ?? "Your town"}
             </h2>
           </div>
           <button
             type="button"
             onClick={() => ui.closeShareImage()}
-            className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60 hover:opacity-100"
+            className="text-xs font-bold uppercase tracking-wide text-ink opacity-60 hover:opacity-100"
           >
             Close
           </button>
@@ -254,7 +254,7 @@ export function ShareImage() {
           style={{ background: "#c5d0dc" }}
         >
           {loading ? (
-            <span className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60">
+            <span className="text-xs font-bold uppercase tracking-wide text-ink opacity-60">
               Rendering postcard…
             </span>
           ) : imageObjectUrl ? (
@@ -266,7 +266,7 @@ export function ShareImage() {
               style={{ imageRendering: "pixelated" }}
             />
           ) : (
-            <span className="text-xs font-bold uppercase tracking-wide text-[#b91c1c]">
+            <span className="text-xs font-bold uppercase tracking-wide text-destructive">
               Render failed
             </span>
           )}
@@ -277,14 +277,14 @@ export function ShareImage() {
         >
           <ShareButton
             label={copied ? "Copied" : "Copy link"}
-            background={PALETTE.h60}
+            background={PALETTE.h240}
             disabled={!shareUrl}
             onClick={() => void copyLink()}
             icon={CopyIcon}
           />
           <ShareButton
             label="Download"
-            background={PALETTE.h240}
+            background={PALETTE.h180}
             disabled={!imageObjectUrl}
             onClick={() => downloadImage()}
             icon={DownloadIcon}
@@ -321,14 +321,14 @@ export function ShareImage() {
           />
         </div>
 
-        <p className="text-[11px] leading-snug text-[#1a1d22] opacity-60">
+        <p className="text-[11px] leading-snug text-ink opacity-60">
           {canNativeShare
             ? "Share uses your device's share sheet and attaches the PNG when supported. X, LinkedIn and WhatsApp open with the invite link — their previews pick up this same image from the page meta tags."
             : "X, LinkedIn and WhatsApp open with the invite link prefilled — their previews pick up this same image from the page meta tags."}
         </p>
 
         {error ? (
-          <div className="text-sm font-bold" style={{ color: "#b91c1c" }}>
+          <div className="text-sm font-bold" style={{ color: "var(--destructive)" }}>
             {error}
           </div>
         ) : null}
@@ -362,10 +362,10 @@ function ShareButton({
         opacity: disabled ? 0.5 : 1,
       }}
     >
-      <span className="flex h-5 w-5 items-center justify-center text-[#1a1d22]">
+      <span className="flex h-5 w-5 items-center justify-center text-ink">
         <Icon />
       </span>
-      <span className="text-[#1a1d22]">{label}</span>
+      <span className="text-ink">{label}</span>
     </button>
   );
 }

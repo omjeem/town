@@ -41,8 +41,17 @@ export async function generateMetadata({
     (host.startsWith("localhost") ? "http" : "https");
   const origin = `${proto}://${host}`;
 
-  const title = `${town.name} — core town`;
-  const description = `Visit ${town.name}. A CORE town built in pixels.`;
+  // Layout's title template is "%s · town", so passing the bare name
+  // here renders as "Harshithton · town" in the browser tab + on
+  // social cards.
+  const ownerRow = await prisma.user.findUnique({
+    where: { id: town.ownerId },
+    select: { name: true },
+  });
+  const ownerName = ownerRow?.name ?? "the owner";
+  const title = town.name;
+  const ogTitle = `${town.name} · town`;
+  const description = `Tour ${town.name} — a pixel-art town built by ${ownerName} on CORE. Walk around, ping the NPCs, see what's been on their mind.`;
   const image = `${origin}/api/towns/${slug}/postcard.png`;
   const pageUrl = `${origin}/${slug}`;
 
@@ -50,15 +59,15 @@ export async function generateMetadata({
     title,
     description,
     openGraph: {
-      title,
+      title: ogTitle,
       description,
       type: "website",
       url: pageUrl,
-      images: [{ url: image, width: 1200, height: 628, alt: title }],
+      images: [{ url: image, width: 1200, height: 628, alt: ogTitle }],
     },
     twitter: {
       card: "summary_large_image",
-      title,
+      title: ogTitle,
       description,
       images: [image],
     },

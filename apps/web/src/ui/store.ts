@@ -85,10 +85,13 @@ export type DialogueState = {
   secondary?: DialogueAction;
 } | null;
 
-// Streaming NPC chat overlay. Wired to /api/npc-chat which speaks the
-// AI-SDK UI message protocol. Mode controls whether the LLM is briefed as
-// a direct 1:1 with the player, or as a chat the player has invited
-// someone into (the invitee is just a label in the system prompt today).
+// Streaming NPC chat overlay. By default wired to /api/npc-chat (the
+// generic NPC route); the Founder overrides via `chatApi` so its own
+// /api/founder-chat handler can ship a different prompt + tools without
+// affecting every other NPC's flow. Mode controls whether the LLM is
+// briefed as a direct 1:1 with the player, or as a chat the player has
+// invited someone into (the invitee is just a label in the system
+// prompt today).
 export type ChatState = {
   npcId: string;
   speaker: string;
@@ -96,6 +99,8 @@ export type ChatState = {
   accent: string;
   mode?: "direct" | "invited";
   invitee?: { name: string };
+  /** Override the chat endpoint. Defaults to /api/npc-chat. */
+  chatApi?: string;
 } | null;
 
 // Unread VoiceInboxMessage count from CORE. Drives the overworld badge +

@@ -136,14 +136,14 @@ function NameCard({ card }: { card: Card }) {
       }}
     >
       <div
-        className="relative inline-flex items-center gap-1.5 rounded-full border-2 border-[#1a1d22] px-3 py-1 text-[11px] font-bold leading-none whitespace-nowrap shadow-[2px_2px_0_0_#0e1116]"
+        className="relative inline-flex items-center gap-1.5 rounded-full border-2 border-ink px-3 py-1 text-[11px] font-bold leading-none whitespace-nowrap shadow-[2px_2px_0_0_#0e1116]"
         style={{ background: bg, color: "#f6f3ea" }}
       >
         <span>{card.name}</span>
         {card.pending ? (
           <span
             aria-label="needs reply"
-            className="inline-block h-2 w-2 rounded-full border border-[#1a1d22]"
+            className="inline-block h-2 w-2 rounded-full border border-ink"
             style={{ background: PALETTE.h90 }}
           />
         ) : null}

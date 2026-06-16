@@ -28,10 +28,10 @@ export function Hud({ hud, inbox }: { hud: HudKind; inbox: InboxState }) {
               {letter}
             </div>
             <div className="flex flex-col">
-              <div className="text-sm font-bold leading-tight text-[#1a1d22]">
+              <div className="text-sm font-bold leading-tight text-ink">
                 {name}
               </div>
-              <div className="text-[10px] leading-tight text-[#1a1d22] opacity-60">
+              <div className="text-[10px] leading-tight text-ink opacity-60">
                 home → desk to sign in
               </div>
             </div>
@@ -56,10 +56,10 @@ export function Hud({ hud, inbox }: { hud: HudKind; inbox: InboxState }) {
         style={{ background: hud.accent }}
       />
       <div className="flex flex-col">
-        <div className="text-sm font-bold leading-tight text-[#1a1d22]">
+        <div className="text-sm font-bold leading-tight text-ink">
           {hud.title}
         </div>
-        <div className="text-[10px] leading-tight text-[#1a1d22] opacity-60">
+        <div className="text-[10px] leading-tight text-ink opacity-60">
           walk to door to leave
         </div>
       </div>
@@ -116,10 +116,10 @@ function IdentityMenu({
           {letter}
         </div>
         <div className="flex flex-col">
-          <div className="text-sm font-bold leading-tight text-[#1a1d22]">
+          <div className="text-sm font-bold leading-tight text-ink">
             {name}
           </div>
-          <div className="text-[10px] leading-tight text-[#1a1d22] opacity-60">
+          <div className="text-[10px] leading-tight text-ink opacity-60">
             click for menu
           </div>
         </div>
@@ -132,7 +132,7 @@ function IdentityMenu({
           <button
             type="button"
             role="menuitem"
-            className="w-full px-3 py-2 text-left text-sm font-bold text-[#1a1d22] hover:bg-black/5"
+            className="w-full px-3 py-2 text-left text-sm font-bold text-ink hover:bg-black/5"
             onClick={() => {
               setOpen(false);
               ui.openInvite();
@@ -143,7 +143,7 @@ function IdentityMenu({
           <button
             type="button"
             role="menuitem"
-            className="w-full px-3 py-2 text-left text-sm font-bold text-[#1a1d22] hover:bg-black/5"
+            className="w-full px-3 py-2 text-left text-sm font-bold text-ink hover:bg-black/5"
             onClick={() => {
               setOpen(false);
               ui.openShareImage();
@@ -154,7 +154,7 @@ function IdentityMenu({
           <button
             type="button"
             role="menuitem"
-            className="w-full px-3 py-2 text-left text-sm font-bold text-[#1a1d22] hover:bg-black/5"
+            className="w-full px-3 py-2 text-left text-sm font-bold text-ink hover:bg-black/5"
             onClick={() => {
               setOpen(false);
               void logout().then(() => {
@@ -175,7 +175,7 @@ function InboxBadge({ count }: { count: number }) {
   return (
     <div
       className="nb-card flex items-center gap-2 px-3 py-2"
-      style={{ background: PALETTE.h60, color: "#1a1d22" }}
+      style={{ background: PALETTE.h240, color: "var(--ink)" }}
       title="Walk back to home — the world runner has updates for you."
     >
       <span aria-hidden className="text-base leading-none">

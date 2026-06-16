@@ -20,22 +20,22 @@ export function VisitorHud({
       <div className="nb-card flex items-center gap-3 px-3 py-2">
         <div
           className="nb-tile flex h-9 w-9 items-center justify-center text-base font-black"
-          style={{ background: PALETTE.h60 }}
+          style={{ background: PALETTE.h240 }}
         >
           {letter}
         </div>
         <div className="flex flex-col">
-          <div className="text-[10px] font-bold uppercase leading-tight tracking-wide text-[#1a1d22] opacity-60">
+          <div className="text-[10px] font-bold uppercase leading-tight tracking-wide text-ink opacity-60">
             Visiting
           </div>
-          <div className="text-sm font-bold leading-tight text-[#1a1d22]">
+          <div className="text-sm font-bold leading-tight text-ink">
             {townName}
           </div>
         </div>
       </div>
       <a
         href="/"
-        className="nb-card px-3 py-2 text-xs font-bold uppercase tracking-wide text-[#1a1d22]"
+        className="nb-card px-3 py-2 text-xs font-bold uppercase tracking-wide text-ink"
         title={`Leave ${townSlug}`}
       >
         Exit

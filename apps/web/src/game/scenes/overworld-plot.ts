@@ -227,7 +227,7 @@ function drawBuilding(k: KAPLAYCtx, b: PlotBuilding) {
     k.z(20.2),
   ]);
   k.add([
-    k.text(b.plotKey.toUpperCase(), { size: 10 }),
+    k.text(b.plotKey.toUpperCase(), { size: 8 }),
     k.anchor("center"),
     k.pos(boardX + boardW / 2, signPy + boardH / 2 - 1),
     k.color(ink),

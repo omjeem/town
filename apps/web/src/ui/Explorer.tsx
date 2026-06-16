@@ -133,12 +133,12 @@ function Header({
         <button
           type="button"
           onClick={() => onBack(backTo!)}
-          className="text-xs font-semibold uppercase text-[#1a1d22] opacity-60 hover:opacity-100"
+          className="text-xs font-semibold uppercase text-ink opacity-60 hover:opacity-100"
         >
           ← {crumb}
         </button>
       ) : null}
-      <div className="text-base font-black tracking-wide text-[#1a1d22]">
+      <div className="text-base font-black tracking-wide text-ink">
         {title}
       </div>
     </div>
@@ -148,13 +148,13 @@ function Header({
 function Footer({ onClose }: { onClose: () => void }) {
   return (
     <div className="flex items-center justify-between border-t-2 border-black px-4 py-2">
-      <span className="text-[10px] font-medium uppercase text-[#1a1d22] opacity-50">
+      <span className="text-[10px] font-medium uppercase text-ink opacity-50">
         ESC to go back · click outside to close
       </span>
       <button
         type="button"
         onClick={onClose}
-        className="text-xs font-medium uppercase text-[#1a1d22] opacity-60 hover:opacity-100"
+        className="text-xs font-medium uppercase text-ink opacity-60 hover:opacity-100"
       >
         Close
       </button>
@@ -218,16 +218,16 @@ function LabelsStep({ onPick }: { onPick: (l: Label) => void }) {
               style={{ background: label.color || "#999" }}
             />
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-bold text-[#1a1d22]">
+              <div className="truncate text-sm font-bold text-ink">
                 {label.name}
               </div>
               {label.description ? (
-                <div className="truncate text-[11px] text-[#1a1d22] opacity-60">
+                <div className="truncate text-[11px] text-ink opacity-60">
                   {label.description}
                 </div>
               ) : null}
             </div>
-            <span className="text-[11px] uppercase text-[#1a1d22] opacity-40">
+            <span className="text-[11px] uppercase text-ink opacity-40">
               open →
             </span>
           </button>
@@ -338,7 +338,7 @@ function DocsStep({
         onEndReached={debouncedQuery ? undefined : loadMore}
         footer={
           hasMore && !debouncedQuery ? (
-            <div className="px-4 py-2 text-center text-[11px] uppercase text-[#1a1d22] opacity-50">
+            <div className="px-4 py-2 text-center text-[11px] uppercase text-ink opacity-50">
               {loadingMore ? "loading…" : "scroll for more"}
             </div>
           ) : null
@@ -350,10 +350,10 @@ function DocsStep({
             onClick={() => onPick(doc)}
             className="flex h-full w-full flex-col justify-center border-b border-black/10 px-4 text-left hover:bg-black/[0.04]"
           >
-            <div className="truncate text-sm font-bold text-[#1a1d22]">
+            <div className="truncate text-sm font-bold text-ink">
               {doc.title || "(untitled)"}
             </div>
-            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[#1a1d22] opacity-60">
+            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-ink opacity-60">
               <span className="truncate">{doc.source || "core"}</span>
               <span aria-hidden>·</span>
               <span className="shrink-0">{formatDate(doc.createdAt)}</span>
@@ -406,10 +406,10 @@ function DocStep({ documentId }: { documentId: string }) {
   }
   return (
     <div className="h-full overflow-y-auto px-5 py-4">
-      <div className="text-lg font-black text-[#1a1d22]">
+      <div className="text-lg font-black text-ink">
         {doc.title || "(untitled)"}
       </div>
-      <div className="mt-1 flex items-center gap-2 text-[11px] text-[#1a1d22] opacity-60">
+      <div className="mt-1 flex items-center gap-2 text-[11px] text-ink opacity-60">
         <span>{doc.source || "core"}</span>
         <span aria-hidden>·</span>
         <span>{formatDate(doc.createdAt)}</span>
@@ -420,7 +420,7 @@ function DocStep({ documentId }: { documentId: string }) {
           </>
         ) : null}
       </div>
-      <pre className="mt-4 whitespace-pre-wrap break-words font-mono text-[13px] leading-relaxed text-[#1a1d22]">
+      <pre className="mt-4 whitespace-pre-wrap break-words font-mono text-[13px] leading-relaxed text-ink">
         {doc.content || "(empty document)"}
       </pre>
     </div>
@@ -543,8 +543,8 @@ function Empty({
       <p
         className={
           tone === "error"
-            ? "text-sm text-[#b34242]"
-            : "text-sm text-[#1a1d22] opacity-60"
+            ? "text-sm text-destructive"
+            : "text-sm text-ink opacity-60"
         }
       >
         {message}
