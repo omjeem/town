@@ -13,6 +13,7 @@ import {
   getViewerTownSlug,
   isViewerOwner,
 } from "../plotClient";
+import { getWorkspace } from "../workspace";
 
 // ===========================================================================
 // Interior scene — one generic scene used for all four buildings.
@@ -837,17 +838,27 @@ export function registerInteriorScene(k: KAPLAYCtx) {
     const npcRow = plotNpc ? getNpcByBuildingId(opts.buildingId) : null;
     const isDemoGuest = !getSession() && !getViewerTownSlug();
     const fallback = DEMO_NPC_FALLBACK[opts.building];
+    // HOME's NPC is the world runner — gets named after the resident's
+    // CORE workspace ("Hudson's town" → NPC introduces themselves as
+    // Hudson). Override the DB / fallback name, but only when the
+    // workspace cache has actually loaded with a non-empty name; the
+    // chat prompt + description still come from the DB row so the
+    // butler's voice is editable via the CLI.
+    const homeWorkspaceName =
+      opts.building === "HOME"
+        ? getWorkspace()?.name?.trim() || null
+        : null;
     const npcInfo =
       plotNpc && npcRow
         ? {
             id: npcRow.id,
-            name: npcRow.name,
+            name: homeWorkspaceName ?? npcRow.name,
             description: npcRow.description,
           }
         : plotNpc && isDemoGuest
           ? {
               id: opts.buildingId,
-              name: fallback.name,
+              name: homeWorkspaceName ?? fallback.name,
               description: fallback.description,
             }
           : null;

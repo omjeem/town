@@ -51,6 +51,7 @@ export function Dm({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Esc closes the panel.
   useEffect(() => {
@@ -168,6 +169,10 @@ export function Dm({
       setError("Network error.");
     } finally {
       setSending(false);
+      // The input was `disabled={sending}` while in-flight, which makes
+      // the browser drop focus. Put it back so the player can keep
+      // typing without reaching for the mouse.
+      requestAnimationFrame(() => inputRef.current?.focus());
     }
   }
 
@@ -231,6 +236,7 @@ export function Dm({
 
         <div className="flex items-center gap-2 border-t-2 border-ink px-3 py-2">
           <input
+            ref={inputRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
