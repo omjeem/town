@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { bootGame, type GameContext } from "../game/boot";
+import { BootScreen, hasBooted } from "./BootScreen";
 import { refreshSession } from "../game/auth";
 import { startInboxPoller } from "../game/inbox";
 import { startNowPlayingPoller } from "../game/spotify";
@@ -60,6 +61,14 @@ export type TownGameProps =
 export function TownGame(props: TownGameProps = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<GameContext | null>(null);
+  // Once-per-session CORE OS boot screen. We default to "show" on the
+  // server so the markup matches the first client render; the effect
+  // below dismisses immediately if sessionStorage already remembers a
+  // prior boot in this tab.
+  const [bootVisible, setBootVisible] = useState(true);
+  useEffect(() => {
+    if (hasBooted()) setBootVisible(false);
+  }, []);
   const {
     hud,
     prompt,
@@ -213,6 +222,10 @@ export function TownGame(props: TownGameProps = {}) {
           otherKey={dm.otherKey}
           otherName={dm.otherName}
         />
+      ) : null}
+
+      {bootVisible ? (
+        <BootScreen onDone={() => setBootVisible(false)} />
       ) : null}
     </div>
   );

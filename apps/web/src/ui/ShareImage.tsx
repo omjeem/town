@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { PALETTE } from "../game/config";
 import { ui } from "./store";
@@ -254,7 +254,9 @@ export function ShareImage() {
           style={{ background: "#c5d0dc" }}
         >
           {loading ? (
-            <BootLoader townName={townName} ready={!!imageObjectUrl} />
+            <span className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60">
+              Rendering postcard…
+            </span>
           ) : imageObjectUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -330,65 +332,6 @@ export function ShareImage() {
             {error}
           </div>
         ) : null}
-      </div>
-    </div>
-  );
-}
-
-// CORE OS-style boot screen used while the server renders the
-// postcard. Lifts the dark bg + pixel font + progress bar from
-// core-website's BootScreen so the loading state reads as part of the
-// same product universe.
-function BootLoader({
-  townName,
-  ready,
-}: {
-  townName: string | null;
-  ready: boolean;
-}) {
-  const [progress, setProgress] = useState(0);
-  const rafRef = useRef<number | null>(null);
-
-  // Time-based progress sweep that caps just below 100% until the
-  // image actually arrives, then snaps to 100% so the reveal feels
-  // like the bar genuinely finished.
-  useEffect(() => {
-    const start = performance.now();
-    const DURATION = 1400;
-    let cancelled = false;
-    const tick = (now: number) => {
-      if (cancelled) return;
-      const pct = Math.min(96, ((now - start) / DURATION) * 100);
-      setProgress(pct);
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      cancelled = true;
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (ready) setProgress(100);
-  }, [ready]);
-
-  const title = (townName ?? "core town").toUpperCase();
-
-  return (
-    <div className="flex h-full w-full flex-col items-center justify-center bg-[#1a1a1a] text-[#e8e4d8]">
-      <div
-        className="mb-5 text-[18px] font-semibold tracking-tight text-[#e67333]"
-        style={{ fontFamily: "var(--font-press-start-2p)" }}
-      >
-        {title}
-      </div>
-      <div className="mb-5 text-[10px] uppercase opacity-70">booting…</div>
-      <div className="h-3 w-[260px] border border-white/40 bg-black/40">
-        <div
-          className="h-full bg-[#e67333] transition-[width] duration-100"
-          style={{ width: `${progress}%` }}
-        />
       </div>
     </div>
   );
