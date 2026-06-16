@@ -22,9 +22,21 @@ export interface PlotPayload {
 
 let activeAbort: AbortController | null = null;
 let viewerTownSlug: string | null = null;
+let cachedPlot: Plot | null = null;
 
 export function setViewerTownSlug(slug: string | null): void {
   viewerTownSlug = slug;
+}
+
+/** Stash the active plot so other scenes (interior) can read its slot
+ *  data without round-tripping /api/plot again. The overworld sets this
+ *  whenever a fresh plot lands; interiors read it on entry. */
+export function setCachedPlot(plot: Plot | null): void {
+  cachedPlot = plot;
+}
+
+export function getCachedPlot(): Plot | null {
+  return cachedPlot;
 }
 
 /** True when the active viewer is looking at their own town. Used by

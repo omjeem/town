@@ -39,6 +39,7 @@ import path from "node:path";
 import { GRASS_HEX, autotile9Slice } from "./plot-render";
 import {
   SCREENSHOT_BOTTOM_TRIM_PX,
+  drawCoreBadge,
   drawTownSign,
 } from "./postcard-sign";
 import type { Manifest, Plot } from "@town/plot";
@@ -225,6 +226,10 @@ export async function renderTownPostcard(opts: {
   // 4. Stamp the town sign — shared with the client capture path so
   //    both surfaces produce the same overlay.
   drawTownSign(octx, cropW, cropH, townName, ownerName);
+
+  // 5. Top-left "town · getcore.me" badge so every shared postcard
+  //    carries the CORE attribution.
+  drawCoreBadge(octx, cropH);
 
   return out.toBuffer("image/png");
 }

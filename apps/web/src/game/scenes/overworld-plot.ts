@@ -23,9 +23,8 @@ import { theme } from "../theme";
 import { makePlayer, type Tile } from "../entities/player";
 import { attachRemotePlayers } from "../entities/remotePlayer";
 import { getSession, onSessionChange } from "../auth";
-import { openGuestCta } from "../guestCta";
 import { ui } from "../../ui/store";
-import { loadPlot, subscribePlot } from "../plotClient";
+import { loadPlot, setCachedPlot, subscribePlot } from "../plotClient";
 import {
   getActiveTownSlug,
   getRemotePlayersForScene,
@@ -284,6 +283,9 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
       const payload = initialPayload ?? { plot: defaultPlot, version: 0 };
 
       const { plot, version } = payload;
+      // Make the active plot readable by sibling scenes (the interior
+      // reads `plot.npcs` to render NPC slots per-building).
+      setCachedPlot(plot);
       await loadPlotSprites(k, plot, manifest);
 
       // Tell realtime we're in the overworld so heartbeats + sleep/wake
@@ -415,7 +417,7 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
               : key === "MARKET"
                 ? "STORE"
                 : "OFFICE";
-        k.go("interior", { building: legacyKey });
+        k.go("interior", { building: legacyKey, buildingId: owner.id });
       };
 
       const player = makePlayer(k, spawn, isBlocked, onArrive);
@@ -526,11 +528,9 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
 
       if (isGuest) {
         // Seeded preview plot — no DB row, so no polling subscription.
-        // The sign-in CTA is the one always-on UI a visitor sees and
-        // stays open across scene transitions (overworld → interior →
-        // overworld). openGuestCta short-circuits when the dialogue is
-        // already this one, so no typewriter restart.
-        openGuestCta();
+        // The interior scene still fires openGuestCta when the guest
+        // enters a building; the overworld itself stays quiet so the
+        // <Landing> welcome modal is the only sign-up prompt up here.
       } else {
         // Signed-in path — poll the DB row and re-enter the scene whenever
         // the stored plot version bumps.

@@ -145,3 +145,47 @@ export function drawTownSign(
     signY + padY + titleFontPx + lineGap,
   );
 }
+
+/** Stamp a small "town · getcore.me" attribution pill in the top-left
+ *  corner. Same neobrutalism vocabulary as drawTownSign — paper fill,
+ *  black border, hard-offset drop shadow — but a fraction of the size
+ *  so it reads as a watermark, not a label. */
+export function drawCoreBadge(
+  rawCtx: unknown,
+  canvasH: number,
+): void {
+  const ctx = rawCtx as Ctx2DLike;
+
+  const text = "town · getcore.me";
+  const fontPx = Math.max(11, Math.round(canvasH * 0.024));
+  const padX = Math.round(fontPx * 0.9);
+  const padY = Math.round(fontPx * 0.5);
+
+  const font = `800 ${fontPx}px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+  ctx.font = font;
+  const textW = ctx.measureText(text).width;
+
+  const w = Math.round(textW + padX * 2);
+  const h = Math.round(fontPx + padY * 2);
+  const x = SIGN_MARGIN_PX;
+  const y = SIGN_MARGIN_PX;
+  const shadowOffset = Math.max(2, Math.round(h * 0.12));
+
+  // Drop shadow.
+  ctx.fillStyle = "#0e1116";
+  ctx.fillRect(x + shadowOffset, y + shadowOffset, w, h);
+
+  // Paper body + black border.
+  ctx.fillStyle = "#f6f3ea";
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = "#1a1d22";
+  ctx.lineWidth = Math.max(2, Math.round(h * 0.08));
+  ctx.strokeRect(x, y, w, h);
+
+  // Text.
+  ctx.fillStyle = "#1a1d22";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = font;
+  ctx.fillText(text, x + w / 2, y + h / 2);
+}

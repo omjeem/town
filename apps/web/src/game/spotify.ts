@@ -1,4 +1,4 @@
-// Spotify "now playing" poller — mirrors the inbox poller shape.
+// Spotify "now playing" poller.
 //
 // Polls /api/core/spotify/now-playing every POLL_MS and publishes to the
 // UI store. Pauses when signed out (the endpoint would 401 anyway). The

@@ -103,14 +103,6 @@ export type ChatState = {
   chatApi?: string;
 } | null;
 
-// Unread VoiceInboxMessage count from CORE. Drives the overworld badge +
-// the HOME NPC greeting branching.
-export type InboxState = {
-  count: number;
-  // ISO timestamp of the last successful poll — used for "as of HH:MM".
-  fetchedAt: string;
-};
-
 // Pending PlotSuggestion list + the sidebar's open/closed state.
 //
 // The poller writes `list` + `count` on every probe. The HUD reads `count`
@@ -180,7 +172,6 @@ type State = {
   tasks: TasksState;
   dialogue: DialogueState;
   chat: ChatState;
-  inbox: InboxState;
   nowPlaying: NowPlayingState;
   invite: InviteState;
   shareImage: ShareImageState;
@@ -201,7 +192,6 @@ let state: State = {
   tasks: null,
   dialogue: null,
   chat: null,
-  inbox: { count: 0, fetchedAt: new Date(0).toISOString() },
   nowPlaying: { connected: false, playing: false },
   invite: null,
   shareImage: null,
@@ -296,11 +286,6 @@ export const ui = {
   closeChat() {
     if (!state.chat) return;
     state = { ...state, chat: null };
-    emit();
-  },
-
-  setInbox(inbox: InboxState) {
-    state = { ...state, inbox };
     emit();
   },
 

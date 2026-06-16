@@ -9,8 +9,8 @@ import { redirect } from "next/navigation";
 
 import { getSessionFromCookie } from "@/lib/session";
 import { getTownByOwner } from "@/lib/town";
+import { Landing } from "@/ui/Landing";
 import { Onboarding } from "@/ui/Onboarding";
-import { TownGame } from "@/ui/TownGame";
 
 // Force-dynamic so the OAuth callback's redirect-to-/ always lands on
 // a freshly rendered page. cookies() already opts this route out of
@@ -47,5 +47,5 @@ export default async function Home() {
     if (town) redirect(`/${town.slug}`);
     return <Onboarding userName={session.user.name} />;
   }
-  return <TownGame />;
+  return <Landing />;
 }

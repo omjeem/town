@@ -1,20 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
-  <!-- White plate -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none" shape-rendering="crispEdges">
+  <!-- Light plate, dark pixel mark -->
   <rect width="512" height="512" rx="96" fill="#ececec"/>
 
-  <!-- Mark scaled 0.85 and optically centered (shifted up 20px) -->
   <g transform="translate(38.4 18.83) scale(0.85)">
-    <!-- Left building (rounded) with rounded window cutout -->
-    <path d="M 102 283 H 158 A 22 22 0 0 1 180 305 V 406 A 22 22 0 0 1 158 428 H 102 A 22 22 0 0 1 80 406 V 305 A 22 22 0 0 1 102 283 Z M 122 318 H 138 A 6 6 0 0 1 144 324 V 340 A 6 6 0 0 1 138 346 H 122 A 6 6 0 0 1 116 340 V 324 A 6 6 0 0 1 122 318 Z" fill-rule="evenodd" fill="#303030"/>
+    <path d="M 64 256 H 160 V 432 H 64 Z M 96 288 H 128 V 320 H 96 Z" fill-rule="evenodd" fill="#303030"/>
 
-    <!-- Center tower (rounded) with clock-face cutout -->
-    <path d="M 263.20 97.79 L 311.19 196.34 A 8 8 0 0 1 312 199.85 L 312 410 A 18 18 0 0 1 294 428 L 218 428 A 18 18 0 0 1 200 410 L 200 199.85 A 8 8 0 0 1 200.81 196.34 L 248.80 97.79 A 8 8 0 0 1 263.20 97.79 Z M 232 255 a 24 24 0 1 0 48 0 a 24 24 0 1 0 -48 0 Z" fill-rule="evenodd" fill="#303030"/>
-    <!-- Clock hands at 10:10 + center dot -->
-    <line x1="256" y1="255" x2="244" y2="246" stroke="#303030" stroke-width="5" stroke-linecap="round"/>
-    <line x1="256" y1="255" x2="272" y2="246" stroke="#303030" stroke-width="5" stroke-linecap="round"/>
-    <circle cx="256" cy="255" r="3.5" fill="#303030"/>
+    <path d="M 224 80 H 272 V 112 H 288 V 144 H 304 V 176 H 320 V 432 H 176 V 176 H 192 V 144 H 208 V 112 H 224 Z
+             M 208 208 H 288 V 288 H 208 Z
+             M 224 224 H 240 V 240 H 224 Z
+             M 256 224 H 272 V 240 H 256 Z
+             M 240 240 H 256 V 256 H 240 Z" fill-rule="evenodd" fill="#303030"/>
 
-    <!-- Right building (rounded) with rounded window cutout -->
-    <path d="M 354 233 H 410 A 22 22 0 0 1 432 255 V 406 A 22 22 0 0 1 410 428 H 354 A 22 22 0 0 1 332 406 V 255 A 22 22 0 0 1 354 233 Z M 374 268 H 390 A 6 6 0 0 1 396 274 V 290 A 6 6 0 0 1 390 296 H 374 A 6 6 0 0 1 368 290 V 274 A 6 6 0 0 1 374 268 Z" fill-rule="evenodd" fill="#303030"/>
+    <path d="M 336 208 H 432 V 432 H 336 Z M 368 240 H 400 V 272 H 368 Z" fill-rule="evenodd" fill="#303030"/>
   </g>
 </svg>

@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { bootGame, type GameContext } from "../game/boot";
 import { BootScreen } from "./BootScreen";
 import { refreshSession } from "../game/auth";
-import { startInboxPoller } from "../game/inbox";
 import { startNowPlayingPoller } from "../game/spotify";
 import { startSuggestionsPoller } from "../game/suggestions";
 import { startWorkspaceSync } from "../game/workspace";
+import { startNpcsSync } from "../game/npcs";
 import { setViewerTownSlug } from "../game/plotClient";
 import { setPlayerCharacter } from "../game/character";
 import {
@@ -43,7 +43,7 @@ import { ui } from "./store";
 // visitor-mode (read-only canvas of someone else's town):
 //   • owner    — what was here before. Boots pollers + own-plot fetch.
 //   • visitor  — points plotClient at /api/plot?town=<slug>, skips the
-//                owner-only pollers (inbox / spotify / workspace).
+//                owner-only pollers (spotify / workspace).
 //
 // Owner is the default so the existing root `/` page keeps working
 // unchanged.
@@ -86,7 +86,6 @@ export function TownGame(props: TownGameProps = {}) {
     tasks,
     dialogue,
     chat,
-    inbox,
     nowPlaying,
     invite,
     shareImage,
@@ -97,6 +96,24 @@ export function TownGame(props: TownGameProps = {}) {
   } = useUiState();
 
   const isVisitor = props.viewerMode === "visitor";
+  // Extract scalar values from `props` so the boot effect only re-runs
+  // when something that actually changes the kaplay setup changes. JSX
+  // hands TownGame a fresh `props` object every parent render — depending
+  // on `props` directly tore down + re-booted kaplay on every Landing
+  // re-render, which is what surfaced the "KAPLAY already initialized"
+  // warning and a white canvas after the Try-the-demo click.
+  const ownerSlug = !isVisitor
+    ? (props as { townSlug?: string }).townSlug
+    : undefined;
+  const visitorSlug = isVisitor
+    ? (props as { townSlug: string }).townSlug
+    : undefined;
+  const ownerCharacter = !isVisitor
+    ? (props as { ownerCharacter?: string }).ownerCharacter
+    : undefined;
+  const visitorCharacter = isVisitor
+    ? (props as { visitorCharacter: string }).visitorCharacter
+    : undefined;
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -104,42 +121,54 @@ export function TownGame(props: TownGameProps = {}) {
 
     // Route plot fetches + pick the player sprite BEFORE the scene mounts.
     if (isVisitor) {
-      const v = props as { townSlug: string; visitorCharacter: string };
-      setViewerTownSlug(v.townSlug);
-      setPlayerCharacter(v.visitorCharacter);
+      setViewerTownSlug(visitorSlug ?? null);
+      setPlayerCharacter(visitorCharacter ?? OWNER_DEFAULT_CHARACTER);
     } else {
-      const o = props as { ownerCharacter?: string };
       setViewerTownSlug(null);
-      setPlayerCharacter(o.ownerCharacter ?? OWNER_DEFAULT_CHARACTER);
+      setPlayerCharacter(ownerCharacter ?? OWNER_DEFAULT_CHARACTER);
     }
 
-    ctxRef.current = bootGame(canvasRef.current);
+    const ctx = bootGame(canvasRef.current);
+    ctxRef.current = ctx;
+
+    // Tear-downs shared across both branches — kaplay context first so
+    // the GL canvas is released before React unmounts the <canvas>.
+    const disposeKaplay = () => {
+      try {
+        ctx.quit();
+      } catch {
+        // quit can throw if the context was already released; safe to
+        // swallow.
+      }
+      ctxRef.current = null;
+    };
 
     if (isVisitor) {
       // Visitor: skip owner-scoped pollers, but still join the realtime
       // bus so they see (and are seen by) the owner + other visitors.
-      const slug = (props as { townSlug: string }).townSlug;
+      const slug = visitorSlug!;
       let visitorRt: RealtimeHandle | null = null;
       void startRealtime({ slug }).then((handle) => {
         visitorRt = handle;
       });
       const stopPending = startPendingPoller(slug);
+      const stopNpcs = startNpcsSync();
       return () => {
         visitorRt?.stop();
         stopPending();
-        ctxRef.current = null;
+        stopNpcs();
+        disposeKaplay();
       };
     }
 
     void refreshSession();
-    const stopInbox = startInboxPoller();
     const stopWorkspace = startWorkspaceSync();
+    const stopNpcs = startNpcsSync();
     const stopNowPlaying = startNowPlayingPoller();
     const stopSuggestions = startSuggestionsPoller();
 
     let rt: RealtimeHandle | null = null;
     let stopPending: (() => void) | null = null;
-    const ownerSlug = (props as { townSlug?: string }).townSlug;
     if (ownerSlug) {
       void startRealtime({ slug: ownerSlug }).then((handle) => {
         rt = handle;
@@ -147,15 +176,15 @@ export function TownGame(props: TownGameProps = {}) {
       stopPending = startPendingPoller(ownerSlug);
     }
     return () => {
-      stopInbox();
       stopWorkspace();
+      stopNpcs();
       stopNowPlaying();
       stopSuggestions();
       rt?.stop();
       stopPending?.();
-      ctxRef.current = null;
+      disposeKaplay();
     };
-  }, [isVisitor, props]);
+  }, [isVisitor, ownerSlug, visitorSlug, ownerCharacter, visitorCharacter]);
 
   // Refocus the canvas every time the last open modal closes. Modal
   // inputs / buttons keep DOM focus after they unmount; that focus is
@@ -209,7 +238,7 @@ export function TownGame(props: TownGameProps = {}) {
         </div>
       ) : hud ? (
         <div className="pointer-events-auto absolute left-4 top-4 z-30">
-          <Hud hud={hud} inbox={inbox} />
+          <Hud hud={hud} />
         </div>
       ) : null}
 

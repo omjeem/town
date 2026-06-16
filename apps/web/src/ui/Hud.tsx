@@ -5,11 +5,11 @@ import { useEffect, useRef, useState } from "react";
 import { PALETTE } from "../game/config";
 import { logout } from "../game/auth";
 import { ui } from "./store";
-import type { HudKind, InboxState } from "./store";
+import type { HudKind } from "./store";
 
 // Identity badge (overworld) or room name card (interior).
 // Click the identity card to open a small dropdown with Share / Logout.
-export function Hud({ hud, inbox }: { hud: HudKind; inbox: InboxState }) {
+export function Hud({ hud }: { hud: HudKind }) {
   if (hud.kind === "overworld") {
     const session = hud.session;
     const name = session?.user.name ?? "Guest";
@@ -43,7 +43,6 @@ export function Hud({ hud, inbox }: { hud: HudKind; inbox: InboxState }) {
     return (
       <div className="flex items-center gap-3">
         <IdentityMenu name={name} letter={letter} accent={accent} />
-        {inbox.count > 0 ? <InboxBadge count={inbox.count} /> : null}
       </div>
     );
   }
@@ -166,22 +165,6 @@ function IdentityMenu({
           </button>
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function InboxBadge({ count }: { count: number }) {
-  const label = count === 1 ? "1 update at home" : `${count} updates at home`;
-  return (
-    <div
-      className="nb-card flex items-center gap-2 px-3 py-2"
-      style={{ background: PALETTE.h240, color: "var(--ink)" }}
-      title="Walk back to home — the world runner has updates for you."
-    >
-      <span aria-hidden className="text-base leading-none">
-        🔔
-      </span>
-      <span className="text-[12px] font-bold leading-tight">{label}</span>
     </div>
   );
 }

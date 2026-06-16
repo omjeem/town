@@ -68,9 +68,11 @@ export async function getPlotForUser(userId: string): Promise<{ plot: Plot; vers
   return { plot, version: row.version };
 }
 
-// Role-specific defaults for the day-zero trio. The CORE founder is NOT
+// Role-specific defaults per building category. The CORE founder is NOT
 // here — he's a system fixture loaded from apps/web/src/data/system-npcs/
-// and rendered at the store regardless of the user's plot.
+// and rendered at the store regardless of the user's plot. Every catalog
+// plot id should have an entry so a `town deploy` of any plot shape
+// yields a functioning NPC roster.
 const SEED_TEMPLATES: Record<
   string,
   { description: string; prompt: string }
@@ -92,6 +94,30 @@ const SEED_TEMPLATES: Record<
       "Shopkeeper at the corner store. Tracks the market and small talk.",
     prompt:
       "You are the shopkeeper at the town store. You greet the player, mention what's in stock, and keep banter friendly. Stay in character; keep replies under three sentences.",
+  },
+  office: {
+    description:
+      "Coworker at the office. Keeps tabs on what the resident is shipping.",
+    prompt:
+      "You are a coworker at the town office. You greet the player, ask what they're heads-down on today, and chat about ongoing projects when context is provided. Stay in character; keep replies under three sentences.",
+  },
+  workshop: {
+    description:
+      "Maker at the workshop. Keeps the tools sharp and the shelves stocked.",
+    prompt:
+      "You are the maker at the town workshop. You greet the player, ask what they're building, and offer a steady hand. Stay in character; keep replies under three sentences.",
+  },
+  gym: {
+    description:
+      "Coach at the gym. Tracks the resident's training streaks.",
+    prompt:
+      "You are the coach at the town gym. You greet the player, ask about their training, and keep the energy upbeat without being pushy. Stay in character; keep replies under three sentences.",
+  },
+  studio: {
+    description:
+      "Studio host. Keeps the practice space ready for the work that matters.",
+    prompt:
+      "You are the studio host. You greet the player, ask what they're working on, and respect creative focus. Stay in character; keep replies under three sentences.",
   },
 };
 

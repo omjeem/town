@@ -5,10 +5,14 @@ import { makePlayer } from "../entities/player";
 import { attachRemotePlayers } from "../entities/remotePlayer";
 import { getSession, logout, startLogin } from "../auth";
 import { GUEST_CTA_KEY, openGuestCta } from "../guestCta";
-import { getWorkspace } from "../workspace";
+import { getNpcByBuildingId } from "../npcs";
 import { publishLocalPosition, setLocalScene } from "../realtime";
 import { ui } from "../../ui/store";
-import { getViewerTownSlug, isViewerOwner } from "../plotClient";
+import {
+  getCachedPlot,
+  getViewerTownSlug,
+  isViewerOwner,
+} from "../plotClient";
 
 // ===========================================================================
 // Interior scene — one generic scene used for all four buildings.
@@ -32,7 +36,10 @@ type Interactable = {
   // tile (4-neighborhood) and pressing SPACE.
   tx: number;
   ty: number;
-  label: string;        // shown in floating prompt e.g. "[SPACE] Scratchpad"
+  // Shown in floating prompt e.g. "[SPACE] Scratchpad". Function form is
+  // resolved every frame so dynamic labels (NPC name pulled from CORE
+  // workspace) stay live as the underlying data loads.
+  label: string | (() => string);
   // Stable identifier for the React panel so re-publishing the same
   // interactable's panel doesn't unmount/remount.
   key: string;
@@ -50,20 +57,14 @@ type Interactable = {
   // want SPACE to fire `onTrigger` directly without opening a Panel.
   panel?: Panel | ((republish: () => void) => Panel);
   // Direct trigger — bypasses the Panel system. Useful when SPACE should
-  // open a larger overlay (e.g. the memory Explorer) without making the
-  // user press SPACE twice (once for the Panel, once for its action).
+  // open a larger overlay (e.g. the memory Explorer, or an NPC greeting
+  // dialogue) without making the user press SPACE twice.
   onTrigger?: () => void;
-  // Proximity-dwell auto-trigger. Player stands adjacent for `dwellMs`
-  // (default 800ms); `onEnter` fires once. Walking away (or scene leave)
-  // fires `onLeave`. Used for ambient NPC interactions where the player
-  // shouldn't have to press SPACE. We suppress the floating prompt for
-  // these — the overlay itself is the cue. SPACE still works as a
-  // shortcut: pressing it skips the dwell and fires `onEnter` immediately.
-  autoTrigger?: {
-    dwellMs?: number;
-    onEnter: () => void;
-    onLeave?: () => void;
-  };
+  // Walk-away cleanup. Fires when the player leaves the adjacency that
+  // last triggered `onTrigger`, or on scene leave. Used by NPC
+  // interactables to close their ambient dialogue when the player
+  // wanders off, since dialogues don't pause the world.
+  onLeave?: () => void;
 };
 
 type PanelAction = {
@@ -395,189 +396,6 @@ function drawLibrary(k: KAPLAYCtx, w: number, h: number) {
   }
 }
 
-// HOME world runner — branches on auth + unread inbox count, opens a typewriter
-// dialogue with the appropriate greeting, and routes the action button to
-// sign-in / inbox catchup / chat. Stays a single interactable on the NPC's
-// tile so the prompt is "Talk to {name}" wherever the player approaches from.
-//
-// Name + accent come from the user's CORE workspace (workspace.name and
-// workspace.accentColor). Before the workspace cache is hydrated — or for
-// guests who aren't signed in yet — we fall back to a generic "World runner"
-// label and the HOME palette accent.
-const HOME_NPC_FALLBACK_NAME = "World runner";
-const HOME_NPC_FALLBACK_ACCENT = theme.buildings.HOME.accent;
-
-function homeNpcName(): string {
-  return getWorkspace()?.name?.trim() || HOME_NPC_FALLBACK_NAME;
-}
-
-function homeNpcAccent(): string {
-  return getWorkspace()?.accentColor || HOME_NPC_FALLBACK_ACCENT;
-}
-
-function openHomeNpcDialogue() {
-  const session = getSession();
-  // Guest path: no session but a validated visit cookie (we know
-  // because the viewer has a town slug). The home NPC greets them as a
-  // guest and routes straight into chat — memory_search is scoped to
-  // the resident's memory server-side, so they can actually learn
-  // about whoever lives here through the NPC.
-  if (!session && getViewerTownSlug()) {
-    ui.openDialogue({
-      key: "home-npc-guest",
-      speaker: homeNpcName(),
-      accent: homeNpcAccent(),
-      lines: [
-        `Hi, I'm ${homeNpcName()}.`,
-        "I run things around here for the resident. Want to chat?",
-      ],
-      action: {
-        label: "Let's talk",
-        onPress: () => openHomeChat(),
-      },
-      secondary: {
-        label: "Not now",
-        onPress: () => ui.closeDialogue(),
-      },
-    });
-    return;
-  }
-  if (!session) {
-    ui.openDialogue({
-      key: "home-npc-unsigned",
-      speaker: homeNpcName(),
-      accent: homeNpcAccent(),
-      lines: [
-        "Hold on, traveler — I don't recognize you.",
-        "This world only remembers folks who've signed the ledger.",
-        "Want to sign in with CORE?",
-      ],
-      action: {
-        label: "Sign in with CORE",
-        onPress: () => {
-          ui.closeDialogue();
-          startLogin("/");
-        },
-      },
-      secondary: {
-        label: "Not now",
-        onPress: () => ui.closeDialogue(),
-      },
-    });
-    return;
-  }
-
-  const inbox = ui.getState().inbox;
-  const name = session.user.name;
-  const accent = homeNpcAccent();
-
-  if (inbox.count > 0) {
-    const noun = inbox.count === 1 ? "update" : "updates";
-    ui.openDialogue({
-      key: `home-npc-unread-${inbox.count}`,
-      speaker: homeNpcName(),
-      accent,
-      lines: [
-        `Welcome back, ${name}.`,
-        `I've got ${inbox.count} ${noun} for you. Want to catch up?`,
-      ],
-      action: {
-        label: "Catch me up",
-        onPress: () => catchUpHomeNpc(name),
-      },
-      secondary: {
-        label: "Later",
-        onPress: () => ui.closeDialogue(),
-      },
-    });
-    return;
-  }
-
-  ui.openDialogue({
-    key: "home-npc-signed-empty",
-    speaker: homeNpcName(),
-    accent,
-    lines: [`Welcome back, ${name}. Anything on your mind?`],
-    action: {
-      label: "Let's talk",
-      onPress: () => openHomeChat(),
-    },
-    secondary: {
-      label: "Not now",
-      onPress: () => ui.closeDialogue(),
-    },
-  });
-}
-
-async function catchUpHomeNpc(name: string) {
-  // Swap the dialogue to a loading state so SPACE/click can't double-fire
-  // while the summariser runs. The summarise route stamps the rows checked
-  // server-side, so the next poll lands on count=0 and the badge clears.
-  ui.openDialogue({
-    key: "home-npc-summarising",
-    speaker: homeNpcName(),
-    accent: homeNpcAccent(),
-    lines: ["Hold on — let me pull those up for you…"],
-  });
-  try {
-    const res = await fetch("/api/core/inbox/summarise", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ mode: "voice" }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const body = (await res.json()) as { summary?: string };
-    const summary = (body.summary ?? "").trim();
-    // Manually clear the badge — the 20s poller will confirm shortly.
-    ui.setInbox({ count: 0, fetchedAt: new Date().toISOString() });
-    ui.openDialogue({
-      key: "home-npc-summary",
-      speaker: homeNpcName(),
-      accent: homeNpcAccent(),
-      lines: summary
-        ? ["Here's the catchup:", summary, "Anything you want to dig into?"]
-        : ["Nothing urgent in there. Want to chat about something else?"],
-      action: {
-        label: "Let's talk",
-        onPress: () => openHomeChat(),
-      },
-      secondary: {
-        label: "Done",
-        onPress: () => ui.closeDialogue(),
-      },
-    });
-  } catch (_e) {
-    ui.openDialogue({
-      key: "home-npc-summary-err",
-      speaker: homeNpcName(),
-      accent: homeNpcAccent(),
-      lines: [
-        "Hmm — couldn't reach the office for the catchup.",
-        `Try again in a moment, ${name}.`,
-      ],
-      action: {
-        label: "OK",
-        onPress: () => ui.closeDialogue(),
-      },
-    });
-  }
-}
-
-function openHomeChat() {
-  // npcId="home" → /api/npc-chat falls through to a buildingId lookup so
-  // we don't need to round-trip /api/npcs first. The speaker label uses
-  // the workspace name (or fallback), so the chat header reads as the
-  // user's own world runner.
-  ui.openChat({
-    npcId: "home",
-    speaker: homeNpcName(),
-    description:
-      "Your butler and world runner. Knows what's on your mind.",
-    accent: homeNpcAccent(),
-    mode: "direct",
-  });
-}
-
 // Generic "say hi → offer to talk → stream chat" flow for every NPC that
 // doesn't have a special path. The dialogue surface shows
 // "Hi, I'm {name}. {description}" with a [Talk to {name}] action that
@@ -691,29 +509,10 @@ const INTERIORS: Record<BuildingKey, InteriorSpec> = {
     spawn: { tx: 7, ty: 12 }, // patio, just north of the front doormat
     exit:  { tx: 7, ty: 13 }, // doormat — stepping here returns to overworld
     title: "HOME",
-    npcs: [
-      // House occupant — stands on open parquet south-east of the dining
-      // table. Off the rug and clear of the motorcycle so the player can
-      // walk freely.
-      { tx: 8, ty: 5, sprite: "home_npc" },
-    ],
+    // NPC sprite + interactable are merged in at scene mount from
+    // plot.npcs (slot) + the Npc DB row (chat data). The interior spec
+    // only keeps static fixtures like the scratchpad and the bed.
     interacts: [
-      {
-        // World runner — same tile as the home NPC sprite. Auto-triggers
-        // after a 1s dwell so the player just walks up and the dialogue
-        // starts; walking away closes it. SPACE also works as an impatient
-        // shortcut. Name + accent come from CORE's workspace at dialogue
-        // time (see openHomeNpcDialogue), so no static label is needed.
-        tx: 8, ty: 5,
-        key: "home-npc",
-        label: "",
-        accent: theme.buildings.HOME.accent,
-        autoTrigger: {
-          dwellMs: 200,
-          onEnter: () => openHomeNpcDialogue(),
-          onLeave: () => ui.closeDialogue(),
-        },
-      },
       {
         // Scratchpad at the dining table on the back wall (cols 4-5, row 1).
         // The interactable lives on the table base at (5, 2); the player
@@ -832,11 +631,9 @@ const INTERIORS: Record<BuildingKey, InteriorSpec> = {
     // Middle workstation uses the dual-monitor variant — it's the most
     // prominent of the three so it reads as the Tasks board. Two plants
     // fill the gaps between workstations.
-    npcs: [
-      // Office worker NPC drawn over the leftmost workstation's chair
-      // tile so they appear seated (entities render at z=45, above props).
-      { tx: 3, ty: 5, sprite: "office_npc" },
-    ],
+    //
+    // The office worker NPC sprite + interactable land here via the plot
+    // slot merge in registerInteriorScene — no static entry here.
     props: [
       // ---- Workstations (composed sprite, chair feet on row 5) ----
       { tx: 2,  ty: 5, w: 2, h: 4, sprite: "office_workstation",      spritePxH: 64 },
@@ -868,32 +665,9 @@ const INTERIORS: Record<BuildingKey, InteriorSpec> = {
     spawn: { tx: 7, ty: 10 },
     exit:  { tx: 7, ty: 11 },
     title: "LIBRARY",
-    npcs: [
-      // Reader at an open floor tile between the bookshelves on the west and
-      // the rightmost reading table — out of the way of the table interacts.
-      { tx: 2, ty: 5, sprite: "library_npc" },
-    ],
-    interacts: [
-      // Library keeper — same tile as the library_npc sprite. Auto-fires
-      // on approach: greets the player and offers a streaming chat.
-      {
-        tx: 2, ty: 5,
-        key: "library-npc",
-        label: "",
-        accent: theme.buildings.LIBRARY.accent,
-        autoTrigger: {
-          dwellMs: 200,
-          onEnter: () =>
-            openNpcGreeting({
-              npcId: "library",
-              name: "Library keeper",
-              description: "Caretaker of the library. Knows what's worth reading next.",
-              accent: theme.buildings.LIBRARY.accent,
-            }),
-          onLeave: () => ui.closeDialogue(),
-        },
-      },
-    ],
+    // Library keeper sprite + interactable land here via the plot slot
+    // merge in registerInteriorScene — no static entries.
+    interacts: [],
   },
   STORE: {
     // Cream-tiled shop interior, walled on three sides, with a doorway at
@@ -912,13 +686,12 @@ const INTERIORS: Record<BuildingKey, InteriorSpec> = {
     exit:  { tx: 7, ty: 9 },
     title: "STORE",
     npcs: [
-      // Creator stands centered on the floor — close enough to greet but
-      // not blocking either prop. System NPC, owner-only: visitors
-      // touring someone else's town don't see the Founder.
+      // CORE founder — system NPC. Always at the store for the OWNER
+      // (visitors touring someone else's town don't see him: ownerOnly
+      // skips both this sprite and the matching interactable below).
+      // The user-owned shopkeeper sprite lands here via the plot slot
+      // merge in registerInteriorScene.
       { tx: 7, ty: 5, sprite: "founder", ownerOnly: true },
-      // Shopkeeper stands by the back wall, north-west of the founder, so
-      // the floor still feels populated when the player enters.
-      { tx: 5, ty: 3, sprite: "store_shopkeeper" },
     ],
     props: [
       // ATM "price machine" on the left. Sprite is 32x48 (2w x 3h); bottom
@@ -939,41 +712,19 @@ const INTERIORS: Record<BuildingKey, InteriorSpec> = {
       {
         tx: 7, ty: 5,
         key: "store-founder",
-        label: "",
+        label: "Talk to Founder",
         accent: theme.buildings.STORE.accent,
         ownerOnly: true,
-        autoTrigger: {
-          dwellMs: 200,
-          onEnter: () =>
-            openNpcGreeting({
-              npcId: "core-founder",
-              name: "Founder",
-              description:
-                "Hangs out at the store. Tracks the CORE roadmap — knows what's coming.",
-              accent: theme.buildings.STORE.accent,
-              chatApi: "/api/founder-chat",
-            }),
-          onLeave: () => ui.closeDialogue(),
-        },
-      },
-      // Shopkeeper — user-owned NPC at the back wall. Sprite placement
-      // already in spec.npcs above (tx: 5, ty: 3).
-      {
-        tx: 5, ty: 3,
-        key: "store-shopkeeper",
-        label: "",
-        accent: theme.buildings.STORE.accent,
-        autoTrigger: {
-          dwellMs: 200,
-          onEnter: () =>
-            openNpcGreeting({
-              npcId: "store",
-              name: "Shopkeeper",
-              description: "Runs the store. Knows the market and the small talk.",
-              accent: theme.buildings.STORE.accent,
-            }),
-          onLeave: () => ui.closeDialogue(),
-        },
+        onTrigger: () =>
+          openNpcGreeting({
+            npcId: "core-founder",
+            name: "Founder",
+            description:
+              "Hangs out at the store. Tracks the CORE roadmap — knows what's coming.",
+            accent: theme.buildings.STORE.accent,
+            chatApi: "/api/founder-chat",
+          }),
+        onLeave: () => ui.closeDialogue(),
       },
       {
         // Price machine — bottom-left tile of the ATM (player approaches
@@ -1019,23 +770,133 @@ const INTERIORS: Record<BuildingKey, InteriorSpec> = {
 // Scene
 // ===========================================================================
 
+// Default sprite for the plot-driven NPC slot, picked by the building
+// category. plot.npcs[] tells us where the NPC stands; the catalog
+// doesn't (yet) ship a sprite per variant, so we route through this map.
+const DEFAULT_NPC_SPRITE: Record<BuildingKey, string> = {
+  HOME: "home_npc",
+  OFFICE: "office_npc",
+  LIBRARY: "library_npc",
+  STORE: "store_shopkeeper",
+};
+
+// Per-category greeting fallback for the unauthenticated demo at `/`. No
+// session + no town slug → /api/npcs is 401, so the Npc DB roster is
+// empty. We still want the demo to feel populated; openNpcGreeting will
+// gate the chat itself behind a "Sign in with CORE" CTA, so these
+// fallback strings only appear in the greeting dialogue header — never
+// in a real chat round-trip.
+const DEMO_NPC_FALLBACK: Record<BuildingKey, { name: string; description: string }> = {
+  HOME: {
+    name: "World runner",
+    description: "Butler of the world. Knows what's on the resident's mind.",
+  },
+  OFFICE: {
+    name: "Coworker",
+    description: "Keeps the office humming.",
+  },
+  LIBRARY: {
+    name: "Library keeper",
+    description: "Caretaker of the library. Knows what's worth reading next.",
+  },
+  STORE: {
+    name: "Shopkeeper",
+    description: "Runs the store. Knows the market and the small talk.",
+  },
+};
+
 export type InteriorOpts = {
   building: BuildingKey;
+  /** PlotBuilding.id of the specific building the player just entered.
+   *  Used to look up the plot.npcs slot + Npc DB row for this instance
+   *  so two buildings of the same category can host different NPCs. */
+  buildingId: string;
 };
 
 export function registerInteriorScene(k: KAPLAYCtx) {
   k.scene("interior", (opts: InteriorOpts) => {
     const baseSpec = INTERIORS[opts.building];
+
+    // Plot-driven NPC for THIS building. plot.npcs[] holds the interior
+    // slot (tx, ty) per buildingId; the Npc DB row (fetched separately
+    // by startNpcsSync) holds chat data (name, description, prompt).
+    //
+    // Render rules:
+    //   • Owner / visitor — render iff BOTH the plot slot AND a matching
+    //     Npc DB row exist. So `town deploy` of an MDX without an entry
+    //     for this buildingId removes the sprite + interactable cleanly,
+    //     and a chat round-trip can never 404.
+    //   • Unauthenticated demo (no session AND no town slug) — the API
+    //     is 401 so the DB roster is always empty. To keep the marketing
+    //     demo populated, render from the plot slot alone using a
+    //     per-category fallback name. openNpcGreeting gates the actual
+    //     chat behind a "Sign in with CORE" CTA on this branch, so the
+    //     fallback id never reaches /api/npc-chat.
+    const plot = getCachedPlot();
+    const plotNpc = plot?.npcs.find((n) => n.buildingId === opts.buildingId);
+    const npcRow = plotNpc ? getNpcByBuildingId(opts.buildingId) : null;
+    const isDemoGuest = !getSession() && !getViewerTownSlug();
+    const fallback = DEMO_NPC_FALLBACK[opts.building];
+    const npcInfo =
+      plotNpc && npcRow
+        ? {
+            id: npcRow.id,
+            name: npcRow.name,
+            description: npcRow.description,
+          }
+        : plotNpc && isDemoGuest
+          ? {
+              id: opts.buildingId,
+              name: fallback.name,
+              description: fallback.description,
+            }
+          : null;
+    const dynamicNpc: Npc | null =
+      plotNpc && npcInfo
+        ? {
+            tx: plotNpc.tx,
+            ty: plotNpc.ty,
+            sprite: DEFAULT_NPC_SPRITE[opts.building],
+          }
+        : null;
+    const dynamicInteract: Interactable | null =
+      plotNpc && npcInfo
+        ? {
+            tx: plotNpc.tx,
+            ty: plotNpc.ty,
+            key: `npc-${opts.buildingId}`,
+            label: `Talk to ${npcInfo.name}`,
+            accent: theme.buildings[opts.building].accent,
+            onTrigger: () =>
+              openNpcGreeting({
+                npcId: npcInfo.id,
+                name: npcInfo.name,
+                description: npcInfo.description,
+                accent: theme.buildings[opts.building].accent,
+              }),
+            onLeave: () => ui.closeDialogue(),
+          }
+        : null;
+
     // Drop owner-only sprites + interacts when a visitor is touring
     // another user's town. System NPCs (Founder) currently use this.
     const ownerView = isViewerOwner();
-    const spec = ownerView
-      ? baseSpec
-      : {
-          ...baseSpec,
-          npcs: (baseSpec.npcs ?? []).filter((n) => !n.ownerOnly),
-          interacts: (baseSpec.interacts ?? []).filter((it) => !it.ownerOnly),
-        };
+    const ownerNpcs = baseSpec.npcs ?? [];
+    const ownerInteracts = baseSpec.interacts ?? [];
+    const visibleNpcs = ownerView
+      ? ownerNpcs
+      : ownerNpcs.filter((n) => !n.ownerOnly);
+    const visibleInteracts = ownerView
+      ? ownerInteracts
+      : ownerInteracts.filter((it) => !it.ownerOnly);
+
+    const spec = {
+      ...baseSpec,
+      npcs: dynamicNpc ? [...visibleNpcs, dynamicNpc] : visibleNpcs,
+      interacts: dynamicInteract
+        ? [...visibleInteracts, dynamicInteract]
+        : visibleInteracts,
+    };
 
     // Backdrop — single uniform dark color for every interior. We push the
     // same color into kaplay's letterbox so the bars around the view also
@@ -1192,27 +1053,19 @@ export function registerInteriorScene(k: KAPLAYCtx) {
 
     const nearestInteract = (): Interactable | null => {
       const pt = player.tile;
-      // Pass 1 — strict cardinal adjacency. Wins for any interactable
-      // (prompt-style SPACE interacts AND autoTriggers) so standing
-      // directly beside an NPC always counts.
+      // Strict cardinal adjacency for every interactable, including NPCs.
+      // The player has to actually walk up next to a tile (4-neighborhood)
+      // before the floating SPACE prompt appears.
       for (const it of spec.interacts ?? []) {
         const dx = Math.abs(pt.tx - it.tx);
         const dy = Math.abs(pt.ty - it.ty);
         if (dx + dy === 1) return it;
       }
-      // Pass 2 — wider proximity (dx+dy ≤ 2), autoTriggers only. Lets the
-      // "Hi, I'm …" greeting fire as the player walks NEAR the NPC instead
-      // of requiring them to land exactly one tile away. Prompt-style
-      // interacts keep the tighter rule so we don't pop SPACE labels from
-      // across the room.
-      for (const it of spec.interacts ?? []) {
-        if (!it.autoTrigger) continue;
-        const dx = Math.abs(pt.tx - it.tx);
-        const dy = Math.abs(pt.ty - it.ty);
-        if (dx + dy <= 2) return it;
-      }
       return null;
     };
+
+    const resolveLabel = (it: Interactable): string =>
+      typeof it.label === "function" ? it.label() : it.label;
 
     // Publish a panel (resolving the factory if needed). Captures `it` so the
     // action's `republish` callback re-runs the factory and pushes the new
@@ -1230,43 +1083,39 @@ export function registerInteriorScene(k: KAPLAYCtx) {
       });
     };
 
-    // Proximity-dwell tracker for autoTrigger interactables. We retain the
-    // *key* of the interactable we're currently adjacent to, the moment the
-    // player first arrived next to it, and whether the trigger has fired.
-    // When the player walks away (or the scene ends) we run the matching
-    // `onLeave` so the overlay can clean up.
-    let autoState: {
-      key: string;
-      arrivedAt: number;
-      fired: boolean;
-    } | null = null;
+    // Tracks the key of the interactable whose `onTrigger` fired most
+    // recently while the player is still adjacent. When the player walks
+    // away (or the scene ends) we run the matching `onLeave` so ambient
+    // dialogues opened by NPCs close themselves.
+    let activeLeaveKey: string | null = null;
 
     const findInteractByKey = (key: string): Interactable | undefined =>
       (spec.interacts ?? []).find((x) => x.key === key);
 
-    const fireAutoLeave = () => {
-      if (!autoState?.fired) return;
-      const prev = findInteractByKey(autoState.key);
-      prev?.autoTrigger?.onLeave?.();
+    const fireLeave = () => {
+      if (!activeLeaveKey) return;
+      const prev = findInteractByKey(activeLeaveKey);
+      prev?.onLeave?.();
+      activeLeaveKey = null;
     };
 
     k.onUpdate(() => {
       // Modal-style surfaces (panel, explorer, tasks, chat) freeze the
-      // world entirely — skip prompt + dwell logic while one is open.
-      // We intentionally do NOT clear `autoState` here so the dwell timer
-      // state survives e.g. a chat that opens from the dialogue's action.
+      // world entirely — skip prompt logic while one is open. We
+      // intentionally do NOT clear `activeLeaveKey` here so a chat that
+      // opens from the NPC dialogue's action button keeps the walk-away
+      // cleanup wired up.
       if (ui.isPaused()) {
         ui.setPrompt(null);
         return;
       }
       const it = nearestInteract();
 
-      // Departure detection: we were adjacent to an autoTrigger but aren't
-      // anymore (or we're next to a *different* interactable). Run the
-      // outgoing onLeave and clear state.
-      if (autoState && (!it || it.key !== autoState.key)) {
-        fireAutoLeave();
-        autoState = null;
+      // Departure detection: we previously fired an interactable's
+      // `onTrigger` but the player isn't standing next to it anymore
+      // (or is next to a *different* one). Run the outgoing onLeave.
+      if (activeLeaveKey && (!it || it.key !== activeLeaveKey)) {
+        fireLeave();
       }
 
       if (!it) {
@@ -1274,57 +1123,33 @@ export function registerInteriorScene(k: KAPLAYCtx) {
         return;
       }
 
-      if (it.autoTrigger) {
-        // No prompt — the dialogue overlay itself is the cue.
+      // NPCs hide their prompt while their dialogue is on-screen — the
+      // dialogue itself is the active surface, no need for the floating
+      // SPACE pill underneath it.
+      if (it.onLeave && ui.getState().dialogue) {
         ui.setPrompt(null);
-        if (!autoState || autoState.key !== it.key) {
-          // First frame adjacent — start dwell timer.
-          autoState = {
-            key: it.key,
-            arrivedAt: performance.now(),
-            fired: false,
-          };
-          return;
-        }
-        if (
-          !autoState.fired &&
-          performance.now() - autoState.arrivedAt >=
-            (it.autoTrigger.dwellMs ?? 800)
-        ) {
-          autoState.fired = true;
-          it.autoTrigger.onEnter();
-        }
         return;
       }
 
-      ui.setPrompt({ label: it.label, accent: accentFor(it) });
+      ui.setPrompt({ label: resolveLabel(it), accent: accentFor(it) });
     });
 
     k.onKeyPress("space", () => {
       // React owns SPACE while a modal is open (it fires the action button).
-      // The ambient dialogue is *not* modal — it listens to SPACE itself at
-      // window level so the player can advance / fast-forward / fire the
+      // The ambient NPC dialogue is *not* modal — it listens to SPACE itself
+      // at window level so the player can advance / fast-forward / fire the
       // action even while standing next to the NPC.
       if (ui.isPaused()) return;
       const it = nearestInteract();
       if (!it) return;
 
-      // For autoTrigger items, SPACE is an impatient shortcut — skip the
-      // dwell and fire immediately. If the trigger has already fired the
-      // window-level dialogue listener owns SPACE from here.
-      if (it.autoTrigger) {
-        if (!autoState || autoState.key !== it.key) {
-          autoState = { key: it.key, arrivedAt: 0, fired: true };
-        } else if (!autoState.fired) {
-          autoState.fired = true;
-        } else {
-          return;
-        }
-        it.autoTrigger.onEnter();
-        return;
-      }
+      // If a dialogue is already on screen (the NPC greeting we opened
+      // last press, or the guest CTA), let its window-level listener
+      // advance it. Don't re-open the greeting on top of itself.
+      if (it.onLeave && ui.getState().dialogue) return;
 
       if (it.onTrigger) {
+        if (it.onLeave) activeLeaveKey = it.key;
         it.onTrigger();
         return;
       }
@@ -1349,11 +1174,10 @@ export function registerInteriorScene(k: KAPLAYCtx) {
     // Clean up published UI state when leaving the scene so the overworld
     // doesn't inherit a stale interior prompt or HUD.
     k.onSceneLeave(() => {
-      // Fire onLeave for an in-flight autoTrigger before we clear UI so
-      // the NPC's owner can run any teardown (analytics, conversation
+      // Fire onLeave for any active NPC interactable before we clear UI
+      // so the NPC's owner can run any teardown (analytics, conversation
       // cleanup) before the dialogue is yanked.
-      fireAutoLeave();
-      autoState = null;
+      fireLeave();
       detachRemotes();
       ui.setPrompt(null);
       ui.closePanel();
