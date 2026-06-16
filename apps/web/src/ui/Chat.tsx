@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 
+import { getViewerTownSlug } from "../game/plotClient";
 import { ui, type ChatState } from "./store";
 
 export function Chat({ chat }: { chat: NonNullable<ChatState> }) {
@@ -21,15 +22,25 @@ export function Chat({ chat }: { chat: NonNullable<ChatState> }) {
   // sees who they're talking to before the LLM streams its first turn.
   const greeting = `Hi, I'm ${chat.speaker}. ${chat.description}`.trim();
 
+  // When the player is touring someone else's town, the chat needs to
+  // resolve NPCs against THAT town's owner (not the caller). Sending
+  // the slug along with every message lets the server use the
+  // resolveViewer helper to swap identity context: NPC lookup uses the
+  // town owner, but the prompt knows the speaker is a visitor.
+  const viewerSlug = getViewerTownSlug();
+
   const { messages, sendMessage, status, error, stop } = useChat({
     transport: new DefaultChatTransport({
-      api: "/api/npc-chat",
+      // Default endpoint handles every regular NPC; special characters
+      // (e.g. the Founder) opt into their own route via chat.chatApi.
+      api: chat.chatApi ?? "/api/npc-chat",
       // Same body on every turn — the server reads npcId/mode/invitee
       // alongside the messages.
       body: {
         npcId: chat.npcId,
         mode: chat.mode ?? "direct",
         ...(chat.invitee ? { invitee: chat.invitee } : {}),
+        ...(viewerSlug ? { townSlug: viewerSlug } : {}),
       },
     }),
   });
