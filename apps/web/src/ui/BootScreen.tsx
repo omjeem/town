@@ -47,7 +47,7 @@ export function BootScreen({ onDone }: { onDone: () => void }) {
   }, [onDone]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background-3 font-mono text-[#e8e4d8]">
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background font-mono text-foreground">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/town_logo_plate_light.svg"
@@ -56,7 +56,7 @@ export function BootScreen({ onDone }: { onDone: () => void }) {
         draggable={false}
       />
       <div
-        className="mb-6 text-[20px] font-semibold tracking-tight text-[#e8e4d8]"
+        className="mb-6 text-[20px] font-semibold tracking-tight text-foreground"
         style={{ fontFamily: "var(--font-press-start-2p)" }}
       >
         town
@@ -64,7 +64,7 @@ export function BootScreen({ onDone }: { onDone: () => void }) {
       <div className="mb-8 text-[12px] opacity-70">booting…</div>
       <div className="h-3 w-[280px] border border-white/40 bg-black/40">
         <div
-          className="h-full bg-[#0381e9] transition-[width] duration-100"
+          className="h-full bg-primary transition-[width] duration-100"
           style={{ width: `${progress}%` }}
         />
       </div>

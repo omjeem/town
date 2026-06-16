@@ -104,11 +104,11 @@ export function Tasks() {
         <div className="h-1.5 w-full" style={{ background: OFFICE_ACCENT }} />
 
         <div className="flex items-center gap-3 border-b-2 border-black px-5 py-3">
-          <div className="text-base font-black tracking-wide text-[#1a1d22]">
+          <div className="text-base font-black tracking-wide text-ink">
             TASKS
           </div>
           {tasks ? (
-            <span className="text-[11px] uppercase text-[#1a1d22] opacity-50">
+            <span className="text-[11px] uppercase text-ink opacity-50">
               {tasks.length} total
             </span>
           ) : null}
@@ -130,13 +130,13 @@ export function Tasks() {
         </div>
 
         <div className="flex items-center justify-between border-t-2 border-black px-4 py-2">
-          <span className="text-[10px] font-medium uppercase text-[#1a1d22] opacity-50">
+          <span className="text-[10px] font-medium uppercase text-ink opacity-50">
             ESC to close · click outside to dismiss
           </span>
           <button
             type="button"
             onClick={() => ui.closeTasks()}
-            className="text-xs font-medium uppercase text-[#1a1d22] opacity-60 hover:opacity-100"
+            className="text-xs font-medium uppercase text-ink opacity-60 hover:opacity-100"
           >
             Close
           </button>
@@ -196,7 +196,7 @@ function Section({ status, tasks }: { status: TaskStatus; tasks: Task[] }) {
             {status}
           </span>
         </div>
-        <span className="ml-auto text-[10px] uppercase text-[#1a1d22] opacity-40">
+        <span className="ml-auto text-[10px] uppercase text-ink opacity-40">
           {tasks.length}
         </span>
       </div>
@@ -221,7 +221,7 @@ function TaskRow({ task }: { task: Task }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm leading-snug text-[#1a1d22]">
+          <span className="text-sm leading-snug text-ink">
             {task.title || "(untitled)"}
           </span>
           {isRecurring ? <RecurringGlyph /> : null}
@@ -263,7 +263,7 @@ function RecurringGlyph() {
     <span
       aria-label="recurring"
       title="Recurring"
-      className="inline-flex h-3.5 w-3.5 items-center justify-center text-[#1a1d22] opacity-50"
+      className="inline-flex h-3.5 w-3.5 items-center justify-center text-ink opacity-50"
     >
       <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 12a9 9 0 0 1 15.5-6.36L21 8" />
@@ -286,7 +286,7 @@ function ButlerPill({
 }) {
   const when = formatNextRun(nextRunAt);
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-md border border-black/15 bg-black/[0.04] px-1.5 py-0.5 text-[11px] text-[#1a1d22]">
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-black/15 bg-black/[0.04] px-1.5 py-0.5 text-[11px] text-ink">
       <BotGlyph />
       <span className="font-medium">Butler</span>
       {when ? (
@@ -307,7 +307,7 @@ function ButlerPill({
 
 function BotGlyph() {
   return (
-    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#1a1d22] opacity-70">
+    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink opacity-70">
       <rect x="4" y="7" width="16" height="13" rx="2" />
       <path d="M12 7V3" />
       <circle cx="9" cy="13" r="1" />
@@ -327,8 +327,8 @@ function Empty({ message, tone }: { message: string; tone?: "error" }) {
       <p
         className={
           tone === "error"
-            ? "text-sm text-[#b34242]"
-            : "text-sm text-[#1a1d22] opacity-60"
+            ? "text-sm text-destructive"
+            : "text-sm text-ink opacity-60"
         }
       >
         {message}

@@ -68,23 +68,23 @@ export function VisitorGate({
   const canSubmit = name.trim().length >= 1 && code.trim().length >= 4;
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-[#c5d0dc] p-6">
+    <div className="flex h-screen w-screen items-center justify-center bg-wall p-6">
       <div className="nb-card flex w-full max-w-md flex-col gap-4 p-6">
         <div>
-          <div className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60">
+          <div className="text-xs font-bold uppercase tracking-wide text-ink opacity-60">
             You're invited to
           </div>
-          <h1 className="mt-1 text-2xl font-black leading-tight text-[#1a1d22]">
+          <h1 className="mt-1 text-2xl font-black leading-tight text-ink">
             {townName}
           </h1>
-          <p className="mt-2 text-sm text-[#1a1d22] opacity-70">
+          <p className="mt-2 text-sm text-ink opacity-70">
             Enter your name and the town code to take a look around.
             Read-only — no edits.
           </p>
         </div>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60">
+          <span className="text-xs font-bold uppercase tracking-wide text-ink opacity-60">
             Your name
           </span>
           <input
@@ -92,14 +92,14 @@ export function VisitorGate({
             onChange={(e) => setName(e.target.value)}
             placeholder="Jane"
             maxLength={64}
-            className="nb-tile bg-[var(--paper)] px-3 py-2 text-base font-bold text-[#1a1d22] outline-none focus:translate-x-[1px] focus:translate-y-[1px]"
+            className="nb-tile bg-paper px-3 py-2 text-base font-bold text-ink outline-none focus:translate-x-[1px] focus:translate-y-[1px]"
             autoFocus
             disabled={submitting}
           />
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60">
+          <span className="text-xs font-bold uppercase tracking-wide text-ink opacity-60">
             Town code
           </span>
           <input
@@ -108,13 +108,13 @@ export function VisitorGate({
             placeholder="K7M2QX"
             maxLength={8}
             spellCheck={false}
-            className="nb-tile bg-[var(--paper)] px-3 py-2 font-mono text-base font-bold tracking-[0.3em] text-[#1a1d22] outline-none focus:translate-x-[1px] focus:translate-y-[1px]"
+            className="nb-tile bg-paper px-3 py-2 font-mono text-base font-bold tracking-[0.3em] text-ink outline-none focus:translate-x-[1px] focus:translate-y-[1px]"
             disabled={submitting}
           />
         </label>
 
         {error ? (
-          <div className="text-sm font-bold" style={{ color: "#b91c1c" }}>
+          <div className="text-sm font-bold" style={{ color: "var(--destructive)" }}>
             {error}
           </div>
         ) : null}
@@ -124,7 +124,7 @@ export function VisitorGate({
             <button
               type="button"
               onClick={() => startLogin(`/${townSlug}`)}
-              className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60 hover:opacity-100"
+              className="text-xs font-bold uppercase tracking-wide text-ink opacity-60 hover:opacity-100"
               disabled={submitting}
             >
               Sign in with CORE instead

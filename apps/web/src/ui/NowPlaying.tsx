@@ -26,16 +26,16 @@ export function NowPlaying({ state }: { state: NowPlayingState }) {
       ) : (
         <div
           className="nb-tile flex h-12 w-12 shrink-0 items-center justify-center text-lg font-black"
-          style={{ background: "#1db954", color: "#1a1d22" }}
+          style={{ background: "#1db954", color: "var(--ink)" }}
         >
           ♫
         </div>
       )}
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="truncate text-sm font-bold leading-tight text-[#1a1d22]">
+        <div className="truncate text-sm font-bold leading-tight text-ink">
           {name}
         </div>
-        <div className="truncate text-[11px] leading-tight text-[#1a1d22] opacity-60">
+        <div className="truncate text-[11px] leading-tight text-ink opacity-60">
           {artists}
         </div>
         <div className="mt-1 h-1 w-full bg-black/10">

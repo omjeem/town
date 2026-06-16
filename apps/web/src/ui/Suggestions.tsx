@@ -39,10 +39,10 @@ export function Suggestions({ list }: { list: SuggestionItem[] }) {
       >
         <header className="flex items-center justify-between">
           <div>
-            <div className="text-base font-black leading-tight text-[#1a1d22]">
+            <div className="text-base font-black leading-tight text-ink">
               Suggestions
             </div>
-            <div className="text-[11px] leading-tight text-[#1a1d22] opacity-60">
+            <div className="text-[11px] leading-tight text-ink opacity-60">
               {list.length === 0
                 ? "Nothing waiting — your butler's caught up."
                 : `${list.length} change${list.length === 1 ? "" : "s"} waiting on you.`}
@@ -51,7 +51,7 @@ export function Suggestions({ list }: { list: SuggestionItem[] }) {
           <button
             type="button"
             onClick={() => ui.closeSuggestions()}
-            className="nb-card px-2 py-1 text-sm font-bold text-[#1a1d22]"
+            className="nb-card px-2 py-1 text-sm font-bold text-ink"
             title="Close (Esc)"
           >
             ×
@@ -80,8 +80,8 @@ function EmptyState() {
       <div className="text-2xl" aria-hidden>
         ☕
       </div>
-      <div className="text-sm font-bold text-[#1a1d22]">All quiet</div>
-      <div className="text-[11px] leading-snug text-[#1a1d22] opacity-60">
+      <div className="text-sm font-bold text-ink">All quiet</div>
+      <div className="text-[11px] leading-snug text-ink opacity-60">
         New suggestions land here when your butler hears something new about you.
       </div>
     </div>
@@ -118,21 +118,21 @@ function SuggestionCard({ suggestion }: { suggestion: SuggestionItem }) {
           aria-hidden
         />
         <div className="flex-1 min-w-0">
-          <div className="text-xs font-black uppercase tracking-wide text-[#1a1d22] opacity-60">
+          <div className="text-xs font-black uppercase tracking-wide text-ink opacity-60">
             {labelFor(suggestion.kind)}
           </div>
-          <div className="text-sm font-bold leading-tight text-[#1a1d22]">
+          <div className="text-sm font-bold leading-tight text-ink">
             {title}
           </div>
         </div>
       </div>
 
-      <p className="text-[12px] leading-snug text-[#1a1d22] opacity-80">
+      <p className="text-[12px] leading-snug text-ink opacity-80">
         {suggestion.reason}
       </p>
 
       {detail ? (
-        <div className="rounded-sm bg-black/5 px-2 py-1.5 text-[11px] leading-snug text-[#1a1d22] opacity-80">
+        <div className="rounded-sm bg-black/5 px-2 py-1.5 text-[11px] leading-snug text-ink opacity-80">
           {detail}
         </div>
       ) : null}
@@ -142,7 +142,7 @@ function SuggestionCard({ suggestion }: { suggestion: SuggestionItem }) {
           type="button"
           onClick={onApply}
           disabled={busy !== null}
-          className="nb-card flex-1 px-3 py-1.5 text-sm font-black text-[#1a1d22] disabled:opacity-50"
+          className="nb-card flex-1 px-3 py-1.5 text-sm font-black text-ink disabled:opacity-50"
           style={{ background: PALETTE.h150 }}
         >
           {busy === "approve" ? "Applying…" : "Apply"}
@@ -151,7 +151,7 @@ function SuggestionCard({ suggestion }: { suggestion: SuggestionItem }) {
           type="button"
           onClick={onDecline}
           disabled={busy !== null}
-          className="nb-card flex-1 px-3 py-1.5 text-sm font-black text-[#1a1d22] disabled:opacity-50"
+          className="nb-card flex-1 px-3 py-1.5 text-sm font-black text-ink disabled:opacity-50"
         >
           {busy === "decline" ? "Declining…" : "Decline"}
         </button>

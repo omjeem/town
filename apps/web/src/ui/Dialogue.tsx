@@ -126,15 +126,15 @@ export function Dialogue({
         <div className="h-1.5 w-full" style={{ background: dialogue.accent }} />
 
         <div className="flex items-center justify-between border-b-2 border-black px-5 py-2">
-          <div className="text-[11px] font-black uppercase tracking-wider text-[#1a1d22]">
+          <div className="text-[11px] font-black uppercase tracking-wider text-ink">
             {dialogue.speaker}
           </div>
-          <div className="text-[10px] uppercase text-[#1a1d22] opacity-50">
+          <div className="text-[10px] uppercase text-ink opacity-50">
             {allDone ? "click to choose" : "click / SPACE to skip"}
           </div>
         </div>
 
-        <div className="min-h-[110px] space-y-2 px-5 py-4 text-[15px] leading-relaxed text-[#1a1d22]">
+        <div className="min-h-[110px] space-y-2 px-5 py-4 text-[15px] leading-relaxed text-ink">
           {dialogue.lines.slice(0, lineIdx).map((l, i) => (
             <p key={i} className="opacity-70">
               {l}
@@ -158,7 +158,7 @@ export function Dialogue({
                 type="button"
                 onClick={() => allDone && dialogue.secondary?.onPress()}
                 disabled={!allDone}
-                className="text-xs font-semibold uppercase text-[#1a1d22] opacity-60 hover:opacity-100 disabled:cursor-not-allowed"
+                className="text-xs font-semibold uppercase text-ink opacity-60 hover:opacity-100 disabled:cursor-not-allowed"
               >
                 {dialogue.secondary.label}
               </button>

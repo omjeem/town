@@ -67,22 +67,22 @@ export function Onboarding({ userName }: { userName: string }) {
   const canSubmit = name.trim().length >= 2 && slug.trim().length >= 2;
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-[#c5d0dc] p-6">
+    <div className="flex h-screen w-screen items-center justify-center bg-wall p-6">
       <div className="nb-card flex w-full max-w-md flex-col gap-4 p-6">
         <div>
-          <div className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60">
+          <div className="text-xs font-bold uppercase tracking-wide text-ink opacity-60">
             Welcome
           </div>
-          <h1 className="mt-1 text-2xl font-black leading-tight text-[#1a1d22]">
+          <h1 className="mt-1 text-2xl font-black leading-tight text-ink">
             Name your town
           </h1>
-          <p className="mt-2 text-sm text-[#1a1d22] opacity-70">
+          <p className="mt-2 text-sm text-ink opacity-70">
             This is how people will find you. You can share the URL with anyone.
           </p>
         </div>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60">
+          <span className="text-xs font-bold uppercase tracking-wide text-ink opacity-60">
             Town name
           </span>
           <input
@@ -90,24 +90,24 @@ export function Onboarding({ userName }: { userName: string }) {
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Harshton"
             maxLength={64}
-            className="nb-tile bg-[var(--paper)] px-3 py-2 text-base font-bold text-[#1a1d22] outline-none focus:translate-x-[1px] focus:translate-y-[1px]"
+            className="nb-tile bg-paper px-3 py-2 text-base font-bold text-ink outline-none focus:translate-x-[1px] focus:translate-y-[1px]"
             autoFocus
             disabled={submitting}
           />
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60">
+          <span className="text-xs font-bold uppercase tracking-wide text-ink opacity-60">
             URL
           </span>
           <div
-            className="nb-tile flex items-center gap-1 bg-[var(--paper)] px-3 py-2"
+            className="nb-tile flex items-center gap-1 bg-paper px-3 py-2"
             style={{ background: PALETTE.h240 }}
           >
-            <span className="text-sm font-bold text-[#1a1d22] opacity-50">
+            <span className="text-sm font-bold text-ink opacity-50">
               {host}
             </span>
-            <span className="text-sm font-bold text-[#1a1d22]">/</span>
+            <span className="text-sm font-bold text-ink">/</span>
             <input
               value={slug}
               onChange={(e) => {
@@ -116,14 +116,14 @@ export function Onboarding({ userName }: { userName: string }) {
               }}
               placeholder="harshton"
               maxLength={32}
-              className="flex-1 bg-transparent text-sm font-bold text-[#1a1d22] outline-none"
+              className="flex-1 bg-transparent text-sm font-bold text-ink outline-none"
               disabled={submitting}
             />
           </div>
         </label>
 
         {error ? (
-          <div className="text-sm font-bold" style={{ color: "#b91c1c" }}>
+          <div className="text-sm font-bold" style={{ color: "var(--destructive)" }}>
             {error}
           </div>
         ) : null}
@@ -134,7 +134,7 @@ export function Onboarding({ userName }: { userName: string }) {
             onClick={() => {
               void logout().then(() => window.location.reload());
             }}
-            className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60 hover:opacity-100"
+            className="text-xs font-bold uppercase tracking-wide text-ink opacity-60 hover:opacity-100"
             disabled={submitting}
           >
             Sign out

@@ -52,14 +52,16 @@ export function Chat({ chat }: { chat: NonNullable<ChatState> }) {
     el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  // ESC closes (and aborts any in-flight stream). Ignore ESC while typing
-  // so the player can press it from the input.
+  // ESC always closes the chat (and aborts any in-flight stream),
+  // including from inside the text input — standard modal behaviour.
+  // The earlier exemption that ignored ESC when the input had focus
+  // meant the chat refused to close after the user typed anything,
+  // which is exactly when they're most likely to press it.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      const t = e.target as HTMLElement | null;
-      const tag = t?.tagName ?? "";
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      e.preventDefault();
+      e.stopPropagation();
       stop();
       ui.closeChat();
     };
@@ -80,23 +82,23 @@ export function Chat({ chat }: { chat: NonNullable<ChatState> }) {
   return (
     <div className="pointer-events-auto fixed inset-0 z-40 flex items-end justify-center bg-black/40 backdrop-blur-sm">
       <div
-        className="m-4 flex w-full max-w-2xl flex-col gap-3 rounded-md border-2 border-[#1a1d22] bg-[#f6f3ea] p-4 shadow-[6px_6px_0_0_#1a1d22]"
+        className="m-4 flex w-full max-w-2xl flex-col gap-3 rounded-md border-2 border-ink bg-paper p-4 shadow-[6px_6px_0_0_#1a1d22]"
         role="dialog"
         aria-label={`Chat with ${chat.speaker}`}
       >
         {/* Header — name + close. */}
-        <div className="flex items-center justify-between gap-3 border-b-2 border-[#1a1d22] pb-2">
+        <div className="flex items-center justify-between gap-3 border-b-2 border-ink pb-2">
           <div className="flex items-center gap-3">
             <div
-              className="h-9 w-9 border-2 border-[#1a1d22] text-base font-black"
+              className="h-9 w-9 border-2 border-ink text-base font-black"
               style={{ background: chat.accent }}
               aria-hidden
             />
             <div className="flex flex-col leading-tight">
-              <span className="text-sm font-bold uppercase tracking-wider text-[#1a1d22]">
+              <span className="text-sm font-bold uppercase tracking-wider text-ink">
                 {chat.speaker}
               </span>
-              <span className="text-[10px] uppercase tracking-wider text-[#1a1d22] opacity-60">
+              <span className="text-[10px] uppercase tracking-wider text-ink opacity-60">
                 {chat.mode === "invited" && chat.invitee
                   ? `with ${chat.invitee.name}`
                   : "in conversation"}
@@ -109,7 +111,7 @@ export function Chat({ chat }: { chat: NonNullable<ChatState> }) {
               stop();
               ui.closeChat();
             }}
-            className="border-2 border-[#1a1d22] bg-[#f6f3ea] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[#1a1d22] hover:bg-[#1a1d22] hover:text-[#f6f3ea]"
+            className="border-2 border-ink bg-paper px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-ink hover:bg-ink hover:text-paper"
             aria-label="Close chat"
           >
             ESC
@@ -143,13 +145,13 @@ export function Chat({ chat }: { chat: NonNullable<ChatState> }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={busy ? "..." : `Say something to ${chat.speaker}`}
-            className="flex-1 border-2 border-[#1a1d22] bg-white px-3 py-2 text-[14px] text-[#1a1d22] focus:outline-none"
+            className="flex-1 border-2 border-ink bg-white px-3 py-2 text-[14px] text-ink focus:outline-none"
             autoFocus
           />
           <button
             type="submit"
             disabled={!input.trim() || busy}
-            className="border-2 border-[#1a1d22] bg-[#1a1d22] px-3 py-2 text-[12px] font-bold uppercase tracking-wider text-[#f6f3ea] disabled:opacity-40"
+            className="border-2 border-ink bg-ink px-3 py-2 text-[12px] font-bold uppercase tracking-wider text-paper disabled:opacity-40"
           >
             {busy ? "Sending" : "Send"}
           </button>
@@ -163,7 +165,7 @@ function NpcGreeting({ accent, text }: { accent: string; text: string }) {
   return (
     <div className="flex justify-start">
       <div
-        className="max-w-[80%] whitespace-pre-wrap break-words rounded-md border-2 border-[#1a1d22] bg-white px-3 py-2 text-[14px] leading-relaxed text-[#1a1d22]"
+        className="max-w-[80%] whitespace-pre-wrap break-words rounded-md border-2 border-ink bg-white px-3 py-2 text-[14px] leading-relaxed text-ink"
         style={{ borderLeft: `6px solid ${accent}` }}
       >
         {text}
@@ -188,10 +190,10 @@ function Bubble({
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className="max-w-[80%] whitespace-pre-wrap break-words rounded-md border-2 border-[#1a1d22] px-3 py-2 text-[14px] leading-relaxed"
+        className="max-w-[80%] whitespace-pre-wrap break-words rounded-md border-2 border-ink px-3 py-2 text-[14px] leading-relaxed"
         style={{
           background: isUser ? accent : "#ffffff",
-          color: "#1a1d22",
+          color: "var(--ink)",
         }}
       >
         {text}

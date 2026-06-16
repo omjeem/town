@@ -25,17 +25,17 @@ export function VisitorHud({
           {letter}
         </div>
         <div className="flex flex-col">
-          <div className="text-[10px] font-bold uppercase leading-tight tracking-wide text-[#1a1d22] opacity-60">
+          <div className="text-[10px] font-bold uppercase leading-tight tracking-wide text-ink opacity-60">
             Visiting
           </div>
-          <div className="text-sm font-bold leading-tight text-[#1a1d22]">
+          <div className="text-sm font-bold leading-tight text-ink">
             {townName}
           </div>
         </div>
       </div>
       <a
         href="/"
-        className="nb-card px-3 py-2 text-xs font-bold uppercase tracking-wide text-[#1a1d22]"
+        className="nb-card px-3 py-2 text-xs font-bold uppercase tracking-wide text-ink"
         title={`Leave ${townSlug}`}
       >
         Exit

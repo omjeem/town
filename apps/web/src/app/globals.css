@@ -367,6 +367,15 @@
    * --font-geist-sans / --font-geist-mono on <html>. */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Town neobrutalism aliases — exposed as Tailwind color utilities
+   * so components stop reaching for arbitrary `bg-[#1a1d22]` /
+   * `text-[var(--paper)]` syntax and read as bg-ink / text-paper /
+   * border-ink / bg-wall / bg-ink-shadow instead. */
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-wall: var(--wall);
+  --color-ink-shadow: var(--shadow);
 }
 
 html,

@@ -40,10 +40,10 @@ export function Panel({ panel }: { panel: NonNullable<PanelState> }) {
           style={{ background: panel.accent }}
         />
         <div className="px-5 pt-4 pb-3">
-          <div className="text-base font-black tracking-wide text-[#1a1d22]">
+          <div className="text-base font-black tracking-wide text-ink">
             {panel.title}
           </div>
-          <div className="mt-3 space-y-1 font-mono text-[13px] leading-snug text-[#1a1d22]">
+          <div className="mt-3 space-y-1 font-mono text-[13px] leading-snug text-ink">
             {panel.lines.map((line, i) => (
               <div key={i} className={line === "" ? "h-2" : undefined}>
                 {line}
@@ -54,7 +54,7 @@ export function Panel({ panel }: { panel: NonNullable<PanelState> }) {
         <div className="flex items-center justify-between border-t-2 border-black px-4 py-3">
           <button
             type="button"
-            className="text-xs font-medium uppercase text-[#1a1d22] opacity-60 hover:opacity-100"
+            className="text-xs font-medium uppercase text-ink opacity-60 hover:opacity-100"
             onClick={() => ui.closePanel()}
           >
             ESC to close

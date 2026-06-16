@@ -17,7 +17,7 @@ export function InteractionPrompt({ prompt }: { prompt: NonNullable<PromptState>
       <kbd className="nb-key flex h-6 items-center justify-center px-2 text-[11px] font-bold">
         SPACE
       </kbd>
-      <span className="text-sm font-semibold text-[#1a1d22]">{prompt.label}</span>
+      <span className="text-sm font-semibold text-ink">{prompt.label}</span>
     </div>
   );
 }
