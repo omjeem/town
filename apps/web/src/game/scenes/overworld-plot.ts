@@ -204,21 +204,15 @@ function drawBuilding(k: KAPLAYCtx, b: PlotBuilding) {
   const accent = hex(k, theme.buildings.HOME.accent);
   const ink = hex(k, INK);
   const cream = hex(k, theme.signCream);
-  // Board sized so an 8px label fits with breathing room. Wider than
-  // before (TILE * 4) so longer plotKeys like "LIBRARY" don't crowd the
-  // edge. Letter spacing is tightened on the text component so the
-  // word stays compact inside that wider board.
-  const boardW = TILE * 4;
-  const boardH = 18;
-  const boardX = signPx + TILE * 1.5 - boardW / 2;
-
-  // Post under the board.
   k.add([
     k.rect(3, 18),
-    k.pos(signPx + TILE * 1.5 - 1.5, signPy + boardH),
+    k.pos(signPx + TILE * 1.5 - 1.5, signPy + 14),
     k.color(ink),
     k.z(20),
   ]);
+  const boardW = TILE * 3;
+  const boardH = 14;
+  const boardX = signPx + TILE * 1.5 - boardW / 2;
   k.add([
     k.rect(boardW, boardH, { radius: 2 }),
     k.pos(boardX, signPy),
@@ -233,9 +227,9 @@ function drawBuilding(k: KAPLAYCtx, b: PlotBuilding) {
     k.z(20.2),
   ]);
   k.add([
-    k.text(b.plotKey.toUpperCase(), { size: 8, letterSpacing: 0 }),
+    k.text(b.plotKey.toUpperCase(), { size: 8 }),
     k.anchor("center"),
-    k.pos(boardX + boardW / 2, signPy + boardH / 2 - 2),
+    k.pos(boardX + boardW / 2, signPy + boardH / 2 - 1),
     k.color(ink),
     k.z(20.3),
   ]);
