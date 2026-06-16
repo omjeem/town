@@ -16,27 +16,12 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { resolveUser } from "@/lib/auth-bearer";
+import { loadManifest } from "@/lib/manifest";
 import { getPlotForUser, savePlotForUser, getPlotVersionForUser } from "@/lib/plot";
 import { getTownBySlug } from "@/lib/town";
 import { parseVisitorCookie, visitorCookieName } from "@/lib/town-code";
 import type { Plot } from "@town/plot";
-import { validatePlot, type Manifest } from "@town/plot";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
-let manifestCache: Manifest | null = null;
-function loadManifest(): Manifest {
-  if (manifestCache) return manifestCache;
-  const path = resolve(
-    process.cwd(),
-    "public",
-    "sprites",
-    "extras",
-    "MANIFEST.json",
-  );
-  manifestCache = JSON.parse(readFileSync(path, "utf8")) as Manifest;
-  return manifestCache;
-}
+import { validatePlot } from "@town/plot";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);

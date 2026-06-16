@@ -33,6 +33,15 @@ RUN pnpm --filter @town/web build
 
 FROM node:22-alpine AS runner
 RUN corepack enable && corepack prepare pnpm@latest --activate
+# Postcard renderer (@napi-rs/canvas / Skia) does its own text layout
+# but resolves font families through fontconfig. Alpine ships without
+# any fonts, so the town sign's fillText would render blank glyphs in
+# production. Pull in fontconfig + a wide-coverage sans-serif family so
+# the canvas can satisfy the "sans-serif" / "ui-sans-serif" fallback
+# chain the sign uses. noto-emoji is optional, but cheap, and means
+# the "→" arrow keeps rendering.
+RUN apk add --no-cache fontconfig font-noto font-noto-emoji \
+    && fc-cache -f
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000

@@ -67,9 +67,9 @@ export function Hud({ hud, inbox }: { hud: HudKind; inbox: InboxState }) {
   );
 }
 
-// Click-to-open dropdown on the identity card. Two actions today: Share
-// (opens the share modal via the UI store) and Logout. Closes on outside
-// click + on Escape.
+// Click-to-open dropdown on the identity card. Actions: Invite (URL +
+// code modal), Share (screenshot + Twitter/WhatsApp/Download modal), and
+// Logout. Closes on outside click + on Escape.
 function IdentityMenu({
   name,
   letter,
@@ -135,10 +135,21 @@ function IdentityMenu({
             className="w-full px-3 py-2 text-left text-sm font-bold text-[#1a1d22] hover:bg-black/5"
             onClick={() => {
               setOpen(false);
-              ui.openShare();
+              ui.openInvite();
             }}
           >
-            Share town…
+            Invite…
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="w-full px-3 py-2 text-left text-sm font-bold text-[#1a1d22] hover:bg-black/5"
+            onClick={() => {
+              setOpen(false);
+              ui.openShareImage();
+            }}
+          >
+            Share…
           </button>
           <button
             type="button"

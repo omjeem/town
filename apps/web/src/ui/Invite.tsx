@@ -1,22 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { takeScreenshotDataUrl } from "../game/boot";
 import { PALETTE } from "../game/config";
 import { ui } from "./store";
 
-// Share modal — surfaced from the identity card dropdown.
+// Invite modal — surfaced from the identity card dropdown's "Invite"
+// action.
 //
-//   • Shows the town URL and the active share code (rotatable).
+//   • Shows the town URL with `?invite_code=<code>` baked in so the
+//     visitor lands on the gate with the code pre-filled.
+//   • Also surfaces the raw code for users who'd rather paste it.
 //   • Reset button mints a fresh code (invalidates the old one immediately).
-//   • Download screenshot grabs the current kaplay frame as a PNG.
 //
 // Fetches the slug + code on mount via /api/towns/me and
 // /api/towns/{slug}/share-code. Both endpoints are owner-only — the menu
 // itself is only mounted on the owner side, so unauthenticated callers
 // shouldn't see this.
-export function Share() {
+export function Invite() {
   const [slug, setSlug] = useState<string | null>(null);
   const [townName, setTownName] = useState<string | null>(null);
   const [code, setCode] = useState<string | null>(null);
@@ -28,7 +29,7 @@ export function Share() {
   // Close on Escape.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") ui.closeShare();
+      if (e.key === "Escape") ui.closeInvite();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -84,10 +85,11 @@ export function Share() {
     };
   }, []);
 
-  const townUrl =
-    slug && typeof window !== "undefined"
-      ? `${window.location.origin}/${slug}`
-      : null;
+  const inviteUrl = useMemo(() => {
+    if (!slug || typeof window === "undefined") return null;
+    const base = `${window.location.origin}/${slug}`;
+    return code ? `${base}?invite_code=${encodeURIComponent(code)}` : base;
+  }, [slug, code]);
 
   async function rotateCode() {
     if (!slug) return;
@@ -123,32 +125,18 @@ export function Share() {
     }
   }
 
-  function downloadScreenshot() {
-    const dataUrl = takeScreenshotDataUrl();
-    if (!dataUrl) {
-      setError("Couldn't capture a screenshot — try again from the overworld.");
-      return;
-    }
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = `${slug ?? "town"}.png`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
-
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6"
       onClick={(e) => {
-        if (e.target === e.currentTarget) ui.closeShare();
+        if (e.target === e.currentTarget) ui.closeInvite();
       }}
     >
       <div className="nb-card flex w-full max-w-md flex-col gap-4 p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60">
-              Share
+              Invite
             </div>
             <h2 className="mt-1 text-2xl font-black leading-tight text-[#1a1d22]">
               {townName ?? "Your town"}
@@ -156,7 +144,7 @@ export function Share() {
           </div>
           <button
             type="button"
-            onClick={() => ui.closeShare()}
+            onClick={() => ui.closeInvite()}
             className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60 hover:opacity-100"
           >
             Close
@@ -171,20 +159,23 @@ export function Share() {
           <>
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60">
-                URL
+                Invite link
               </span>
               <div className="nb-tile flex items-center justify-between gap-2 bg-[var(--paper)] px-3 py-2">
                 <span className="truncate text-sm font-bold text-[#1a1d22]">
-                  {townUrl}
+                  {inviteUrl}
                 </span>
                 <button
                   type="button"
-                  onClick={() => townUrl && void copy(townUrl, "url")}
+                  onClick={() => inviteUrl && void copy(inviteUrl, "url")}
                   className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60 hover:opacity-100"
                 >
                   {copyState === "url" ? "Copied" : "Copy"}
                 </button>
               </div>
+              <span className="mt-1 text-[11px] text-[#1a1d22] opacity-60">
+                Anyone with this link lands on the gate with the code pre-filled.
+              </span>
             </div>
 
             <div className="flex flex-col gap-1">
@@ -208,7 +199,7 @@ export function Share() {
               </div>
               <div className="mt-1 flex items-center justify-between gap-2">
                 <span className="text-[11px] text-[#1a1d22] opacity-60">
-                  Visitors enter this code with their name.
+                  Or paste this code into the gate manually.
                 </span>
                 <button
                   type="button"
@@ -219,20 +210,6 @@ export function Share() {
                   {rotating ? "Resetting…" : "Reset code"}
                 </button>
               </div>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold uppercase tracking-wide text-[#1a1d22] opacity-60">
-                Screenshot
-              </span>
-              <button
-                type="button"
-                onClick={() => downloadScreenshot()}
-                className="nb-tile px-3 py-2 text-sm font-black uppercase tracking-wide"
-                style={{ background: PALETTE.h240, cursor: "pointer" }}
-              >
-                Download PNG of current view
-              </button>
             </div>
 
             {error ? (

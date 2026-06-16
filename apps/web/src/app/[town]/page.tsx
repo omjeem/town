@@ -7,23 +7,77 @@
 // Slug is server-resolved against Town.slug. 404 if no such town. The
 // owner check is by Session.userId === Town.ownerId.
 
-import { cookies } from "next/headers";
+import type { Metadata } from "next";
+import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { OWNER_DEFAULT_CHARACTER } from "@/lib/characters";
 import { prisma } from "@/lib/db";
 import { getSessionFromCookie } from "@/lib/session";
 import { getTownBySlug } from "@/lib/town";
-import { parseVisitorCookie, visitorCookieName } from "@/lib/town-code";
+import { normalizeCode, parseVisitorCookie, visitorCookieName } from "@/lib/town-code";
 import { TownGame } from "@/ui/TownGame";
 import { VisitorGate } from "@/ui/VisitorGate";
 
-export default async function TownPage({
+// OG + Twitter card. Builds absolute URLs from the live request host
+// so the meta tags work behind ngrok, on prod, and on localhost without
+// having to maintain a NEXT_PUBLIC_SITE_URL — scrapers like Twitter's
+// Card validator and LinkedIn's Post Inspector need a URL they can
+// fetch, and `metadataBase` defaults to localhost in dev.
+export async function generateMetadata({
   params,
 }: {
   params: Promise<{ town: string }>;
+}): Promise<Metadata> {
+  const { town: slug } = await params;
+  const town = await getTownBySlug(slug);
+  if (!town) return {};
+
+  const hdrs = await headers();
+  const host =
+    hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "localhost:3000";
+  const proto =
+    hdrs.get("x-forwarded-proto") ??
+    (host.startsWith("localhost") ? "http" : "https");
+  const origin = `${proto}://${host}`;
+
+  const title = `${town.name} — core town`;
+  const description = `Visit ${town.name}. A CORE town built in pixels.`;
+  const image = `${origin}/api/towns/${slug}/postcard.png`;
+  const pageUrl = `${origin}/${slug}`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: pageUrl,
+      images: [{ url: image, width: 1200, height: 628, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [image],
+    },
+  };
+}
+
+export default async function TownPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ town: string }>;
+  searchParams: Promise<{ invite_code?: string | string[] }>;
 }) {
   const { town: slug } = await params;
+  const sp = await searchParams;
+  const rawInvite = Array.isArray(sp.invite_code)
+    ? sp.invite_code[0]
+    : sp.invite_code;
+  const initialInviteCode = rawInvite ? normalizeCode(rawInvite) : "";
   const town = await getTownBySlug(slug);
   if (!town) notFound();
 
@@ -64,6 +118,7 @@ export default async function TownPage({
       townName={town.name}
       townSlug={town.slug}
       initialName={session?.user.name}
+      initialCode={initialInviteCode || undefined}
       signedIn={!!session}
     />
   );

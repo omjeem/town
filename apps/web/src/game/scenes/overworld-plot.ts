@@ -18,6 +18,7 @@
 import type { KAPLAYCtx } from "kaplay";
 
 import { TILE, VIEW_W, VIEW_H, INK, PALETTE, hex } from "../config";
+import { GRASS_HEX, autotile9Slice } from "../../lib/plot-render";
 import { theme } from "../theme";
 import { makePlayer, type Tile } from "../entities/player";
 import { attachRemotePlayers } from "../entities/remotePlayer";
@@ -108,33 +109,6 @@ async function loadPlotSprites(
   }
 
   await Promise.all(loads);
-}
-
-// =============================================================================
-// Autotile lookups — same logic as the catalog playground's pathSpriteFor /
-// pondSpriteFor, applied to a Set<string> of "tx,ty" keys.
-// =============================================================================
-
-function autotile9Slice(
-  set: Set<string>,
-  x: number,
-  y: number,
-  prefix: string,
-): string {
-  const has = (xx: number, yy: number) => set.has(xx + "," + yy);
-  const nG = !has(x, y - 1);
-  const sG = !has(x, y + 1);
-  const wG = !has(x - 1, y);
-  const eG = !has(x + 1, y);
-  if (nG && wG) return prefix + "_tl";
-  if (nG && eG) return prefix + "_tr";
-  if (sG && wG) return prefix + "_bl";
-  if (sG && eG) return prefix + "_br";
-  if (nG) return prefix + "_t";
-  if (sG) return prefix + "_b";
-  if (wG) return prefix + "_l";
-  if (eG) return prefix + "_r";
-  return prefix + "_c";
 }
 
 // =============================================================================
@@ -274,11 +248,6 @@ export type OverworldPlotOpts = {
    *  interior puts them back where they entered. */
   spawnFrom?: string;
 };
-
-// Grass base colour — the colour the ground rect uses AND the colour
-// kaplay's setBackground should use so any letterbox bar reads as forest
-// edge instead of "darker green" framing the world.
-const GRASS_HEX = "#6b9a4b";
 
 export function registerOverworldPlotScene(k: KAPLAYCtx) {
   k.scene("overworld-plot", (opts: OverworldPlotOpts = {}) => {
