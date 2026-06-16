@@ -1,7 +1,10 @@
 {
-  "name": "@town/cli",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@redplanethq/town",
+  "version": "0.1.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": "RedPlanetHQ",
   "type": "module",
   "bin": {
     "town": "./bin/town.js"
