@@ -47,12 +47,19 @@ export function BootScreen({ onDone }: { onDone: () => void }) {
   }, [onDone]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#1a1a1a] font-mono text-[#e8e4d8]">
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background-3 font-mono text-[#e8e4d8]">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/town_logo_plate_light.svg"
+        alt="town"
+        className="mb-3 h-24 w-24"
+        draggable={false}
+      />
       <div
-        className="mb-6 text-[28px] font-semibold tracking-tight text-[#0381e9]"
+        className="mb-6 text-[20px] font-semibold tracking-tight text-[#e8e4d8]"
         style={{ fontFamily: "var(--font-press-start-2p)" }}
       >
-        CORE TOWN
+        town
       </div>
       <div className="mb-8 text-[12px] opacity-70">booting…</div>
       <div className="h-3 w-[280px] border border-white/40 bg-black/40">

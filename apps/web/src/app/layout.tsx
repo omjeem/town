@@ -28,10 +28,45 @@ const pressStart2P = Press_Start_2P({
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
+// Defaults that flow through every page. Per-page metadata can:
+//   • override title — picks up the template, so a page that exports
+//     `title: "Onboarding"` renders as "Onboarding · town" in the
+//     browser tab.
+//   • override description / openGraph / twitter — replaces these.
+// Icons cover the browser tab (favicon), iOS / iPadOS home screen
+// (apple-touch-icon → /logo.png), and the desktop bookmark fallback.
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "core town",
-  description: "the CORE town — earn points, grow your memory, climb the leaderboard.",
+  title: {
+    default: "town",
+    template: "%s · town",
+  },
+  description:
+    "A pixel-art town built on CORE — a tiny world that knows you, lives in your browser, and remembers what you've been working on.",
+  applicationName: "town",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/logo.png", type: "image/png" },
+    ],
+    apple: "/logo.png",
+    shortcut: "/favicon.ico",
+  },
+  openGraph: {
+    title: "town",
+    description:
+      "A pixel-art town built on CORE — a tiny world that knows you, lives in your browser, and remembers what you've been working on.",
+    siteName: "town",
+    type: "website",
+    images: [{ url: "/logo.png", alt: "town" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "town",
+    description:
+      "A pixel-art town built on CORE — a tiny world that knows you, lives in your browser, and remembers what you've been working on.",
+    images: ["/logo.png"],
+  },
 };
 
 export default function RootLayout({
