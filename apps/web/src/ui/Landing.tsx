@@ -55,12 +55,13 @@ function WelcomeCard({ onDemo }: { onDemo: () => void }) {
         </div>
 
         <p className="leading-relaxed text-ink opacity-80">
-          Your world, as a tiny pixel town. The buildings hold the things you
-          keep in mind — what you've read, what you're working on, who you've
-          met — and the locals tend them for you. The librarian remembers what
-          you've said, the office gets things done, and HOME quietly keeps tabs
-          on what's on your mind. Claim a town of your own, then hand the
-          address to a friend so they can wander it too.
+          Your world, as a tiny pixel town that grows itself. The things you
+          care about — fitness, films, art, the side project — turn into
+          buildings, and locals show up to live in them: a gym coach here, a
+          film critic there, whoever your world calls for. Give them
+          personalities, plug them into your tools, then share the address.
+          Friends wander, meet your locals, bump into each other — and learn
+          who you are faster than any profile.
         </p>
 
         <div className="flex flex-col gap-2">
@@ -76,8 +77,8 @@ function WelcomeCard({ onDemo }: { onDemo: () => void }) {
               chat.
             </li>
             <li>
-              <span className="font-bold">Sign up</span> to claim your own town
-              — and invite friends in.
+              <span className="font-bold">Sign up</span> to start your own
+              town — invite friends, meet theirs.
             </li>
           </ul>
         </div>
