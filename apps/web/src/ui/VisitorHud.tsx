@@ -20,7 +20,7 @@ export function VisitorHud({
       <div className="nb-card flex items-center gap-3 px-3 py-2">
         <div
           className="nb-tile flex h-9 w-9 items-center justify-center text-base font-black"
-          style={{ background: PALETTE.h60 }}
+          style={{ background: PALETTE.h240 }}
         >
           {letter}
         </div>

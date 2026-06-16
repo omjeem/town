@@ -184,7 +184,7 @@ export function Invite() {
               </span>
               <div
                 className="nb-tile flex items-center justify-between gap-2 px-3 py-3"
-                style={{ background: PALETTE.h60 }}
+                style={{ background: PALETTE.h240 }}
               >
                 <span className="font-mono text-2xl font-black tracking-[0.4em] text-[#1a1d22]">
                   {code ?? "------"}

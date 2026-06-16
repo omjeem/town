@@ -175,7 +175,7 @@ function InboxBadge({ count }: { count: number }) {
   return (
     <div
       className="nb-card flex items-center gap-2 px-3 py-2"
-      style={{ background: PALETTE.h60, color: "#1a1d22" }}
+      style={{ background: PALETTE.h240, color: "#1a1d22" }}
       title="Walk back to home — the world runner has updates for you."
     >
       <span aria-hidden className="text-base leading-none">

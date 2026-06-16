@@ -277,14 +277,14 @@ export function ShareImage() {
         >
           <ShareButton
             label={copied ? "Copied" : "Copy link"}
-            background={PALETTE.h60}
+            background={PALETTE.h240}
             disabled={!shareUrl}
             onClick={() => void copyLink()}
             icon={CopyIcon}
           />
           <ShareButton
             label="Download"
-            background={PALETTE.h240}
+            background={PALETTE.h180}
             disabled={!imageObjectUrl}
             onClick={() => downloadImage()}
             icon={DownloadIcon}

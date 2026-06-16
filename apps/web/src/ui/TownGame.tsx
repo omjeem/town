@@ -240,7 +240,7 @@ function SuggestionsBadge({ count }: { count: number }) {
       type="button"
       onClick={() => ui.openSuggestions()}
       className="nb-card flex items-center gap-2 px-3 py-2 text-left"
-      style={{ background: PALETTE.h60, color: "#1a1d22" }}
+      style={{ background: PALETTE.h240, color: "#1a1d22" }}
       title="Open suggestions"
       aria-label={`${count} suggestion${count === 1 ? "" : "s"} waiting`}
     >

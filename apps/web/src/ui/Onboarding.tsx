@@ -102,7 +102,7 @@ export function Onboarding({ userName }: { userName: string }) {
           </span>
           <div
             className="nb-tile flex items-center gap-1 bg-[var(--paper)] px-3 py-2"
-            style={{ background: PALETTE.h60 }}
+            style={{ background: PALETTE.h240 }}
           >
             <span className="text-sm font-bold text-[#1a1d22] opacity-50">
               {host}

@@ -49,7 +49,7 @@ export function BootScreen({ onDone }: { onDone: () => void }) {
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#1a1a1a] font-mono text-[#e8e4d8]">
       <div
-        className="mb-6 text-[28px] font-semibold tracking-tight text-[#e67333]"
+        className="mb-6 text-[28px] font-semibold tracking-tight text-[#0381e9]"
         style={{ fontFamily: "var(--font-press-start-2p)" }}
       >
         CORE TOWN
@@ -57,7 +57,7 @@ export function BootScreen({ onDone }: { onDone: () => void }) {
       <div className="mb-8 text-[12px] opacity-70">booting…</div>
       <div className="h-3 w-[280px] border border-white/40 bg-black/40">
         <div
-          className="h-full bg-[#e67333] transition-[width] duration-100"
+          className="h-full bg-[#0381e9] transition-[width] duration-100"
           style={{ width: `${progress}%` }}
         />
       </div>
