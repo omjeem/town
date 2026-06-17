@@ -22,8 +22,8 @@ import { existsSync } from "node:fs";
 import { resolve, join } from "node:path";
 
 import { getConfig } from "../config.js";
-import { agentsMarkdown } from "../shared/agents-md.js";
-import { summarizeCatalog } from "../shared/catalog-summary.js";
+import { townFolderReadme } from "../shared/readme.js";
+import { fetchCoreWorkspace, writeDefaultNpcs } from "../shared/seed-npcs.js";
 import {
   writeCustomPlot,
   writeNpcMdx,
@@ -97,12 +97,6 @@ async function postJson<T>(url: string, pat: string, body: unknown): Promise<T> 
   return (await res.json()) as T;
 }
 
-async function getPublic(url: string): Promise<unknown> {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`GET ${url} → ${res.status}`);
-  return await res.json();
-}
-
 async function ensureSlugDir(targetDir: string, slug: string): Promise<void> {
   if (!existsSync(targetDir)) {
     await mkdir(targetDir, { recursive: true });
@@ -112,9 +106,12 @@ async function ensureSlugDir(targetDir: string, slug: string): Promise<void> {
   const reserved = new Set([
     "town.json",
     "plot.json",
+    "README.md",
+    // legacy filenames the older CLI used to drop here — keep them in
+    // the conflict set so re-running over an old folder still prompts.
+    "AGENTS.md",
     "catalog.json",
     "manifest.json",
-    "AGENTS.md",
     "npcs",
     "customPlots",
   ]);
@@ -130,49 +127,33 @@ async function ensureSlugDir(targetDir: string, slug: string): Promise<void> {
   }
 }
 
-async function writeCatalogSnapshot(townUrl: string, targetDir: string): Promise<void> {
-  const spinner = p.spinner();
-  spinner.start("Fetching catalog + manifest…");
-  try {
-    const rawCatalog = await getPublic(`${townUrl}/sprites/catalog/variants.json`);
-    const manifest = await getPublic(`${townUrl}/sprites/extras/MANIFEST.json`);
-    // Slim projection — only the fields a town editor (human or coding
-    // agent) needs to author `town.json` / customPlots. Drops prose
-    // (vibe, profession, anchorObjects, triggers, paletteAccent) that
-    // the server doesn't read back from the folder.
-    const catalog = summarizeCatalog(rawCatalog);
-    await writeFile(
-      join(targetDir, "catalog.json"),
-      JSON.stringify(catalog, null, 2) + "\n",
-    );
-    await writeFile(
-      join(targetDir, "manifest.json"),
-      JSON.stringify(manifest, null, 2) + "\n",
-    );
-    spinner.stop(chalk.green("Fetched catalog + manifest"));
-  } catch (e) {
-    spinner.stop(
-      chalk.yellow(
-        `Catalog/manifest fetch skipped (${e instanceof Error ? e.message : "unknown"})`,
-      ),
-    );
-  }
-}
-
 async function scaffoldNew(
-  townUrl: string,
   pat: string,
   targetDir: string,
+  coreUrl: string,
 ): Promise<void> {
   await writeTownJson(targetDir, {
     buildings: DEFAULT_BUILDINGS,
     customPlots: [],
   });
-  await mkdir(join(targetDir, "npcs"), { recursive: true });
   await mkdir(join(targetDir, "customPlots"), { recursive: true });
-  await writeCatalogSnapshot(townUrl, targetDir);
-  await writeFile(join(targetDir, "AGENTS.md"), agentsMarkdown());
-  void pat;
+
+  // Default NPC roster — Hudson at home, Lior at the library, Sera at
+  // the store. HOME's butler name is bound to the resident's CORE
+  // workspace when we can fetch it; this matches the runtime override
+  // the renderer applies, so the editable name in the .mdx file lines
+  // up with what the player sees in-game from day zero.
+  const spinner = p.spinner();
+  spinner.start("Fetching workspace name…");
+  const workspace = await fetchCoreWorkspace(coreUrl, pat);
+  spinner.stop(
+    workspace
+      ? chalk.green(`Butler name set to ${workspace.name}`)
+      : chalk.yellow("Workspace lookup skipped — butler defaults to Hudson"),
+  );
+  await writeDefaultNpcs(targetDir, workspace?.name ?? null);
+
+  await writeFile(join(targetDir, "README.md"), townFolderReadme());
 }
 
 async function cloneExisting(
@@ -202,8 +183,7 @@ async function cloneExisting(
   for (const npc of town.npcs) {
     await writeNpcMdx(targetDir, npc);
   }
-  await writeCatalogSnapshot(townUrl, targetDir);
-  await writeFile(join(targetDir, "AGENTS.md"), agentsMarkdown());
+  await writeFile(join(targetDir, "README.md"), townFolderReadme());
 
   return town;
 }
@@ -296,7 +276,7 @@ async function runInit(): Promise<void> {
   await ensureSlugDir(targetDir, town.slug);
 
   if (mode === "create") {
-    await scaffoldNew(townUrl, pat, targetDir);
+    await scaffoldNew(pat, targetDir, cfg.auth.coreUrl);
     p.log.success(`Scaffolded ./${town.slug}/ with the day-zero trio`);
     p.outro(
       chalk.green(

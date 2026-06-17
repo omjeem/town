@@ -60,8 +60,8 @@ function WelcomeCard({ onDemo }: { onDemo: () => void }) {
           buildings, and locals show up to live in them: a gym coach here, a
           film critic there, whoever your world calls for. Give them
           personalities, plug them into your tools, then share the address.
-          Friends wander, meet your locals, bump into each other — and learn
-          who you are faster than any profile.
+          Friends wander, meet your locals, bump into each other — and learn who
+          you are faster than any profile.
         </p>
 
         <div className="flex flex-col gap-2">
@@ -77,8 +77,8 @@ function WelcomeCard({ onDemo }: { onDemo: () => void }) {
               chat.
             </li>
             <li>
-              <span className="font-bold">Sign up</span> to start your own
-              town — invite friends, meet theirs.
+              <span className="font-bold">Sign up</span> to start your own town
+              — invite friends, meet theirs.
             </li>
           </ul>
         </div>
@@ -90,7 +90,7 @@ function WelcomeCard({ onDemo }: { onDemo: () => void }) {
             className="nb-tile px-4 py-2.5 text-sm font-black uppercase tracking-wide"
             style={{ background: PALETTE.h240, cursor: "pointer" }}
           >
-            Sign up
+            Own a town / Login
           </button>
           <button
             type="button"

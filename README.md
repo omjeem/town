@@ -85,8 +85,9 @@ Open `<slug>/town.json`:
 
 - **Add a building** → append `{ "id": "cafe", "plotKey": "cafe" }`.
 - **Remove a building** → delete its entry.
-- **Swap a variant** → add `"variantId": "cafe.bookshop"` (look up valid
-  ids in `catalog.json` under the plot's `variants[]`).
+- **Swap a variant** → add `"variantId": "cafe.bookshop"`.
+- **Rename the sign** → add `"label": "Sunny's Café"`. When omitted the
+  sign falls back to `id.toUpperCase()`.
 
 You never write tile coordinates, paths, ponds, or decor. The server
 picks a free cell, routes a path from home, refills the surrounding

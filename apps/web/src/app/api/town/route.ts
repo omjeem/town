@@ -47,6 +47,8 @@ const BuildingSchema = z.object({
   // the caller doesn't pin one. Lets `town init` ship a default
   // town.json without knowing catalog variant ids ahead of time.
   variantId: z.string().min(1).optional(),
+  // Optional sign text. Empty string clears any existing label.
+  label: z.string().optional(),
 });
 
 const CustomNpcPositionSchema = z.object({

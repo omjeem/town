@@ -87,6 +87,12 @@ export interface PlotBuilding extends TileRect {
    *  paths / NPCs can reference a specific instance even if multiple
    *  instances of the same plotKey exist. */
   id: string;
+  /** Text shown on the overworld sign in front of the building. When
+   *  absent the renderer falls back to `id.toUpperCase()` — so a fresh
+   *  `{ id: "cake", plotKey: "store" }` shows "CAKE" out of the box. Set
+   *  explicitly when you want casing or spacing the id can't carry
+   *  (e.g. "Sunny's Café"). */
+  label?: string;
   plotKey: string;        // → @town/catalog plot id
   variantId: string;      // → @town/catalog variant id (must belong to plotKey)
   category: Category;

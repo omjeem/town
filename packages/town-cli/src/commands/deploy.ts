@@ -33,11 +33,17 @@ import {
 } from "../shared/town-io.js";
 
 interface PostBody {
-  buildings: Array<{ id: string; plotKey: string; variantId?: string }>;
+  buildings: Array<{
+    id: string;
+    plotKey: string;
+    variantId?: string;
+    label?: string;
+  }>;
   customPlots: CustomPlotDTO[];
   npcs: Array<{
     id?: string;
     buildingId: string;
+    slotId: string;
     name: string;
     description: string;
     prompt: string;
@@ -222,6 +228,7 @@ async function runDeploy(opts: { dir?: string }): Promise<void> {
       id: b.id,
       plotKey: b.plotKey,
       ...(b.variantId ? { variantId: b.variantId } : {}),
+      ...(b.label !== undefined ? { label: b.label } : {}),
     })),
     customPlots: mergedCustomPlots,
     npcs,

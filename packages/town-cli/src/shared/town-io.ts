@@ -11,6 +11,10 @@ export interface TownBuilding {
   id: string;
   plotKey: string;
   variantId?: string;
+  /** Optional sign text. When unset the overworld sign falls back to
+   *  `id.toUpperCase()` — set this when you want a different casing,
+   *  spaces, or punctuation. */
+  label?: string;
 }
 
 export interface CustomNpcPositionDTO {

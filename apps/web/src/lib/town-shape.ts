@@ -23,6 +23,8 @@ export interface TownShapeBuilding {
   plotKey: string;
   /** Optional — server picks the first variant for the plot when absent. */
   variantId?: string;
+  /** Optional sign text. Renderer falls back to `id.toUpperCase()`. */
+  label?: string;
 }
 
 export interface TownShape {
@@ -39,6 +41,7 @@ export function projectTownShape(plot: Plot): TownShape {
       id: b.id,
       plotKey: b.plotKey,
       variantId: b.variantId,
+      ...(b.label ? { label: b.label } : {}),
     })),
     customPlots: plot.customPlots ?? [],
   };
@@ -130,6 +133,7 @@ async function applyDiff(
     id: b.id,
     plotKey: b.plotKey,
     ...(b.variantId ? { variantId: b.variantId } : {}),
+    ...(b.label !== undefined ? { label: b.label } : {}),
   }));
   const diff = diffBuildings(startingPlot, specs);
   let nextPlot: Plot;

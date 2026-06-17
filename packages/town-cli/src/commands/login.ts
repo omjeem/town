@@ -22,7 +22,7 @@ import chalk from "chalk";
 import { getConfig, updateConfig } from "../config.js";
 
 const DEFAULT_CORE_URL = "https://app.getcore.me";
-const DEFAULT_TOWN_URL = "http://localhost:3000";
+const DEFAULT_TOWN_URL = "https://town.getcore.me";
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -103,7 +103,9 @@ async function runLogin(): Promise<void> {
       // Refresh townUrl in case the user pointed it at a new host.
       updateConfig({ auth: { ...cfg.auth, townUrl } });
       spinner.stop(chalk.green("Already authenticated"));
-      p.outro(chalk.green(`Logged in to ${coreUrl}; town server set to ${townUrl}.`));
+      p.outro(
+        chalk.green(`Logged in to ${coreUrl}; town server set to ${townUrl}.`),
+      );
       return;
     }
   }
@@ -115,7 +117,8 @@ async function runLogin(): Promise<void> {
     const res = await postJson<AuthorizationCodeResponse>(
       `${coreUrl}/api/v1/authorization-code`,
     );
-    if (!res.authorizationCode) throw new Error("missing authorizationCode in response");
+    if (!res.authorizationCode)
+      throw new Error("missing authorizationCode in response");
     authCode = res.authorizationCode;
   } catch (err) {
     spinner.stop(chalk.red("Failed to get authorization code"));
@@ -126,7 +129,11 @@ async function runLogin(): Promise<void> {
 
   // 3. Build verify URL + open the browser.
   const verifyToken = Buffer.from(
-    JSON.stringify({ authorizationCode: authCode, source: "town-cli", clientName: "town-cli" }),
+    JSON.stringify({
+      authorizationCode: authCode,
+      source: "town-cli",
+      clientName: "town-cli",
+    }),
   ).toString("base64");
   const verifyUrl = `${coreUrl}/agent/verify/${verifyToken}?source=town-cli`;
   p.log.info("Opening browser to authorize...");
@@ -139,7 +146,11 @@ async function runLogin(): Promise<void> {
   while (true) {
     if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
       spinner.stop(chalk.red("Login timed out"));
-      p.outro(chalk.red("Authorization did not complete within 5 minutes. Run `town login` again."));
+      p.outro(
+        chalk.red(
+          "Authorization did not complete within 5 minutes. Run `town login` again.",
+        ),
+      );
       process.exit(1);
     }
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
@@ -152,7 +163,11 @@ async function runLogin(): Promise<void> {
       if (pat) {
         updateConfig({ auth: { coreUrl, townUrl, pat } });
         spinner.stop(chalk.green("Authorization successful"));
-        p.outro(chalk.green(`Saved PAT to ~/.town/config.json. Town server set to ${townUrl}.`));
+        p.outro(
+          chalk.green(
+            `Saved PAT to ~/.town/config.json. Town server set to ${townUrl}.`,
+          ),
+        );
         return;
       }
     } catch {

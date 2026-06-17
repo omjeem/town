@@ -183,6 +183,8 @@ export interface AddBuildingInput {
   id?: string;
   /** Variant id; first variant if omitted. */
   variantId?: string;
+  /** Optional sign text. Renderer falls back to `id.toUpperCase()`. */
+  label?: string;
 }
 
 export interface AddBuildingResult {
@@ -241,6 +243,7 @@ export function addBuilding(
     h: rect.h,
     exteriorSprite,
     ...(dims ? { spriteW: dims.tileW, spriteH: dims.tileH } : {}),
+    ...(input.label ? { label: input.label } : {}),
   };
 
   const home = ensureHome(plot);
@@ -372,12 +375,16 @@ export interface BuildingSpec {
   id: string;
   plotKey: string;
   variantId?: string;
+  /** Optional sign text. When changed without changing plotKey we patch
+   *  the existing PlotBuilding in place — no layout churn. */
+  label?: string;
 }
 
 export interface BuildingDiff {
   added: BuildingSpec[];
   removed: string[];
   changedVariant: Array<{ id: string; variantId: string }>;
+  changedLabel: Array<{ id: string; label: string | undefined }>;
   /** Any spec that names an existing id with a DIFFERENT plotKey. We
    *  treat these as remove-then-add. */
   rebuild: BuildingSpec[];
@@ -392,6 +399,7 @@ export function diffBuildings(plot: Plot, incoming: BuildingSpec[]): BuildingDif
   const added: BuildingSpec[] = [];
   const removed: string[] = [];
   const changedVariant: Array<{ id: string; variantId: string }> = [];
+  const changedLabel: Array<{ id: string; label: string | undefined }> = [];
   const rebuild: BuildingSpec[] = [];
 
   for (const [id, spec] of next.entries()) {
@@ -407,12 +415,17 @@ export function diffBuildings(plot: Plot, incoming: BuildingSpec[]): BuildingDif
     if (spec.variantId && spec.variantId !== have.variantId) {
       changedVariant.push({ id, variantId: spec.variantId });
     }
+    // Treat absent label as "no override" rather than "clear label".
+    // Empty string `""` clears it explicitly.
+    if (spec.label !== undefined && spec.label !== have.label) {
+      changedLabel.push({ id, label: spec.label || undefined });
+    }
   }
   for (const id of current.keys()) {
     if (!next.has(id)) removed.push(id);
   }
 
-  return { added, removed, changedVariant, rebuild };
+  return { added, removed, changedVariant, changedLabel, rebuild };
 }
 
 /** Apply a BuildingDiff to a Plot, calling the right incremental op per
@@ -433,6 +446,19 @@ export function applyBuildingDiff(
   }
   for (const ch of diff.changedVariant) {
     next = changeVariant(next, ctx, ch);
+  }
+  for (const ch of diff.changedLabel) {
+    const buildings = next.buildings.map((b) =>
+      b.id === ch.id
+        ? ch.label
+          ? { ...b, label: ch.label }
+          : (() => {
+              const { label: _drop, ...rest } = b;
+              return rest as typeof b;
+            })()
+        : b,
+    );
+    next = { ...next, buildings };
   }
   for (const spec of diff.added) {
     next = addBuilding(next, ctx, spec).plot;
