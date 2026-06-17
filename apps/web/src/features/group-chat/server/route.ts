@@ -99,7 +99,7 @@ export async function POST(req: Request, ctx: { params: Promise<Params> }) {
   // Fire-and-forget the NPC reply. We don't block the HTTP response on
   // it — the poster's send returns instantly, the NPC's reply (if any)
   // arrives over Centrifugo a few seconds later.
-  void maybeTriggerNpcReply(access, text).catch((e) => {
+  void maybeTriggerNpcReply(access).catch((e) => {
     console.warn("[group-chat] NPC reply pipeline failed", e);
   });
 
@@ -109,10 +109,7 @@ export async function POST(req: Request, ctx: { params: Promise<Params> }) {
   });
 }
 
-async function maybeTriggerNpcReply(
-  access: GroupChatAccess,
-  triggeringText: string,
-): Promise<void> {
+async function maybeTriggerNpcReply(access: GroupChatAccess): Promise<void> {
   // Load the NPCs in this house. Auto-seed if the user's plot predates
   // the Npc table (same heal path /api/npc-chat uses).
   let npcs = await loadNpcsForBuilding(access);
@@ -125,30 +122,36 @@ async function maybeTriggerNpcReply(
   const candidates: NpcCandidate[] = npcs.map((n) => ({
     id: n.id,
     name: n.name,
+    description: n.description,
   }));
 
-  const pick = pickResponder(access.channelId, triggeringText, candidates);
-  if (!pick) return;
-
-  const picked = npcs.find((n) => n.id === pick.npc.id);
-  if (!picked) return;
-
-  // Stamp the cooldown floors *before* the stream runs so a model
-  // failure can't leak the picker back into an immediate retry on
-  // the next message. We accept that a stamped+failed reply burns
-  // the slot until the cooldown elapses.
-  markSpoke(access.channelId, picked.id);
-
-  // Pull recent history for context. We fetch the same cap that
-  // npc-reply applies (HISTORY_TURNS_MAX = 20) — npc-reply still
-  // does its own tail slice as a guard so if these two ever drift,
-  // the model still gets a bounded prompt rather than crashing.
+  // Pull recent history once and feed it to both the moderator and
+  // (if it picks an NPC) the reply pipeline. Cap matches npc-reply's
+  // HISTORY_TURNS_MAX; npc-reply still does a guard slice internally.
   const recent = await prisma.groupMessage.findMany({
     where: { channelId: access.channelId },
     orderBy: { createdAt: "desc" },
     take: 20,
   });
   recent.reverse();
+  const history = recent.map((r) => ({
+    authorKey: r.authorKey,
+    authorName: r.authorName,
+    text: r.text,
+    isNpc: r.isNpc,
+  }));
+
+  const pick = await pickResponder(access.channelId, history, candidates);
+  if (!pick) return;
+
+  const picked = npcs.find((n) => n.id === pick.npc.id);
+  if (!picked) return;
+
+  // Stamp the room cooldown *before* the stream runs so a model
+  // failure can't leak the picker back into an immediate retry on
+  // the next message. We accept that a stamped+failed reply burns
+  // the slot until ROOM_COOLDOWN_MS elapses.
+  markSpoke(access.channelId, picked.id);
 
   await generateAndPublishNpcReply({
     channelId: access.channelId,
@@ -163,12 +166,7 @@ async function maybeTriggerNpcReply(
       participantKey: access.ownerParticipantKey,
       name: access.ownerName,
     },
-    history: recent.map((r) => ({
-      authorKey: r.authorKey,
-      authorName: r.authorName,
-      text: r.text,
-      isNpc: r.isNpc,
-    })),
+    history,
   });
 }
 

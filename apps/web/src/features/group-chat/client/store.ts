@@ -38,6 +38,15 @@ export type GroupChatState = {
    *  scene on enter, cleared on leave — independent of `open` so the
    *  prompt shows even before the user presses G. */
   currentHouse: GroupChatRoom | null;
+  /** How many OTHER human players are in the same interior scene
+   *  right now. Updated live by the attach module via the realtime
+   *  roster. The `[G]` prompt + the G-key toggle both gate on
+   *  `othersHere > 0`, so a player alone in a house never sees the
+   *  group-chat affordance — group chat is for groups. Existing open
+   *  overlays are NOT closed when this drops back to 0 mid-session;
+   *  finishing the in-flight conversation matters more than a strict
+   *  gate. */
+  othersHere: number;
   messages: GroupMessageRow[];
   /** Keyed by authorKey so a re-publish from the same author refreshes
    *  the expiry instead of stacking entries. */
@@ -52,6 +61,7 @@ let state: GroupChatState = {
   open: false,
   room: null,
   currentHouse: null,
+  othersHere: 0,
   messages: [],
   typing: new Map(),
   status: "idle",
@@ -150,7 +160,15 @@ export const groupChatStore = {
   },
   setCurrentHouse(house: GroupChatRoom | null) {
     if (state.currentHouse === house) return;
-    set({ currentHouse: house });
+    // Clearing currentHouse → also reset othersHere so we don't carry
+    // a stale population count from a previous house into a future
+    // visit. Setting a fresh house leaves the count for attach.ts to
+    // re-publish once it has the live roster.
+    set({ currentHouse: house, othersHere: house === null ? 0 : state.othersHere });
+  },
+  setOthersHere(n: number) {
+    if (state.othersHere === n) return;
+    set({ othersHere: n });
   },
 };
 

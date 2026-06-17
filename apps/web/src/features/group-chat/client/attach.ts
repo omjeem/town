@@ -11,6 +11,11 @@
 
 import type { KAPLAYCtx } from "kaplay";
 
+import {
+  getRemotePlayersForScene,
+  onRemotesChange,
+} from "@/game/realtime";
+
 import { closeRoom, openRoom } from "./channel";
 import { groupChatStore } from "./store";
 
@@ -25,6 +30,11 @@ export interface MountGroupChatInput {
   /** Per-building opt-in flag. False → mount is a no-op so callers
    *  don't have to thread the gate. */
   enabled: boolean;
+  /** Scene id used by the realtime roster (e.g. `interior:home`).
+   *  We watch this scene's remote-player count to gate the `[G]`
+   *  prompt — group chat only surfaces when at least one OTHER
+   *  player is in the same house. */
+  sceneId: string;
 }
 
 export function mountGroupChatForScene(input: MountGroupChatInput): void {
@@ -34,7 +44,7 @@ export function mountGroupChatForScene(input: MountGroupChatInput): void {
     return;
   }
 
-  const { k, slug, buildingId, buildingLabel } = input;
+  const { k, slug, buildingId, buildingLabel, sceneId } = input;
 
   // Publish "we're standing in a group-chat-enabled house" so the
   // floating [G] prompt can render. Cleared on scene leave below.
@@ -49,14 +59,26 @@ export function mountGroupChatForScene(input: MountGroupChatInput): void {
     ownerParticipantKey: "",
   });
 
+  // Population watch: count other humans in this scene and republish
+  // into the store so the prompt + G handler can gate on it. Fire
+  // once now and again on every roster change.
+  const updatePopulation = () => {
+    groupChatStore.setOthersHere(getRemotePlayersForScene(sceneId).length);
+  };
+  updatePopulation();
+  const detachRoster = onRemotesChange(updatePopulation);
+
   // [G] toggles the overlay. Open kicks off room subscription +
-  // backfill; close tears it down.
+  // backfill; close tears it down. Pressing G with nobody else in
+  // the house is a no-op — group chat is for groups, talk to NPCs
+  // 1-1 via SPACE if you're alone.
   k.onKeyPress("g", () => {
     const cur = groupChatStore.getState();
     if (cur.open) {
       void closeRoom();
       return;
     }
+    if (cur.othersHere <= 0) return;
     void openRoom({ slug, buildingId, buildingLabel });
   });
 
@@ -67,5 +89,6 @@ export function mountGroupChatForScene(input: MountGroupChatInput): void {
   k.onSceneLeave(() => {
     void closeRoom();
     groupChatStore.setCurrentHouse(null);
+    detachRoster();
   });
 }

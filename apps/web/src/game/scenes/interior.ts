@@ -1078,6 +1078,7 @@ export function registerInteriorScene(k: KAPLAYCtx) {
         buildingId: myBuilding.id,
         buildingLabel: myBuilding.label || spec.title,
         enabled: myBuilding.groupChatEnabled === true,
+        sceneId,
       });
     }
 

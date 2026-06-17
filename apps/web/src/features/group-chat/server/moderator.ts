@@ -1,121 +1,171 @@
 // Decides whether an NPC should chime into the room after a human
-// message, and which one. No LLM call here — picker is deterministic so
-// the cost story is "one LLM call per NPC reply, zero per message that
-// nobody answers."
+// message, and which one. One small `generateObject` call per non-
+// cooled-down message; the model reads the recent conversation and
+// either picks an NPC by id or returns null (silence).
 //
-// Three gates, applied in order:
-//   1. Room cooldown — at most one NPC speak per ROOM_COOLDOWN_MS so
-//      the room can't turn into a wall of bot text.
-//   2. Per-NPC cooldown — same NPC can't speak twice within
-//      NPC_COOLDOWN_MS even across different prompts.
-//   3. Mention detection — if the message text contains an NPC's name
-//      (case-insensitive, word-boundary), that NPC wins immediately
-//      regardless of probability.
+// We deliberately don't try to do the picking with regex heuristics
+// any more — "tell me another joke" should re-engage the joke teller
+// without us maintaining a phrase list, and the LLM handles that
+// naturally. Cost is bounded:
 //
-// If no mention, we roll a die (REPLY_CHANCE) and on success pick the
-// NPC who's been quietest the longest. That gives the room a steady
-// background chatter without forcing every message to summon a reply.
+//   • Hard ROOM_COOLDOWN_MS gate runs first — if any NPC spoke
+//     within the cooldown window we skip the call entirely. That
+//     filters out the common "humans firing off messages back to
+//     back" case before we burn tokens.
+//   • generateObject with a tiny schema returns ~10 output tokens
+//     per call. Input is bounded by HISTORY_TURNS_MAX of the recent
+//     messages we already had to fetch for stage 2 anyway.
 //
-// State is in-process Maps — fine for single-container dev. If we ever
-// scale beyond one server we need Redis or Centrifugo presence-based
-// state; the call-sites only touch these helpers so the swap is local.
+// State is in-process: just one Map keyed by channelId tracking the
+// last NPC-speak timestamp. Same single-container caveat as before;
+// move to Redis if the server ever scales horizontally.
+
+import { generateObject } from "ai";
+import { z } from "zod";
+
+import { getChatModel } from "@/lib/chat-model";
 
 const ROOM_COOLDOWN_MS = 8_000;
-const NPC_COOLDOWN_MS = 20_000;
-const REPLY_CHANCE = 0.3;
 
-// channelId → last NPC speak timestamp (ms).
+// channelId → last NPC speak timestamp (ms). Cheap rate limit so a
+// noisy room can't trigger an NPC reply on every human turn.
 const roomLastSpeak = new Map<string, number>();
-// `${channelId}:${npcId}` → last speak timestamp (ms).
-const npcLastSpeak = new Map<string, number>();
 
 export interface NpcCandidate {
   id: string;
   name: string;
+  /** One-line role description (the `Npc.description` field). Helps
+   *  the moderator decide which NPC fits the current topic. */
+  description: string;
 }
 
 export interface ModeratorPick {
   npc: NpcCandidate;
-  /** True when the picker selected this NPC because the human
-   *  message addressed them by name. Stage 2 uses this to instruct
-   *  the model that it's been called on directly. */
+  /** True when the model judged that the most recent message was
+   *  addressed to this NPC (vs. an ambient drop-in). Stage 2 uses
+   *  it to tighten the reply prompt. */
   addressed: boolean;
 }
 
-export function pickResponder(
-  channelId: string,
-  message: string,
-  npcs: NpcCandidate[],
-): ModeratorPick | null {
-  if (npcs.length === 0) return null;
-  const now = Date.now();
+/** A single row in the recent-history slice we feed the moderator.
+ *  Same shape stage 2 sees, so the route handler can pass the same
+ *  slice to both. */
+export interface HistoryRow {
+  authorKey: string;
+  authorName: string;
+  text: string;
+  isNpc: boolean;
+}
 
+const PickSchema = z.object({
+  /** NPC id to respond, or null when nobody should speak. */
+  npcId: z
+    .string()
+    .nullable()
+    .describe(
+      "id of the NPC who should reply, or null when silence is best",
+    ),
+  /** Did the latest message address this NPC directly (by name,
+   *  follow-up, etc.)? Used to bias the reply tone. Required when
+   *  npcId is set; ignored otherwise. */
+  addressed: z
+    .boolean()
+    .optional()
+    .describe("true if the latest message clearly addressed this NPC"),
+});
+
+const SYSTEM_PROMPT = `You moderate turn-taking in a small multi-party room chat.
+Players (humans) and a handful of in-character NPCs share the room.
+
+Your only job: read the recent conversation and pick AT MOST ONE NPC
+to reply to the latest message. Prefer silence (npcId: null) when the
+humans are clearly talking to each other, when the message is trivial
+("ok", "lol", "namaste"), or when no listed NPC has anything useful
+to add.
+
+Pick rules:
+- If the latest message names an NPC, that NPC should usually reply.
+- If it's a clear follow-up to an NPC's previous turn ("tell me
+  another", "more please", "what about X"), the same NPC should
+  reply.
+- If it's a question that an NPC's role makes them the natural
+  answerer, that NPC should reply.
+- Otherwise: silence is the default.
+
+Set addressed: true when the latest message is plainly aimed at the
+picked NPC; false when they're chiming in ambiently.
+
+Never pick an NPC who isn't in the supplied list. Never invent ids.`;
+
+export async function pickResponder(
+  channelId: string,
+  history: HistoryRow[],
+  npcs: NpcCandidate[],
+): Promise<ModeratorPick | null> {
+  if (npcs.length === 0) return null;
+  if (history.length === 0) return null;
+
+  const now = Date.now();
   const lastRoom = roomLastSpeak.get(channelId) ?? 0;
   if (now - lastRoom < ROOM_COOLDOWN_MS) return null;
 
-  // Pool of NPCs that aren't in per-NPC cooldown.
-  const available: NpcCandidate[] = npcs.filter(
-    (n) =>
-      now - (npcLastSpeak.get(npcKey(channelId, n.id)) ?? 0) >=
-      NPC_COOLDOWN_MS,
-  );
-  if (available.length === 0) return null;
-
-  const mentioned = findMentionedNpc(message, available);
-  if (mentioned) return { npc: mentioned, addressed: true };
-
-  if (Math.random() >= REPLY_CHANCE) return null;
-
-  // Pick whoever's been quietest the longest — gives variety in
-  // ambient rooms instead of the same NPC dominating.
-  let best = available[0]!;
-  let bestQuiet = quietMsFor(channelId, best.id, now);
-  for (let i = 1; i < available.length; i++) {
-    const cand = available[i]!;
-    const q = quietMsFor(channelId, cand.id, now);
-    if (q > bestQuiet) {
-      best = cand;
-      bestQuiet = q;
-    }
+  let model;
+  try {
+    model = getChatModel();
+  } catch {
+    // No LLM configured — silent fallback. The room still works as a
+    // human-only chat.
+    return null;
   }
-  return { npc: best, addressed: false };
-}
 
-/** Stage 2 calls this immediately after the NPC's reply lands so future
- *  pick rolls see the fresh cooldown floors. */
-export function markSpoke(channelId: string, npcId: string): void {
-  const now = Date.now();
-  roomLastSpeak.set(channelId, now);
-  npcLastSpeak.set(npcKey(channelId, npcId), now);
-}
+  const npcList = npcs
+    .map((n) => `- id="${n.id}", name="${n.name}", role="${n.description}"`)
+    .join("\n");
+  const recent = history
+    .map((r) => `[${r.isNpc ? `${r.authorName} (npc)` : r.authorName}] ${r.text}`)
+    .join("\n");
+  const userPrompt = [
+    "NPCs in the room:",
+    npcList,
+    "",
+    "Recent conversation (oldest → newest):",
+    recent,
+    "",
+    "Pick at most one NPC id from the list above to reply to the",
+    "latest message, or return null for silence.",
+  ].join("\n");
 
-function npcKey(channelId: string, npcId: string): string {
-  return `${channelId}:${npcId}`;
-}
+  let pick;
+  try {
+    const result = await generateObject({
+      model,
+      schema: PickSchema,
+      system: SYSTEM_PROMPT,
+      prompt: userPrompt,
+    });
+    pick = result.object;
+  } catch (e) {
+    console.warn("[group-chat] moderator generateObject failed", e);
+    return null;
+  }
 
-function quietMsFor(channelId: string, npcId: string, now: number): number {
-  const last = npcLastSpeak.get(npcKey(channelId, npcId)) ?? 0;
-  return now - last;
-}
-
-function findMentionedNpc(
-  text: string,
-  candidates: NpcCandidate[],
-): NpcCandidate | null {
-  const lower = text.toLowerCase();
-  for (const n of candidates) {
-    // Word-boundary so "hudson" matches but "thudson" doesn't.
-    const name = n.name.toLowerCase();
-    if (!name) continue;
-    const re = new RegExp(
-      `\\b${escapeRegex(name)}\\b`,
-      "i",
+  if (!pick.npcId) return null;
+  const picked = npcs.find((n) => n.id === pick.npcId);
+  if (!picked) {
+    // Model returned an id we didn't ship — treat as silence.
+    console.warn(
+      `[group-chat] moderator picked unknown npcId="${pick.npcId}"`,
     );
-    if (re.test(lower)) return n;
+    return null;
   }
-  return null;
+
+  return { npc: picked, addressed: pick.addressed === true };
 }
 
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** Stage 2 calls this immediately after the NPC's reply lands so
+ *  future moderator calls see the fresh room cooldown floor. Stamps
+ *  on pick (not after stream) keeps a failed stream from refiring
+ *  the picker on the very next message. */
+export function markSpoke(channelId: string, _npcId: string): void {
+  roomLastSpeak.set(channelId, Date.now());
 }
