@@ -57,6 +57,11 @@ export interface HistoryRow {
   isNpc: boolean;
 }
 
+// Both fields are REQUIRED. OpenAI's strict JSON-schema mode (which
+// the AI SDK uses for generateObject) rejects optional properties —
+// every key in `properties` has to be in `required`. So we keep
+// `addressed` required and just have the model send `false` when it
+// picks silence (npcId === null). Same effect, no schema fight.
 const PickSchema = z.object({
   /** NPC id to respond, or null when nobody should speak. */
   npcId: z
@@ -66,12 +71,13 @@ const PickSchema = z.object({
       "id of the NPC who should reply, or null when silence is best",
     ),
   /** Did the latest message address this NPC directly (by name,
-   *  follow-up, etc.)? Used to bias the reply tone. Required when
-   *  npcId is set; ignored otherwise. */
+   *  follow-up, etc.)? Used to bias the reply tone. Send false when
+   *  npcId is null. */
   addressed: z
     .boolean()
-    .optional()
-    .describe("true if the latest message clearly addressed this NPC"),
+    .describe(
+      "true if the latest message clearly addressed the picked NPC; false otherwise (including when npcId is null)",
+    ),
 });
 
 const SYSTEM_PROMPT = `You moderate turn-taking in a small multi-party room chat.
@@ -159,7 +165,7 @@ export async function pickResponder(
     return null;
   }
 
-  return { npc: picked, addressed: pick.addressed === true };
+  return { npc: picked, addressed: pick.addressed };
 }
 
 /** Stage 2 calls this immediately after the NPC's reply lands so
