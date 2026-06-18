@@ -92,6 +92,27 @@ Pick AT MOST ONE NPC to reply to the latest message, or return
 npcId: null for silence. Default to silence — it's much better to
 stay quiet than to chime in with something hollow.
 
+# Self-reply is FORBIDDEN
+
+The latest message in the conversation has an author. If that
+author is an NPC (their prefix has "(npc)"), THAT SAME NPC MUST NOT
+BE PICKED. Either pick a DIFFERENT NPC or return null. This is the
+single hardest rule in this prompt — violating it produces an NPC
+talking to itself, which is always wrong.
+
+The continuation rule below (same NPC replies to follow-ups like
+"tell me another") ONLY applies when the follow-up is from a HUMAN.
+
+# NPC-to-NPC chimes
+
+The latest message may be from a HUMAN or another NPC. Picking an
+NPC to respond to a DIFFERENT NPC is allowed — that's how the room
+gets genuine multi-party feel — but it should be uncommon and only
+when the second NPC has something genuinely additive (a riff, a
+gentle agreement / disagreement, an observation from a different
+angle). Two NPCs ping-ponging filler at each other is worse than
+silence.
+
 Pick rules:
 - If the latest message names an NPC, that NPC may reply with a
   short in-character acknowledgement (a greeting, a quip, a
@@ -102,6 +123,9 @@ Pick rules:
 - If it's a quick light question that an NPC's role makes them
   the natural answerer ("what's good to read?", "is anyone here?"),
   that NPC may reply briefly.
+- If another NPC just said something a different NPC has a clear,
+  in-character reaction to (and it would feel natural in a real
+  room), that other NPC may chime in once.
 - Otherwise: silence.
 
 Strongly prefer silence (npcId: null) when:
@@ -110,23 +134,37 @@ Strongly prefer silence (npcId: null) when:
 - The human is giving an instruction, planning work, or asking an
   NPC to manage / build / coordinate something — that belongs in
   a 1-1 chat, not the room.
+- The latest few turns have already been NPCs talking to NPCs and
+  there's nothing fresh to add — let the humans speak.
 
 Set addressed: true when the latest message is plainly aimed at the
 picked NPC; false when they're chiming in ambiently.
 
 Never pick an NPC who isn't in the supplied list. Never invent ids.`;
 
+export interface PickOptions {
+  /** Skip the room cooldown check. Used when we're mid-chain
+   *  (NPC just spoke, we want to consider whether another NPC
+   *  has something to add). The 8s floor exists to throttle
+   *  replies to *human* spam — inside a chain it would block the
+   *  conversation entirely. */
+  skipRoomCooldown?: boolean;
+}
+
 export async function pickResponder(
   channelId: string,
   history: HistoryRow[],
   npcs: NpcCandidate[],
+  options: PickOptions = {},
 ): Promise<ModeratorPick | null> {
   if (npcs.length === 0) return null;
   if (history.length === 0) return null;
 
-  const now = Date.now();
-  const lastRoom = roomLastSpeak.get(channelId) ?? 0;
-  if (now - lastRoom < ROOM_COOLDOWN_MS) return null;
+  if (!options.skipRoomCooldown) {
+    const now = Date.now();
+    const lastRoom = roomLastSpeak.get(channelId) ?? 0;
+    if (now - lastRoom < ROOM_COOLDOWN_MS) return null;
+  }
 
   let model;
   try {
@@ -175,6 +213,16 @@ export async function pickResponder(
     console.warn(
       `[group-chat] moderator picked unknown npcId="${pick.npcId}"`,
     );
+    return null;
+  }
+
+  // Hard guard against self-reply. The system prompt forbids it but
+  // small models (4o-mini, Haiku) don't reliably obey on every turn,
+  // so we enforce it here too — making the picker self-correcting
+  // regardless of caller. An NPC replying to themselves is always
+  // wrong, so silence is the correct fallback.
+  const last = history[history.length - 1];
+  if (last && last.isNpc && last.authorKey === `npc:${picked.id}`) {
     return null;
   }
 

@@ -109,9 +109,16 @@ export async function POST(req: Request, ctx: { params: Promise<Params> }) {
   });
 }
 
+// Hard cap on the number of NPC turns that can land between two
+// human messages. Even if the moderator keeps picking, we bail at
+// this count so a runaway "NPCs chatting to each other forever"
+// scenario can't happen. The LLM moderator already tapers naturally
+// — this is belt-and-braces.
+const MAX_NPC_CHAIN_TURNS = 20;
+
 async function maybeTriggerNpcReply(access: GroupChatAccess): Promise<void> {
-  // Load the NPCs in this house. Auto-seed if the user's plot predates
-  // the Npc table (same heal path /api/npc-chat uses).
+  // Load the NPCs in this house ONCE. Auto-seed if the user's plot
+  // predates the Npc table (same heal path /api/npc-chat uses).
   let npcs = await loadNpcsForBuilding(access);
   if (npcs.length === 0) {
     await ensureNpcsForUser(access.viewer.town.ownerId);
@@ -124,50 +131,101 @@ async function maybeTriggerNpcReply(access: GroupChatAccess): Promise<void> {
     name: n.name,
     description: n.description,
   }));
+  const npcById = new Map(npcs.map((n) => [n.id, n]));
 
-  // Pull recent history once and feed it to both the moderator and
-  // (if it picks an NPC) the reply pipeline. Cap matches npc-reply's
-  // HISTORY_TURNS_MAX; npc-reply still does a guard slice internally.
-  const recent = await prisma.groupMessage.findMany({
-    where: { channelId: access.channelId },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  });
-  recent.reverse();
-  const history = recent.map((r) => ({
-    authorKey: r.authorKey,
-    authorName: r.authorName,
-    text: r.text,
-    isNpc: r.isNpc,
-  }));
+  // Chain loop — first iteration is the standard "human said something,
+  // does any NPC reply?" check. Subsequent iterations are "an NPC just
+  // replied, does another NPC have something to add?" The loop ends
+  // when the moderator picks silence, the hard cap is hit, or a fetch
+  // fails.
+  //
+  // We refetch history each iteration so it includes whatever the
+  // previous iteration just published — moderator decisions stay
+  // grounded in the latest state.
+  for (let turn = 0; turn < MAX_NPC_CHAIN_TURNS; turn++) {
+    const isChain = turn > 0;
 
-  const pick = await pickResponder(access.channelId, history, candidates);
-  if (!pick) return;
+    const recent = await prisma.groupMessage.findMany({
+      where: { channelId: access.channelId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+    recent.reverse();
+    const history = recent.map((r) => ({
+      authorKey: r.authorKey,
+      authorName: r.authorName,
+      text: r.text,
+      isNpc: r.isNpc,
+    }));
 
-  const picked = npcs.find((n) => n.id === pick.npc.id);
-  if (!picked) return;
+    // Robust hard stop: count NPC messages since the most recent
+    // human message in the history. This guards against concurrent
+    // chains (another human message could have triggered a second
+    // maybeTriggerNpcReply call in parallel) by anchoring on the
+    // actual conversation state, not just our local loop counter.
+    if (consecutiveNpcTurnsAtEnd(history) >= MAX_NPC_CHAIN_TURNS) return;
 
-  // Stamp the room cooldown *before* the stream runs so a model
-  // failure can't leak the picker back into an immediate retry on
-  // the next message. We accept that a stamped+failed reply burns
-  // the slot until ROOM_COOLDOWN_MS elapses.
-  markSpoke(access.channelId, picked.id);
+    const pick = await pickResponder(
+      access.channelId,
+      history,
+      candidates,
+      // Chain calls bypass the 8s room cooldown — that floor exists
+      // to throttle replies to human spam, not to space out turns
+      // inside an active NPC-to-NPC exchange.
+      { skipRoomCooldown: isChain },
+    );
+    if (!pick) return;
 
-  await generateAndPublishNpcReply({
-    channelId: access.channelId,
-    pick,
-    npc: {
-      id: picked.id,
-      name: picked.name,
-      description: picked.description,
-      prompt: picked.prompt,
-    },
-    owner: {
-      participantKey: access.ownerParticipantKey,
-      name: access.ownerName,
-    },
-    history,
-  });
+    // Hard guard against the same NPC replying to themselves. The
+    // moderator prompt forbids this too but we belt-and-braces it
+    // here so a single bad pick can't turn into "Sol responds to
+    // Sol responds to Sol". End the chain instead.
+    const last = history[history.length - 1];
+    if (last && last.isNpc && last.authorKey === `npc:${pick.npc.id}`) {
+      return;
+    }
+
+    const picked = npcById.get(pick.npc.id);
+    if (!picked) return;
+
+    // Stamp the room cooldown ONLY on the first reply per human
+    // turn. Stamping on every chain turn would leave a stale 8s
+    // cooldown after the chain ends, blocking the NEXT human's
+    // message. Stamping just once means the cooldown is fresh
+    // relative to the human-triggering event, which is what it's
+    // meant to throttle.
+    if (!isChain) markSpoke(access.channelId, picked.id);
+
+    await generateAndPublishNpcReply({
+      channelId: access.channelId,
+      pick,
+      npc: {
+        id: picked.id,
+        name: picked.name,
+        description: picked.description,
+        prompt: picked.prompt,
+      },
+      owner: {
+        participantKey: access.ownerParticipantKey,
+        name: access.ownerName,
+      },
+      history,
+    });
+  }
+}
+
+/** Count NPC messages at the tail of the history, stopping at the
+ *  first human message. "Turns since last human" — the invariant the
+ *  chain cap actually cares about. */
+function consecutiveNpcTurnsAtEnd(
+  history: Array<{ isNpc: boolean }>,
+): number {
+  let n = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i]!.isNpc) n++;
+    else break;
+  }
+  return n;
 }
 
 async function loadNpcsForBuilding(access: GroupChatAccess) {

@@ -126,6 +126,35 @@ const scenarios: Scenario[] = [
       { name: "Alice", text: "Hudson, build me a new wing on the house" },
     ]),
   },
+  {
+    name: "NPC chain — Sol just made an observation worth chiming in on",
+    expectation:
+      "Hudson MAY chime in once (different angle on the music topic), but silence is also fine",
+    npcs: NPCS_HOME,
+    history: hist([
+      { name: "Alice", text: "what's the vibe in here" },
+      {
+        name: "Sol",
+        isNpc: true,
+        key: "npc:npc_sol",
+        text: "Vinyl on the turntable, lights low. The good kind of evening.",
+      },
+    ]),
+  },
+  {
+    name: "NPC chain — Sol just said something trivial, no NPC reply needed",
+    expectation: "should stay silent — chain should not pad filler",
+    npcs: NPCS_HOME,
+    history: hist([
+      { name: "Alice", text: "hey" },
+      {
+        name: "Sol",
+        isNpc: true,
+        key: "npc:npc_sol",
+        text: "Hey.",
+      },
+    ]),
+  },
 ];
 
 async function main() {
