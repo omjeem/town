@@ -48,6 +48,7 @@ interface PostBody {
     name: string;
     description: string;
     prompt: string;
+    permissions?: unknown;
   }>;
 }
 

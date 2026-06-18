@@ -125,6 +125,23 @@ export async function openRoom(input: OpenRoomInput): Promise<void> {
     return;
   }
 
+  // Defensive: if a prior subscription to this channel is still
+  // registered on the Centrifuge client (e.g. a previous close
+  // didn't reach this code path, or a hot reload kept the singleton),
+  // tear it down before creating a new one. Centrifuge throws
+  // "Subscription to the channel X already exists" on duplicate
+  // newSubscription calls.
+  const existing = c.getSubscription(body.channelId);
+  if (existing) {
+    try {
+      existing.unsubscribe();
+      existing.removeAllListeners();
+      c.removeSubscription(existing);
+    } catch {
+      // ignore — best-effort cleanup
+    }
+  }
+
   const sub = c.newSubscription(body.channelId, { token: body.subscribeToken });
   sub.on("publication", (ctx: PublicationContext) => {
     handleWire(ctx.data);
@@ -151,6 +168,12 @@ export async function closeRoom(): Promise<void> {
     try {
       activeSub.unsubscribe();
       activeSub.removeAllListeners();
+      // unsubscribe() drops the SERVER subscription but the
+      // Centrifuge client still tracks the sub object in its
+      // registry — the next newSubscription(sameChannel) would
+      // throw "already exists". removeSubscription cleans that up.
+      const c = getCentrifuge();
+      c?.removeSubscription(activeSub);
     } catch {
       // ignore — sub may already be torn down
     }

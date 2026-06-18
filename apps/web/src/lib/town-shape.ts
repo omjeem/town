@@ -58,6 +58,11 @@ export interface TownNpcDTO {
   name: string;
   description: string;
   prompt: string;
+  /** Tool capability grant. Absent when the NPC has no tools.
+   *  Shape mirrors NpcPermissions in lib/npc-templates.ts — we
+   *  project the JSONB blob raw so `town clone` round-trips
+   *  whatever the owner authored. */
+  permissions?: unknown;
 }
 
 export async function loadTownNpcs(userId: string): Promise<TownNpcDTO[]> {
@@ -72,6 +77,7 @@ export async function loadTownNpcs(userId: string): Promise<TownNpcDTO[]> {
     name: r.name,
     description: r.description,
     prompt: r.prompt,
+    ...(r.permissions != null ? { permissions: r.permissions } : {}),
   }));
 }
 

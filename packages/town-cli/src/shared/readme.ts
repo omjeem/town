@@ -48,11 +48,83 @@ underlying tile-level layout (paths, ponds, decor).
   at sibling PNGs ("./exterior.png", "./props/lamp.png"). The CLI uploads
   the PNGs and rewrites refs to "sprite:<hash>" on deploy.
 - \`npcs/<buildingId>.mdx\` — one NPC per slot in the building. Frontmatter
-  holds identity (name, description, buildingId); body is the system prompt.
+  holds identity (name, description, buildingId) and an optional
+  \`permissions\` block (see below); body is the system prompt.
   For buildings whose variant declares multiple slots, use
   \`npcs/<buildingId>__<slotId>.mdx\` and add \`slotId\` to the
   frontmatter so the renderer matches each MDX to the right position
   inside the interior.
+
+## NPC tool permissions
+
+Every NPC starts with **no tools** — they can chat but cannot read
+memory, run integrations, manage tasks, or call skills. Grant tools
+explicitly by adding a \`permissions\` block to the MDX frontmatter.
+Whatever is unset is denied, so it's safe to over-restrict and open
+up later.
+
+\`\`\`yaml
+---
+name: Hudson
+buildingId: home
+description: Butler of the world. Remembers what's on your mind.
+permissions:
+  core:
+    # Memory search across the resident's CORE graph.
+    memory_search: true
+    # CORE task system. "read" lets the NPC list/show tasks;
+    # "write" lets them create / update / complete.
+    tasks:
+      - read
+      - write
+  integrations:
+    # Each entry whitelists one CORE integration the NPC may use.
+    #
+    #   - slug only           → FULL integration. Every action the
+    #                           integration exposes is callable.
+    #   - slug + actions:[…]  → restricted. Only the listed action
+    #                           names pass; everything else is hidden
+    #                           from the model AND rejected at
+    #                           execute time.
+    - slug: gmail               # full gmail — every action available
+      actions:
+        - send_email
+    - slug: linear              # full linear — no narrowing
+  skills:
+    # Two loading modes, independent of each other.
+    #
+    # \`inject\` — content is APPENDED TO THE SYSTEM PROMPT every
+    #   turn. The NPC \"knows\" the skill from turn 1, no tool
+    #   call. Pays the skill's tokens on every reply, so use this
+    #   for short, always-relevant playbooks (voice, greeting
+    #   routine, hard rules).
+    inject:
+      - welcome_routine
+    # \`callable\` — exposed as the \`read_skill(skill_id)\` tool.
+    #   Content is NOT in context until the model calls it. Free
+    #   until used; use for larger / situational playbooks the
+    #   NPC only sometimes needs (a shipping checklist, calendar
+    #   etiquette). The same id can appear in both lists.
+    callable:
+      - calendar_etiquette
+      - shipping_checklist
+---
+
+You are the butler and world runner of this town. Greet the
+player warmly when they walk in, ask after their day, and reference
+recent CORE activity when context is provided. Stay in character,
+keep replies under three sentences.
+\`\`\`
+
+Rules:
+- Unknown keys are dropped silently on deploy — better a too-narrow
+  grant than a permission leak from a typo.
+- Omitting the \`permissions\` block resets the NPC to "no tools" on
+  the next deploy. To keep the existing grant intact, copy it through
+  (or just don't touch the block).
+- Group-chat conversations intentionally run WITHOUT tools, regardless
+  of this grant — for grounded answers walk up to the NPC and start a
+  1-1 chat with SPACE.
 
 ## What edits the server cares about
 
@@ -61,6 +133,8 @@ underlying tile-level layout (paths, ponds, decor).
 - Swap a variant → set \`variantId\` on the entry.
 - Turn on the in-house group chat → add \`"groupChatEnabled": true\` to
   the building.
+- Grant an NPC a tool → add the \`permissions:\` block to its MDX
+  frontmatter (see "NPC tool permissions" above) and \`town deploy\`.
 - Add a brand-new plot type → drop a folder under \`customPlots/\` and
   reference it from \`town.json\` as \`plotKey: "custom:<id>"\`.
 

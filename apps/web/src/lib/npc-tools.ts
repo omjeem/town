@@ -133,6 +133,18 @@ function isActionAllowed(
   return grant.actions.includes(action);
 }
 
+/** Metadata for one callable skill — used to advertise the skill to
+ *  the model in `read_skill`'s tool description so it doesn't have to
+ *  guess opaque ids. Loaded once per chat by loadCallableSkillMeta. */
+export interface CallableSkillMeta {
+  id: string;
+  title: string;
+  /** Short summary the model uses to decide whether the skill is
+   *  worth fetching. Falls back to a content snippet if the CORE
+   *  skill record has no explicit description field. */
+  description: string;
+}
+
 /**
  * Build the AI-SDK tools object for an NPC chat turn.
  *
@@ -141,10 +153,17 @@ function isActionAllowed(
  *   back to common sense.
  * - `permissions` is the NPC's grant. Tools not granted are not present on
  *   the returned object — the model literally cannot see them.
+ * - `callableSkills` is the metadata for skills under
+ *   `permissions.skills.callable`. When present, each entry's id +
+ *   title + description gets embedded in `read_skill`'s tool
+ *   description so the model knows what's available without having
+ *   to guess. Pass `[]` (or omit) to fall back to the previous
+ *   "model has to guess ids" behaviour.
  */
 export function buildNpcTools(
   ownerToken: string | null,
   permissions: NpcPermissions,
+  callableSkills: CallableSkillMeta[] = [],
 ): Record<string, Tool> {
   const ctxOrErr = makeContext(ownerToken);
   const tools: Record<string, Tool> = {};
@@ -365,11 +384,28 @@ export function buildNpcTools(
   const callable = permissions.skills?.callable ?? [];
   if (callable.length > 0 && !("error" in ctxOrErr)) {
     const allowed = new Set(callable);
+
+    // Advertise the available skills directly in the tool description
+    // — the model would otherwise have to guess opaque ids. We only
+    // list skills we have metadata for; ones that failed to load
+    // silently fall back to the "model guesses" behaviour for that id.
+    const knownMeta = callableSkills.filter((s) => allowed.has(s.id));
+    const advertised =
+      knownMeta.length > 0
+        ? knownMeta
+            .map((s) => `- id="${s.id}" — ${s.title}: ${s.description}`)
+            .join("\n")
+        : "(no skill metadata available — call with one of the granted ids)";
+
     tools.read_skill = tool({
-      description:
-        "Read a CORE skill (a stored playbook / workflow / persona document) by id. " +
-        "Returns the skill record including its `content` field. Use to load detailed " +
+      description: [
+        "Read a CORE skill (a stored playbook / workflow / persona document) by id.",
+        "Returns the skill record including its `content` field. Use to load detailed",
         "instructions on demand.",
+        "",
+        "Available skill_ids you may pass:",
+        advertised,
+      ].join("\n"),
       inputSchema: z.object({
         skill_id: z.string().min(1),
       }),
@@ -386,6 +422,57 @@ export function buildNpcTools(
   }
 
   return tools;
+}
+
+/**
+ * Fetch lightweight metadata (id, title, description) for every skill
+ * the NPC is allowed to `read_skill`. Returned list is the input to
+ * buildNpcTools' `callableSkills` parameter — the route handler runs
+ * this in parallel with loadInjectedSkills.
+ *
+ * Failures are silent per-id; a missing or deleted callable skill
+ * just drops out of the model's "available skills" list rather than
+ * breaking the chat. Returns [] when no callables, no owner token,
+ * or every fetch failed.
+ */
+export async function loadCallableSkillMeta(
+  ownerToken: string | null,
+  permissions: NpcPermissions,
+): Promise<CallableSkillMeta[]> {
+  const ids = permissions.skills?.callable ?? [];
+  if (ids.length === 0) return [];
+  const ctxOrErr = makeContext(ownerToken);
+  if ("error" in ctxOrErr) return [];
+
+  // Parallel fetch — usually fewer than ~5 skills, no need to batch.
+  const results = await Promise.all(
+    ids.map(async (id) => {
+      const res = (await coreFetch(
+        ctxOrErr,
+        `/api/v1/skills/${encodeURIComponent(id)}`,
+      )) as { skill?: Record<string, unknown>; error?: string };
+      if ("error" in res && res.error) return null;
+      const skill = res.skill;
+      if (!skill || typeof skill !== "object") return null;
+      // Skill records carry either `description` (one-liner) or a
+      // longer `content`. Prefer the explicit description; fall back
+      // to the first ~140 chars of content so the model gets *some*
+      // signal even when the author didn't write a summary.
+      const explicit =
+        typeof skill.description === "string" ? skill.description.trim() : "";
+      const fallback =
+        typeof skill.content === "string"
+          ? skill.content.replace(/\s+/g, " ").slice(0, 140).trim()
+          : "";
+      return {
+        id: typeof skill.id === "string" ? skill.id : id,
+        title:
+          typeof skill.title === "string" ? skill.title : "Untitled skill",
+        description: explicit || fallback || "(no description)",
+      } satisfies CallableSkillMeta;
+    }),
+  );
+  return results.filter((r): r is CallableSkillMeta => r !== null);
 }
 
 /**

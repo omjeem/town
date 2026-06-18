@@ -71,6 +71,12 @@ export interface NpcDTO {
   name: string;
   description: string;
   prompt: string;
+  /** Tool capability grant — integrations, core tasks/memory, skills.
+   *  Authored in the MDX frontmatter under `permissions:`; passed
+   *  through opaquely here and normalised server-side. Absent means
+   *  the NPC has no tools (server stores null → chat runtime reads
+   *  zero grants). See townFolderReadme() for the YAML shape. */
+  permissions?: unknown;
 }
 
 export async function readJson<T>(path: string): Promise<T> {
@@ -133,6 +139,11 @@ export async function readNpcsDir(dir: string): Promise<NpcDTO[]> {
       );
     }
     if (!name) throw new Error(`${file}: frontmatter missing \`name\`.`);
+    // `permissions` flows through opaquely — we don't validate the
+    // shape here, the server runs it through normalisePermissions
+    // (drops unknown keys) before persisting.
+    const permissions =
+      data.permissions !== undefined ? data.permissions : undefined;
     out.push({
       ...(id ? { id } : {}),
       buildingId,
@@ -140,6 +151,7 @@ export async function readNpcsDir(dir: string): Promise<NpcDTO[]> {
       name,
       description,
       prompt: parsed.content.trim(),
+      ...(permissions !== undefined ? { permissions } : {}),
     });
   }
   return out;
@@ -163,6 +175,7 @@ export async function writeNpcMdx(
     ...(npc.slotId ? { slotId: npc.slotId } : {}),
     name: npc.name,
     description: npc.description,
+    ...(npc.permissions !== undefined ? { permissions: npc.permissions } : {}),
   });
   await writeFile(join(npcDir, `${safe}.mdx`), body);
 }

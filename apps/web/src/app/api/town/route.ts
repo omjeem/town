@@ -19,6 +19,7 @@ import { z } from "zod";
 import { resolveUser } from "@/lib/auth-bearer";
 import { prisma } from "@/lib/db";
 import { loadManifest } from "@/lib/manifest";
+import { normalizePermissions } from "@/lib/npc-templates";
 import {
   applyTownShape,
   getTownShape,
@@ -38,6 +39,12 @@ const NpcSchema = z.object({
   description: z.string(),
   prompt: z.string(),
   id: z.string().optional(),
+  // Tool capability grant — integrations, core tasks/memory, skills.
+  // We don't shape this in zod because the normaliser in npc-templates
+  // already silently drops unknown keys (preventing permission leaks
+  // from typos), and duplicating the shape here would just create a
+  // second place to update.
+  permissions: z.unknown().optional(),
 });
 
 const BuildingSchema = z.object({
@@ -171,6 +178,22 @@ export async function POST(req: Request) {
           name: n.name,
           description: n.description,
           prompt: n.prompt,
+          // Always run incoming permissions through the normaliser
+          // (drops unknown keys, coerces types). Absent in the body
+          // → leave the field off so the nullable JSONB column lands
+          // as null, which the chat runtime treats as "no tools"
+          // rather than carrying over a stale grant.
+          // Prisma's JSONB inputs want a generic InputJsonObject; the
+          // strict NpcPermissions interface doesn't carry the required
+          // index signature, so we cast through `object` the same way
+          // PlotRow handles its `json` blob.
+          ...(n.permissions !== undefined
+            ? {
+                permissions: normalizePermissions(
+                  n.permissions,
+                ) as unknown as object,
+              }
+            : {}),
         })),
       });
       return created.count;

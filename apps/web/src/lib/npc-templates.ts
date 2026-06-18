@@ -182,8 +182,9 @@ function loadAll(): Record<string, NpcTemplate> {
 
 /** Coerce raw frontmatter into the NpcPermissions shape. Anything unknown
  *  is dropped silently — better a too-narrow grant than a permission leak
- *  from a typo in the .mdx file. */
-function normalizePermissions(raw: unknown): NpcPermissions {
+ *  from a typo in the .mdx file. Exported so /api/town can run the same
+ *  normaliser on permissions arriving over the wire from `town deploy`. */
+export function normalizePermissions(raw: unknown): NpcPermissions {
   if (!raw || typeof raw !== "object") return {};
   const r = raw as Record<string, unknown>;
   const out: NpcPermissions = {};

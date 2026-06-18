@@ -44,7 +44,11 @@ import { getOwnerCoreToken } from "@/lib/core-token";
 import { prisma } from "@/lib/db";
 import { ensureNpcsForUser } from "@/lib/plot";
 import { getNpcTemplate, type NpcPermissions } from "@/lib/npc-templates";
-import { buildNpcTools, loadInjectedSkills } from "@/lib/npc-tools";
+import {
+  buildNpcTools,
+  loadCallableSkillMeta,
+  loadInjectedSkills,
+} from "@/lib/npc-tools";
 import { safeBlock, safeInline } from "@/lib/prompt-sanitize";
 import { resolveViewer } from "@/lib/viewer";
 
@@ -306,8 +310,16 @@ export async function POST(req: Request) {
   // source. Tools the NPC isn't permitted to call simply aren't
   // present on the model's tool surface.
   const ownerToken = await getOwnerCoreToken(npcOwnerId);
-  const tools = buildNpcTools(ownerToken, npc.permissions);
-  const injectedSkills = await loadInjectedSkills(ownerToken, npc.permissions);
+  // Fetch inject-content + callable-meta in parallel — both hit the
+  // same /api/v1/skills endpoint, just for different ids and different
+  // purposes. Inject content goes into the system prompt; callable
+  // meta gets advertised inside read_skill's tool description so the
+  // model knows which ids are valid without guessing.
+  const [injectedSkills, callableSkills] = await Promise.all([
+    loadInjectedSkills(ownerToken, npc.permissions),
+    loadCallableSkillMeta(ownerToken, npc.permissions),
+  ]);
+  const tools = buildNpcTools(ownerToken, npc.permissions, callableSkills);
 
   const system = buildSystemPrompt(
     npc,

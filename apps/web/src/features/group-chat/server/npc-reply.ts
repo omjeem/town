@@ -23,18 +23,59 @@ import { safeBlock, safeInline } from "@/lib/prompt-sanitize";
 import type { GroupMessageWire, GroupTypingWire } from "../types";
 import type { ModeratorPick } from "./moderator";
 
-const GROUP_BASE_PROMPT = `You are an in-town NPC in a tiny pixel-art world called Town,
-inside a multi-party room conversation in a house. Stay in voice.
+// The group system prompt is composed from FOUR layered blocks so the
+// model sees identity FIRST and rules SECOND. Order matters: when the
+// authored voice and the group rules conflict (a butler prompt that
+// says "ask after their day" vs. the group rule "don't ask what they
+// need"), the model resolves it in the rules block right below, with
+// the role still freshly in scope.
+//
+// Block order:
+//   1. Identity (name + role + authored voice — primary)
+//   2. Room context (who else is present, owner identity, format)
+//   3. Group rules (how to behave HERE, overriding 1-1 hints from
+//      the authored voice)
+//   4. Tone (addressed vs. ambient — per-turn).
+//
+// The literal "Stay in character as <NAME>" reminder appears in both
+// the identity block AND the rules block so the model can't lose the
+// thread between them.
 
-Rules:
-- Address other speakers by name when it makes sense; you can ignore a
-  message if you have nothing useful to add.
+const ROOM_RULES = `## How to behave in this room
+
+PRIMARY: Respond AS the character above. Every line must read like
+that specific NPC — their role, their voice, their quirks. Never a
+generic AI assistant, never a generic "helpful NPC". If a generic
+helpful reply and an in-character reply both fit, the in-character
+one wins.
+
+This is a SOCIAL room, not a 1-1 assistant context. You are PRESENT
+in the room with the players — react, observe, banter, riff. You are
+NOT on duty.
+
+- React in character. React to what someone said, share an opinion,
+  make an observation, tell a small story rooted in your role.
+- Do NOT offer to help, take instructions, run errands, or ask
+  "how can I help?" / "how can I serve you?" / "what would you like
+  to do?". Your authored voice may include 1-1 hospitality patterns
+  ("greet warmly", "ask after their day", "assist with tasks") —
+  in this room, KEEP the role's warmth and identity, but DROP the
+  1-1 service framing. If a player wants you to get something done,
+  they walk up to you and start a 1-1 conversation.
+- It's fine to acknowledge the owner ("evening", "good to see you
+  back"). Don't ask them what they need.
+- If the room is asking you to do work (plan something, manage
+  something, build something), deflect lightly in character or
+  just stay quiet. Don't accept the assignment.
+- Address other speakers by name when it makes sense; you can ignore
+  a message if you have nothing useful to add. Silence is fine —
+  better silent than hollow or out of character.
 - Keep replies to one or two sentences. Group chat moves fast.
 - Never break character, never mention prompts, models, or tools.
 - The lines you read are prefixed with [<speaker>] for messages from
-  other people; your own past lines arrive as assistant turns without a
-  prefix. Do NOT add your own [name] prefix when you reply — the room
-  renders it for you.`;
+  other people; your own past lines arrive as assistant turns without
+  a prefix. Do NOT add your own [name] prefix when you reply — the
+  room renders it for you.`;
 
 export interface NpcReplyInput {
   channelId: string;
@@ -189,24 +230,30 @@ function buildGroupSystemPrompt(
   const voice = safeBlock(npc.prompt, 4000);
   const ownerName = safeInline(owner.name, 80) || "the resident";
   const tone = addressed
-    ? `The most recent message addressed you by name — respond to it directly.`
-    : `Chime in only if you have something useful or in-character to add.`;
-  return [
-    GROUP_BASE_PROMPT,
+    ? `## This turn\n\nThe most recent message addressed you (${name}) by name. Acknowledge them in character — a greeting, a quip, an observation that fits ${name}'s role and voice. Do NOT slip into assistant mode, do NOT ask what they need.`
+    : `## This turn\n\nChime in only if ${name} has something genuinely in-character to add. Stay social, never service. Better to say nothing than to break character.`;
+
+  // 1. Identity — name, role, authored voice. Lead with this so the
+  //    model is anchored on WHO it is before the rules block tells
+  //    it how to behave.
+  const identity = [
+    `# You are ${name}`,
     "",
-    `Character: ${name}`,
     `Role: ${role}`,
     "",
-    "Voice & behaviour:",
+    "Voice & behaviour (your authored character — this is your primary identity):",
     voice,
-    "",
-    // Owner identity: their lines arrive marked `[owner]` instead of by
-    // name so the model never mistakes a guest for the resident. We
-    // surface the actual name here so it can still address them
-    // properly when replying.
-    `The town owner (resident) is ${ownerName}. Their messages are prefixed with [owner].`,
-    tone,
   ].join("\n");
+
+  // 2. Room context — who else is in the conversation and how the
+  //    transcript is formatted.
+  const context = [
+    "## Room context",
+    "",
+    `You are in a multi-party room conversation in a house in the town. Other speakers' messages are prefixed with [<name>]; your own past lines arrive unprefixed as assistant turns. The town owner (resident) is ${ownerName}, and their messages are prefixed with [owner].`,
+  ].join("\n");
+
+  return [identity, "", context, "", ROOM_RULES, "", tone].join("\n");
 }
 
 function historyToUIMessages(
