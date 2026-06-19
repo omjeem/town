@@ -2,12 +2,20 @@
 // stays visually identical between the playground UI and the live game.
 // Changing any of these shifts every existing user's town.
 
+// CELL_{W,H} - PLOT_{W,H} = horizontal/vertical gutter between adjacent
+// plot footprints. With CELL_W=18 / PLOT_W=10 the per-side margin is 4
+// tiles, so two neighbouring buildings sit 8 tiles apart at minimum
+// (more after jitter pushes them apart). Picked to absorb the typical
+// 1-2 tile sprite overhang most building sprites have without letting
+// detailed art visually clip into the neighbour. Old values
+// (CELL_W=15 / CELL_H=16) gave 5/9-tile gutters, which read as
+// "congested" once sprite art was painted in.
 export const WORLD = {
-  W: 90,         // tiles
-  H: 80,
+  W: 108,        // tiles (= 6 * CELL_W)
+  H: 95,         // tiles (= 5 * CELL_H)
   TILE: 16,      // px per tile (only used by the renderer)
-  CELL_W: 15,
-  CELL_H: 16,
+  CELL_W: 18,
+  CELL_H: 19,
   COLS: 6,
   ROWS: 5,
   PLOT_W: 10,
