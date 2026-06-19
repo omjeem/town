@@ -225,10 +225,7 @@ export function TownGame(props: TownGameProps = {}) {
           slug (owner or visitor mode resolves to the same string) lets
           RemoteCards poll the head-tag endpoint and stack pills above
           each player's name card. */}
-      <RemoteCards
-        canvasRef={canvasRef}
-        townSlug={ownerSlug ?? visitorSlug}
-      />
+      <RemoteCards canvasRef={canvasRef} townSlug={ownerSlug ?? visitorSlug} />
 
       {/* HUD — owner-mode renders the identity badge; visitor-mode renders
           the "Visiting X" card. */}
@@ -260,9 +257,7 @@ export function TownGame(props: TownGameProps = {}) {
           }
         />
         {isVisitor ? (
-          <ItemsBadge
-            townSlug={(props as { townSlug: string }).townSlug}
-          />
+          <ItemsBadge townSlug={(props as { townSlug: string }).townSlug} />
         ) : null}
         {!isVisitor ? <SuggestionsBadge count={suggestions.count} /> : null}
       </div>
@@ -315,22 +310,17 @@ export function TownGame(props: TownGameProps = {}) {
       <GroupChatPrompt />
       <GroupChatSurface />
 
-      {/* Bottom-LEFT CTA — visitor only. Pitches the invitee on
-          building their own town; opens town.getcore.me in a new tab
-          so they don't lose their current visit. Sits left so the
-          bottom-right corner stays clear for the group chat overlay
-          (and the 1-1 DM panel). */}
-      {isVisitor ? (
-        <div className="pointer-events-auto absolute left-4 bottom-4 z-30">
-          <BuildYourOwnTownCta />
-        </div>
-      ) : null}
+      {/* Bottom-LEFT stack — visitor pitch on top (visitor mode only)
+          + a "Town from core" attribution underneath that ALWAYS shows
+          for everyone. Sits left so the bottom-right corner stays
+          clear for the group chat overlay and the 1-1 DM panel. */}
+      <div className="pointer-events-auto absolute left-4 bottom-4 z-30 flex flex-col items-start gap-2">
+        {isVisitor ? <BuildYourOwnTownCta /> : null}
+        <TownFromCoreCredit />
+      </div>
 
       {bootVisible ? (
-        <BootScreen
-          ready={worldReady}
-          onDone={() => setBootVisible(false)}
-        />
+        <BootScreen ready={worldReady} onDone={() => setBootVisible(false)} />
       ) : !worldReady ? (
         // Mid-game scene transition (interior → overworld is the loud
         // one). BootScreen has already dismissed, so without this card
@@ -393,7 +383,40 @@ function PopulationBadge({
   );
 }
 
-// Bottom-right "Build your own town" CTA shown only on visitor view.
+// Bottom-left attribution shown to EVERYONE (owners + visitors). Two
+// inline links into the open-source repos — "Town" is the engine itself,
+// "core" is the memory layer that powers the NPCs. Keeps the credit
+// quiet (text-only, low opacity) so it doesn't compete with the visitor
+// CTA stacked above it.
+function TownFromCoreCredit() {
+  return (
+    <div
+      className="nb-card px-3 py-2 text-base font-bold leading-tight text-ink"
+      style={{ background: "#ffffff" }}
+      title="Open-source projects from RedPlanet HQ"
+    >
+      <a
+        href="https://github.com/redplanethq/town"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline-offset-2 hover:underline"
+      >
+        Town
+      </a>
+      <span className="mx-1 opacity-60">from</span>
+      <a
+        href="https://github.com/redplanethq/core"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline-offset-2 hover:underline"
+      >
+        core
+      </a>
+    </div>
+  );
+}
+
+// Bottom-left "Build your own town" CTA shown only on visitor view.
 // Opens town.getcore.me in a new tab so the invitee can start their
 // own town without losing the visit they're already in.
 function BuildYourOwnTownCta() {

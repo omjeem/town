@@ -18,13 +18,35 @@ export type OAuthConfig = {
   scope: string;         // comma-separated per CORE's parser, e.g. "profile,email,openid"
 };
 
+/** Public production base for the town frontend. Used as the default for
+ *  any URL that has to round-trip through CORE (the OAuth `redirect_uri`)
+ *  or back into a user-visible link (the post-login redirect). Without
+ *  this default, an unset env var falls back to `req.url`, which in
+ *  production behind a reverse proxy is the internal container URL
+ *  (`http://web:3000` or worse, the dev `localhost:3000` baked into a
+ *  local `.env`). That's why "I logged in and landed on localhost"
+ *  happens. */
+export const DEFAULT_PUBLIC_BASE_URL = "https://town.getcore.me";
+
+export function getPublicBaseUrl(): string {
+  const v = process.env.PUBLIC_BASE_URL?.trim();
+  return (v && v.length > 0 ? v : DEFAULT_PUBLIC_BASE_URL).replace(/\/$/, "");
+}
+
 export function getOAuthConfig(): OAuthConfig {
   const base = required("CORE_OAUTH_BASE");
   return {
     base: base.replace(/\/$/, ""),
     clientId: required("CORE_OAUTH_CLIENT_ID"),
     clientSecret: required("CORE_OAUTH_CLIENT_SECRET"),
-    redirectUri: required("CORE_OAUTH_REDIRECT_URI"),
+    // Falls back to the public base + the standard callback path so a
+    // missing env var lands users back on the production host instead
+    // of localhost:3000 (the previous behaviour when `.env` was forgotten
+    // in deploy). Override via CORE_OAUTH_REDIRECT_URI when running in
+    // a different environment (staging, preview, etc.).
+    redirectUri:
+      process.env.CORE_OAUTH_REDIRECT_URI?.trim() ||
+      `${getPublicBaseUrl()}/api/auth/callback`,
     scope: process.env.CORE_OAUTH_SCOPE ?? "profile,email,openid",
   };
 }

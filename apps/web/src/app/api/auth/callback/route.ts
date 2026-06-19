@@ -16,6 +16,7 @@ import {
   exchangeCodeForTokens,
   fetchUserInfo,
   getOAuthConfig,
+  getPublicBaseUrl,
 } from "@/lib/oauth";
 import { createSession, setSessionCookie } from "@/lib/session";
 
@@ -105,13 +106,21 @@ export async function GET(req: NextRequest) {
 }
 
 function redirectToError(req: NextRequest, message: string) {
-  const target = new URL("/", req.url);
+  const target = absolute(req, "/");
   target.searchParams.set("auth_error", message);
   return NextResponse.redirect(target);
 }
 
-function absolute(req: NextRequest, path: string) {
-  return new URL(path.startsWith("/") ? path : `/${path}`, req.url);
+/** Build an absolute URL for a post-callback redirect. We *deliberately
+ *  don't* derive the host from `req.url` — in production behind a
+ *  reverse proxy that value is the internal container URL (e.g.
+ *  `http://web:3000`), which is exactly how users were ending up on
+ *  localhost after a successful login. Public base lives in env (with a
+ *  production default in oauth.ts), so the redirect always lands on a
+ *  user-visible host. */
+function absolute(_req: NextRequest, path: string) {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return new URL(normalized, getPublicBaseUrl());
 }
 
 function errMessage(e: unknown): string {
