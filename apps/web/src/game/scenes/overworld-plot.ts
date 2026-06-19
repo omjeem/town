@@ -34,6 +34,7 @@ import {
 } from "../realtime";
 import {
   defaultPlot,
+  resolveSpriteUrl,
   type Manifest,
   type Plot,
   type PlotBuilding,
@@ -52,7 +53,9 @@ import {
 // public URL. Idempotent — repeat loads are no-ops at the kaplay layer.
 
 function exteriorSpriteId(b: PlotBuilding): string {
-  // e.g. "exteriors/home/villa-1.png" -> "ext:home/villa-1"
+  // Catalog refs: "exteriors/home/villa-1.png" → "ext:home/villa-1".
+  // Uploaded refs: "sprite:<hash>" → "ext:sprite:<hash>" (kept as-is so the
+  // ref round-trips into a kaplay sprite key without colliding).
   return (
     "ext:" +
     b.exteriorSprite.replace(/^exteriors\//, "").replace(/\.(png|gif)$/, "")
@@ -84,11 +87,12 @@ async function loadPlotSprites(
 ): Promise<void> {
   const loads: Promise<unknown>[] = [];
 
-  // Buildings.
+  // Buildings. resolveSpriteUrl handles both catalog-relative paths and
+  // uploaded "sprite:<hash>" refs (the latter route through /api/sprites).
   for (const b of plot.buildings) {
     const id = exteriorSpriteId(b);
     loads.push(
-      Promise.resolve(k.loadSprite(id, `/sprites/catalog/${b.exteriorSprite}`)),
+      Promise.resolve(k.loadSprite(id, resolveSpriteUrl(b.exteriorSprite))),
     );
   }
 
@@ -193,24 +197,30 @@ function drawBuilding(k: KAPLAYCtx, b: PlotBuilding) {
   ]);
 
   // Sign in front of the building, two tiles south of the south door.
-  // The plot doesn't expose accent/label yet — pull from variant when
-  // we wire interiors in. For now use a sensible default.
-  const signTx = b.tx + Math.floor(b.w / 2) - 2;
+  // Anchored on the building's door column so longer labels grow
+  // symmetrically left/right instead of overflowing the board.
   const signTy = b.ty + b.h;
-  const signPx = signTx * TILE;
   const signPy = signTy * TILE;
+  const anchorX = (b.tx + b.w / 2) * TILE;
   const accent = hex(k, theme.buildings.HOME.accent);
   const ink = hex(k, INK);
   const cream = hex(k, theme.signCream);
+
+  // Board width scales with label length. Kaplay's default bitmap font
+  // measures ~6px per glyph at size 8, plus 6px breathing room each side.
+  // Floor of 3 tiles keeps short labels (HOME, YC) at the original size.
+  const label = (b.label ?? b.id).toUpperCase();
+  const boardH = 14;
+  const minBoardW = TILE * 3;
+  const boardW = Math.max(minBoardW, label.length * 6 + 12);
+
   k.add([
     k.rect(3, 18),
-    k.pos(signPx + TILE * 1.5 - 1.5, signPy + 14),
+    k.pos(anchorX - 1.5, signPy + 14),
     k.color(ink),
     k.z(20),
   ]);
-  const boardW = TILE * 3;
-  const boardH = 14;
-  const boardX = signPx + TILE * 1.5 - boardW / 2;
+  const boardX = anchorX - boardW / 2;
   k.add([
     k.rect(boardW, boardH, { radius: 2 }),
     k.pos(boardX, signPy),
@@ -225,7 +235,7 @@ function drawBuilding(k: KAPLAYCtx, b: PlotBuilding) {
     k.z(20.2),
   ]);
   k.add([
-    k.text((b.label ?? b.id).toUpperCase(), { size: 8 }),
+    k.text(label, { size: 8 }),
     k.anchor("center"),
     k.pos(boardX + boardW / 2, signPy + boardH / 2 - 1),
     k.color(ink),

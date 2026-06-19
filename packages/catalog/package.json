@@ -14,11 +14,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit",
-    "sync": "tsx scripts/sync-public.ts"
+    "lint": "tsc --noEmit"
   },
   "devDependencies": {
-    "tsx": "^4.0.0",
     "typescript": "^5"
   }
 }

@@ -32,10 +32,13 @@ export async function GET(_req: Request, ctx: { params: Promise<Params> }) {
   }
 
   const { plot } = await getPlotForUser(town.ownerId);
-  const owner = await prisma.user.findUnique({
-    where: { id: town.ownerId },
-    select: { name: true },
-  });
+  const [owner, npcCount] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: town.ownerId },
+      select: { name: true },
+    }),
+    prisma.npc.count({ where: { userId: town.ownerId } }),
+  ]);
 
   let png: Buffer;
   try {
@@ -44,6 +47,8 @@ export async function GET(_req: Request, ctx: { params: Promise<Params> }) {
       manifest: loadManifest(),
       townName: town.name,
       ownerName: owner?.name ?? "",
+      // Static-snapshot population: owner + every authored NPC.
+      population: npcCount + 1,
     });
   } catch (err) {
     console.error("[postcard.png] render failed", err);

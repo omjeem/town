@@ -47,6 +47,23 @@ export interface NpcPermissions {
     inject?: string[];
     callable?: string[];
   };
+  /** Town-scoped capabilities. These don't touch the resident's CORE
+   *  account — they read/write the town's own state (visitor tags,
+   *  collectible item cards) or hit a public service (web_search). NPC
+   *  tools register only if both (a) the permission is on, and (b) the
+   *  town carries the required catalog (for grant_tag / give_item). */
+  town?: {
+    web_search?: boolean;
+    grant_tag?: {
+      /** Tag ids the NPC may grant. Empty list = no tags. Ids that don't
+       *  exist in the town's catalog at runtime are silently ignored. */
+      allowed_tag_ids: string[];
+    };
+    give_item?: {
+      /** Template ids the NPC may issue. Same rules as grant_tag. */
+      allowed_template_ids: string[];
+    };
+  };
 }
 
 export interface NpcTemplate {
@@ -226,6 +243,33 @@ export function normalizePermissions(raw: unknown): NpcPermissions {
       skills.callable = s.callable.filter((v): v is string => typeof v === "string");
     }
     out.skills = skills;
+  }
+
+  if (r.town && typeof r.town === "object") {
+    const t = r.town as Record<string, unknown>;
+    const town: NonNullable<NpcPermissions["town"]> = {};
+    if (typeof t.web_search === "boolean") town.web_search = t.web_search;
+    if (t.grant_tag && typeof t.grant_tag === "object") {
+      const g = t.grant_tag as Record<string, unknown>;
+      if (Array.isArray(g.allowed_tag_ids)) {
+        town.grant_tag = {
+          allowed_tag_ids: g.allowed_tag_ids.filter(
+            (v): v is string => typeof v === "string",
+          ),
+        };
+      }
+    }
+    if (t.give_item && typeof t.give_item === "object") {
+      const g = t.give_item as Record<string, unknown>;
+      if (Array.isArray(g.allowed_template_ids)) {
+        town.give_item = {
+          allowed_template_ids: g.allowed_template_ids.filter(
+            (v): v is string => typeof v === "string",
+          ),
+        };
+      }
+    }
+    out.town = town;
   }
 
   return out;

@@ -25,6 +25,7 @@ import {
   getTownShape,
   type TownShape,
 } from "@/lib/town-shape";
+import { assertSafeSvg } from "@/lib/town-tools";
 import { IncrementalError } from "@town/plot-gen";
 import type { CustomPlot, Plot } from "@town/plot";
 import { validatePlot } from "@town/plot";
@@ -71,7 +72,12 @@ const CustomNpcPositionSchema = z.object({
 const CustomVariantSchema = z
   .object({
     id: z.string().min(1),
-    exteriorSpriteCandidates: z.array(z.string()).min(1),
+    exteriorSprite: z.string().min(1),
+    // Actual sprite tile dimensions — used to keep tall sprites from
+    // visually overlapping their neighbours on the overworld. Optional;
+    // defaults to the footprint when absent.
+    spriteW: z.number().int().positive().optional(),
+    spriteH: z.number().int().positive().optional(),
     // Legacy single-position field — optional. New customPlots can
     // ship `npcPositions` alone; older CLI builds still send this.
     npcPosition: CustomNpcPositionSchema.optional(),
@@ -91,21 +97,78 @@ const CustomInteriorPropSchema = z.object({
   sprite: z.string(),
 });
 
+const TileRectSchema = z.object({
+  tx: z.number(),
+  ty: z.number(),
+  w: z.number(),
+  h: z.number(),
+});
+
+const TilePosSchema = z.object({
+  tx: z.number(),
+  ty: z.number(),
+});
+
 const CustomPlotSchema = z.object({
   id: z.string().min(1),
   label: z.string(),
   category: z.string(),
   interior: z.object({
-    spriteCandidates: z.array(z.string()).min(1),
+    sprite: z.string().min(1),
     props: z.array(CustomInteriorPropSchema),
+    widthTiles: z.number().int().positive(),
+    heightTiles: z.number().int().positive(),
+    walkable: TileRectSchema,
+    extraWalkable: z.array(TileRectSchema).optional(),
+    blocked: z.array(TileRectSchema).optional(),
+    spawn: TilePosSchema,
+    exit: TilePosSchema,
   }),
   variants: z.array(CustomVariantSchema).min(1),
+});
+
+// Per-town catalog uploaded by `town deploy`. Tags are tiny structured data
+// (authored inline in town.json); items each carry an inlined SVG body
+// (the CLI walks items/manifest.json + items/<id>.svg and bundles them).
+// The whole catalog is stored as a single JSONB blob on the Town row.
+const TownTagDefSchema = z.object({
+  id: z.string().min(1).max(64),
+  label: z.string().min(1).max(40),
+  emoji: z.string().min(1).max(8),
+  color: z.string().regex(/^#[0-9a-fA-F]{3,8}$/, "color must be a hex string"),
+  defaultTtlSeconds: z.number().int().positive().nullable(),
+  description: z.string().min(1).max(400),
+});
+
+const TownItemFieldSchema = z.object({
+  name: z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, "field name must be a JS identifier"),
+  label: z.string().min(1).max(120),
+  maxLength: z.number().int().positive().max(2000),
+});
+
+const TownItemBundleSchema = z.object({
+  id: z.string().min(1).max(64),
+  label: z.string().min(1).max(60),
+  description: z.string().min(1).max(400),
+  fields: z.array(TownItemFieldSchema).max(20),
+  // SVG body capped at 64KB — designer cards should be a couple KB each;
+  // anything larger is almost certainly an authoring mistake (raster
+  // payload embedded or runaway gradient).
+  svg: z.string().min(20).max(64 * 1024),
+});
+
+const TownCatalogSchema = z.object({
+  tags: z.array(TownTagDefSchema).max(64),
+  items: z.array(TownItemBundleSchema).max(64),
 });
 
 const PostBodySchema = z.object({
   buildings: z.array(BuildingSchema).min(1),
   customPlots: z.array(CustomPlotSchema).optional(),
   npcs: z.array(NpcSchema).optional(),
+  // Absent → leave the Town.catalogJson row alone (so a partial deploy
+  // doesn't wipe the catalog). Present (even with empty arrays) → replace.
+  catalog: TownCatalogSchema.optional(),
 });
 
 export async function GET(req: Request) {
@@ -114,11 +177,19 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const { shape, version, npcs } = await getTownShape(resolved.user.id);
+  // The catalog lives on the Town row, not the plot. Fetch in parallel
+  // with the shape so `town clone` can hydrate the local items/ dir and
+  // the inline `tags` array on town.json.
+  const town = await prisma.town.findUnique({
+    where: { ownerId: resolved.user.id },
+    select: { catalogJson: true },
+  });
   return NextResponse.json({
     buildings: shape.buildings,
     customPlots: shape.customPlots,
     npcs,
     version,
+    ...(town?.catalogJson ? { catalog: town.catalogJson } : {}),
   });
 }
 
@@ -137,11 +208,43 @@ export async function POST(req: Request) {
     );
   }
 
+  // Catalog SVGs go through a stricter content check than Zod alone can
+  // do. The CLI runs the same assertion at deploy, but anyone POSTing
+  // a hand-crafted body directly could otherwise bypass it.
+  if (parsed.catalog) {
+    for (const it of parsed.catalog.items) {
+      try {
+        assertSafeSvg(it.id, it.svg);
+      } catch (e) {
+        return NextResponse.json(
+          {
+            error: "catalog-svg-unsafe",
+            detail: e instanceof Error ? e.message : "unsafe svg",
+          },
+          { status: 400 },
+        );
+      }
+    }
+  }
+
   const userId = resolved.user.id;
   const input: TownShape = {
     buildings: parsed.buildings,
     customPlots: (parsed.customPlots ?? []) as CustomPlot[],
   };
+
+  // ?reflow=1 — drop the persisted plot before re-applying the shape.
+  // This forces applyTownShape down the first-deploy path so each
+  // building re-runs findFreeRect with the current cluster bias,
+  // instead of keeping its original (pre-clustering) random cell.
+  // Used by `town deploy --reflow` when a town's layout has drifted
+  // wider than the postcard can frame.
+  const url = new URL(req.url);
+  if (url.searchParams.get("reflow") === "1") {
+    await prisma.plotRow.delete({ where: { userId } }).catch(() => {
+      // No row to drop — first deploy was about to happen anyway.
+    });
+  }
 
   let applied;
   try {
@@ -164,40 +267,81 @@ export async function POST(req: Request) {
     );
   }
 
+  // NPC roster replace + catalog persist run together: either the
+  // deploy lands the whole content snapshot, or neither does. Without
+  // this we could end up with mismatched permissions in the NPC rows
+  // pointing at catalog ids that the catalog write later failed to
+  // persist.
+  //
+  // The catalog write is `update` (not updateMany) so a missing Town
+  // row throws — the original updateMany silently succeeded with 0
+  // rows, which the CLI would show as a successful deploy with no
+  // visible effect. Onboarding creates the Town row before the first
+  // deploy, so the only way to hit the throw is to PAT-deploy without
+  // having finished onboarding; we surface that as a clear error.
   let npcCount = 0;
-  if (parsed.npcs && parsed.npcs.length >= 0) {
-    npcCount = await prisma.$transaction(async (tx) => {
-      await tx.npc.deleteMany({ where: { userId } });
-      if (parsed.npcs!.length === 0) return 0;
-      const created = await tx.npc.createMany({
-        data: parsed.npcs!.map((n) => ({
-          ...(n.id ? { id: n.id } : {}),
-          userId,
-          buildingId: n.buildingId,
-          slotId: n.slotId,
-          name: n.name,
-          description: n.description,
-          prompt: n.prompt,
-          // Always run incoming permissions through the normaliser
-          // (drops unknown keys, coerces types). Absent in the body
-          // → leave the field off so the nullable JSONB column lands
-          // as null, which the chat runtime treats as "no tools"
-          // rather than carrying over a stale grant.
-          // Prisma's JSONB inputs want a generic InputJsonObject; the
-          // strict NpcPermissions interface doesn't carry the required
-          // index signature, so we cast through `object` the same way
-          // PlotRow handles its `json` blob.
-          ...(n.permissions !== undefined
-            ? {
-                permissions: normalizePermissions(
-                  n.permissions,
-                ) as unknown as object,
-              }
-            : {}),
-        })),
-      });
-      return created.count;
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      let count = 0;
+      if (parsed.npcs && parsed.npcs.length >= 0) {
+        await tx.npc.deleteMany({ where: { userId } });
+        if (parsed.npcs.length > 0) {
+          const created = await tx.npc.createMany({
+            data: parsed.npcs.map((n) => ({
+              ...(n.id ? { id: n.id } : {}),
+              userId,
+              buildingId: n.buildingId,
+              slotId: n.slotId,
+              name: n.name,
+              description: n.description,
+              prompt: n.prompt,
+              // Always run incoming permissions through the normaliser
+              // (drops unknown keys, coerces types). Absent in the body
+              // → leave the field off so the nullable JSONB column lands
+              // as null, which the chat runtime treats as "no tools"
+              // rather than carrying over a stale grant.
+              // Prisma's JSONB inputs want a generic InputJsonObject; the
+              // strict NpcPermissions interface doesn't carry the required
+              // index signature, so we cast through `object` the same way
+              // PlotRow handles its `json` blob.
+              ...(n.permissions !== undefined
+                ? {
+                    permissions: normalizePermissions(
+                      n.permissions,
+                    ) as unknown as object,
+                  }
+                : {}),
+            })),
+          });
+          count = created.count;
+        }
+      }
+      if (parsed.catalog) {
+        // Throws P2025 when no Town row matches — caught below and
+        // surfaced as "no-town-row". Don't use updateMany here: silently
+        // succeeding with 0 rows turned out to be a UX trap (deploy
+        // reports OK, catalog never lands).
+        await tx.town.update({
+          where: { ownerId: userId },
+          data: { catalogJson: parsed.catalog as unknown as object },
+        });
+      }
+      return count;
     });
+    npcCount = result;
+  } catch (e) {
+    const code = (e as { code?: string }).code;
+    if (code === "P2025") {
+      return NextResponse.json(
+        {
+          error: "no-town-row",
+          detail:
+            "This user has no Town row to attach the catalog to. Finish onboarding first.",
+        },
+        { status: 409 },
+      );
+    }
+    throw e;
   }
 
   return NextResponse.json({

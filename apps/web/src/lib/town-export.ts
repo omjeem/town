@@ -1,10 +1,10 @@
 // Server-side postcard renderer.
 //
 // Mirrors the kaplay overworld draw order (ground → ponds → paths →
-// decor → buildings) on a node canvas, then applies the same
-// fit-width zoom + bottom trim + town-sign overlay that the in-browser
-// Share modal uses. Output is a PNG buffer ready to be streamed back
-// from a Route Handler.
+// decor → buildings) on a node canvas, then frames the camera around
+// the buildings' bounding box (NOT fit-width on the whole world — see
+// computeFrame for why) and stamps the town-sign overlay. Output is a
+// PNG buffer ready to be streamed back from a Route Handler.
 //
 // Why duplicate the draw logic instead of driving a headless browser:
 // the deploy target can't reasonably pull in chromium, and we don't
@@ -13,7 +13,7 @@
 // the in-game scene + capture path:
 //
 //   GRASS_HEX + autotile9Slice  ←  apps/web/src/lib/plot-render.ts
-//   drawTownSign + trim/margin  ←  apps/web/src/lib/postcard-sign.ts
+//   drawTownSign / drawCoreBadge ←  apps/web/src/lib/postcard-sign.ts
 //   loadManifest                ←  apps/web/src/lib/manifest.ts
 //
 // What this file owns is the order of layers, the camera projection,
@@ -38,20 +38,150 @@ import path from "node:path";
 
 import { GRASS_HEX, autotile9Slice } from "./plot-render";
 import {
-  SCREENSHOT_BOTTOM_TRIM_PX,
   drawCoreBadge,
+  drawPopulationBadge,
   drawTownSign,
 } from "./postcard-sign";
-import type { Manifest, Plot } from "@town/plot";
+import { findSpriteByHash } from "./sprite";
+import type { Manifest, Plot, PlotBuilding } from "@town/plot";
+import { isUploadedSpriteRef, uploadedSpriteHash } from "@town/plot";
 
-// Output sizing — tuned so the post-trim crop lands at 1200×628, which
-// hits Twitter's `summary_large_image` spec (1200×628, 1.91:1) and
-// OpenGraph's recommended image size (1200×630). One image works for
-// X, LinkedIn, WhatsApp, Facebook previews without per-platform
-// resizing.
+// Output sizing — 1200×628 hits Twitter's `summary_large_image` spec
+// (1200×628, 1.91:1) and OpenGraph's recommended size (1200×630). One
+// image works for X, LinkedIn, WhatsApp, Facebook previews without
+// per-platform resizing.
 const VIEW_W = 1200;
-const VIEW_H = 628 + SCREENSHOT_BOTTOM_TRIM_PX; // 668 — trim chops the
-//                                                  fringe back to 628
+const VIEW_H = 628;
+const VIEW_ASPECT = VIEW_W / VIEW_H;
+
+// Tiles of forest border to leave around the buildings' bounding box.
+// Big enough that the camera doesn't crop into a tree canopy at the
+// edge, small enough that the buildings stay the focal point. A
+// 12×15 terraced-house sprite is roughly this tall, so the border
+// reads as a frame, not the whole image.
+const FRAME_PAD_TILES = 8;
+
+/** Sprite-aware extents of a single building in world tile coords. The
+ *  sprite is bottom-center anchored on the south edge of the footprint,
+ *  so it can extend left/right of the footprint (wider sprite) and
+ *  upward (taller sprite). */
+function buildingExtents(b: PlotBuilding): {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+} {
+  const sw = b.spriteW ?? b.w;
+  const sh = b.spriteH ?? b.h;
+  const left = b.tx + (b.w - sw) / 2;
+  const top = b.ty + b.h - sh;
+  return { left, top, right: left + sw, bottom: top + sh };
+}
+
+/** Frame the postcard around the buildings instead of the whole world.
+ *  Returns a source rect (in world pixels) with the same aspect as the
+ *  output view. Falls back to the full world when the plot has no
+ *  buildings (defensive — every persisted plot has at least HOME). */
+function computeFrame(plot: Plot): {
+  srcX: number;
+  srcY: number;
+  srcW: number;
+  srcH: number;
+} {
+  const tileSize = plot.world.tileSize;
+  const worldW = plot.world.w;
+  const worldH = plot.world.h;
+
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const b of plot.buildings) {
+    const e = buildingExtents(b);
+    if (e.left < x0) x0 = e.left;
+    if (e.top < y0) y0 = e.top;
+    if (e.right > x1) x1 = e.right;
+    if (e.bottom > y1) y1 = e.bottom;
+  }
+  if (x0 === Infinity) {
+    x0 = 0;
+    y0 = 0;
+    x1 = worldW;
+    y1 = worldH;
+  }
+
+  // Pad with a forest border so the buildings sit inside a frame
+  // instead of flush to the canvas edge.
+  x0 -= FRAME_PAD_TILES;
+  y0 -= FRAME_PAD_TILES;
+  x1 += FRAME_PAD_TILES;
+  y1 += FRAME_PAD_TILES;
+
+  // Extend the under-sized axis so the box matches VIEW_ASPECT exactly.
+  // (drawImage scales src→dst independently per axis, so any mismatch
+  // would horizontally or vertically stretch the world.)
+  const boxW = x1 - x0;
+  const boxH = y1 - y0;
+  if (boxW / boxH < VIEW_ASPECT) {
+    const need = boxH * VIEW_ASPECT;
+    const extra = (need - boxW) / 2;
+    x0 -= extra;
+    x1 += extra;
+  } else {
+    const need = boxW / VIEW_ASPECT;
+    const extra = (need - boxH) / 2;
+    y0 -= extra;
+    y1 += extra;
+  }
+
+  // World cap: if the aspect-corrected box is bigger than the world
+  // along one axis, snap it to the full world along that axis and
+  // re-derive the other axis from VIEW_ASPECT so we stay distortion-free.
+  if (x1 - x0 > worldW) {
+    x0 = 0;
+    x1 = worldW;
+    const targetH = worldW / VIEW_ASPECT;
+    const cy = (y0 + y1) / 2;
+    y0 = cy - targetH / 2;
+    y1 = cy + targetH / 2;
+  }
+  if (y1 - y0 > worldH) {
+    y0 = 0;
+    y1 = worldH;
+    const targetW = worldH * VIEW_ASPECT;
+    const cx = (x0 + x1) / 2;
+    x0 = cx - targetW / 2;
+    x1 = cx + targetW / 2;
+  }
+
+  // Shift (don't shrink) the box back into world bounds. Shrinking
+  // would break the aspect lock.
+  if (x0 < 0) {
+    x1 -= x0;
+    x0 = 0;
+  }
+  if (y0 < 0) {
+    y1 -= y0;
+    y0 = 0;
+  }
+  if (x1 > worldW) {
+    x0 -= x1 - worldW;
+    x1 = worldW;
+  }
+  if (y1 > worldH) {
+    y0 -= y1 - worldH;
+    y1 = worldH;
+  }
+  if (x0 < 0) x0 = 0;
+  if (y0 < 0) y0 = 0;
+
+  return {
+    srcX: x0 * tileSize,
+    srcY: y0 * tileSize,
+    srcW: (x1 - x0) * tileSize,
+    srcH: (y1 - y0) * tileSize,
+  };
+}
 
 // Public sprites directory. Resolved off process.cwd() so it works
 // whether Next runs from apps/web or the monorepo root.
@@ -86,13 +216,41 @@ async function loadSprite(rel: string): Promise<Image> {
   return img;
 }
 
+/** Resolve a building's exteriorSprite to a decoded image, regardless of
+ *  whether the ref points at a shipped catalog PNG ("exteriors/foo.png")
+ *  or a user-uploaded blob ("sprite:<hash>" — bytes live in the Sprite
+ *  table). The in-game scene goes through resolveSpriteUrl for this
+ *  switch; the postcard renders server-side, so we read the bytes
+ *  directly instead of looping back through HTTP. */
+async function loadBuildingSprite(ref: string): Promise<Image> {
+  if (isUploadedSpriteRef(ref)) {
+    const hash = uploadedSpriteHash(ref)!;
+    const cacheKey = "upload:" + hash;
+    const cached = spriteCache.get(cacheKey);
+    if (cached) return cached;
+    const row = await findSpriteByHash(hash);
+    if (!row) {
+      throw new Error(`uploaded sprite ${hash} not found in Sprite table`);
+    }
+    const img = await loadImage(row.bytes);
+    spriteCache.set(cacheKey, img);
+    return img;
+  }
+  return loadSprite("catalog/" + ref);
+}
+
 export async function renderTownPostcard(opts: {
   plot: Plot;
   manifest: Manifest;
   townName: string;
   ownerName: string;
+  /** Static-snapshot population the postcard advertises. Mirrors the
+   *  in-game HUD's Population badge — owner + authored NPCs (visitors
+   *  aren't part of the persisted town). Callers count `Npc` rows for
+   *  the town owner and pass `npcCount + 1` here. */
+  population: number;
 }): Promise<Buffer> {
-  const { plot, manifest, townName, ownerName } = opts;
+  const { plot, manifest, townName, ownerName, population } = opts;
 
   const tileSize = plot.world.tileSize;
   const worldPxW = plot.world.w * tileSize;
@@ -175,61 +333,46 @@ export async function renderTownPostcard(opts: {
   }
 
   // Buildings — bottom-center anchored on the south edge of the
-  // footprint, same anchor the scene uses.
+  // footprint, same anchor the scene uses. Refs can be either a catalog
+  // path or an uploaded `sprite:<hash>` blob — loadBuildingSprite
+  // dispatches between the two so customPlots show up in the postcard,
+  // not just the in-game scene.
   for (const b of plot.buildings) {
     try {
-      const img = await loadSprite("catalog/" + b.exteriorSprite);
+      const img = await loadBuildingSprite(b.exteriorSprite);
       const xPx = Math.round((b.tx + b.w / 2) * tileSize - img.width / 2);
       const yPx = Math.round((b.ty + b.h) * tileSize - img.height);
       wctx.drawImage(img, xPx, yPx);
-    } catch {
-      // missing building sprite — skip
+    } catch (err) {
+      console.warn(
+        "[postcard.png] skipped building sprite",
+        b.id,
+        b.exteriorSprite,
+        err,
+      );
     }
   }
 
-  // 2. Project the world into the 16:9 postcard. Fit-width scale, then
-  //    centered vertically (so the framing matches the client capture
-  //    which puts the camera at world center).
-  const scale = VIEW_W / worldPxW;
-  const dstW = Math.round(worldPxW * scale);
-  const dstH = Math.round(worldPxH * scale);
-  const dstX = Math.round((VIEW_W - dstW) / 2);
-  const dstY = Math.round((VIEW_H - dstH) / 2);
+  // 2. Frame around the buildings (not the whole world). With only a
+  //    handful of buildings on a 90×80 world, fit-width would crop the
+  //    top/bottom rows AND leave the village reading as a tiny dot in
+  //    the wilderness. computeFrame returns an aspect-matched source
+  //    rect centered on the buildings + a forest border.
+  const { srcX, srcY, srcW, srcH } = computeFrame(plot);
 
   const view = createCanvas(VIEW_W, VIEW_H);
   const vctx = view.getContext("2d");
   vctx.imageSmoothingEnabled = false;
-  // Same canvas bg as kaplay so any letterbox area reads the same.
   vctx.fillStyle = "#c5d0dc";
   vctx.fillRect(0, 0, VIEW_W, VIEW_H);
-  vctx.drawImage(world, dstX, dstY, dstW, dstH);
+  vctx.drawImage(world, srcX, srcY, srcW, srcH, 0, 0, VIEW_W, VIEW_H);
 
-  // 3. Crop the bg strips around the world (at fit-width they're 0 on
-  //    the sides; vertical bg may exist if the world is shorter than
-  //    the view) and trim the bottom forest.
-  const cropLeft = Math.max(0, dstX);
-  const cropRight = Math.min(VIEW_W, dstX + dstW);
-  const cropTop = Math.max(0, dstY);
-  const cropBottomMax = Math.min(VIEW_H, dstY + dstH);
-  const cropBottom = Math.max(
-    cropTop + 1,
-    cropBottomMax - SCREENSHOT_BOTTOM_TRIM_PX,
-  );
-  const cropW = cropRight - cropLeft;
-  const cropH = cropBottom - cropTop;
+  // 3. Stamp the town sign, CORE attribution badge, and population
+  //    counter. CORE badge sits top-left, population top-right mirroring
+  //    the in-game HUD, town sign bottom-right.
+  drawTownSign(vctx, VIEW_W, VIEW_H, townName, ownerName);
+  drawCoreBadge(vctx, VIEW_H);
+  drawPopulationBadge(vctx, VIEW_W, VIEW_H, population);
 
-  const out = createCanvas(cropW, cropH);
-  const octx = out.getContext("2d");
-  octx.imageSmoothingEnabled = false;
-  octx.drawImage(view, cropLeft, cropTop, cropW, cropH, 0, 0, cropW, cropH);
-
-  // 4. Stamp the town sign — shared with the client capture path so
-  //    both surfaces produce the same overlay.
-  drawTownSign(octx, cropW, cropH, townName, ownerName);
-
-  // 5. Top-left "town · getcore.me" badge so every shared postcard
-  //    carries the CORE attribution.
-  drawCoreBadge(octx, cropH);
-
-  return out.toBuffer("image/png");
+  return view.toBuffer("image/png");
 }

@@ -16,7 +16,17 @@
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 
+import type { TownCatalog } from "@town/types";
+
+import { prisma } from "./db";
 import type { NpcPermissions } from "./npc-templates";
+import {
+  findItem,
+  findTag,
+  isWebSearchConfigured,
+  renderItemSvg,
+  webSearch,
+} from "./town-tools";
 
 const CORE_BASE_ENV = "CORE_OAUTH_BASE";
 
@@ -47,12 +57,22 @@ async function coreFetch(
   });
   const text = await res.text();
   if (!res.ok) {
-    return { error: `core ${res.status}`, detail: text.slice(0, 500) };
+    // Log the full upstream detail server-side so an operator can
+    // diagnose; only surface the status code to the model. CORE error
+    // bodies routinely include internal paths/ids and we don't want
+    // those landing in a chat reply by accident.
+    console.warn(
+      `[npc-tools] CORE ${res.status} on ${path}: ${text.slice(0, 500)}`,
+    );
+    return { error: `core ${res.status}` };
   }
   try {
     return text ? JSON.parse(text) : {};
   } catch {
-    return { error: "core-bad-json", detail: text.slice(0, 500) };
+    console.warn(
+      `[npc-tools] CORE bad json on ${path}: ${text.slice(0, 500)}`,
+    );
+    return { error: "core-bad-json" };
   }
 }
 
@@ -145,6 +165,31 @@ export interface CallableSkillMeta {
   description: string;
 }
 
+/** Per-chat context for the town-scoped tools (web_search / grant_tag /
+ *  give_item). The route handler resolves these from the visitor cookie
+ *  + town slug before calling buildNpcTools — passing null disables
+ *  every town tool, which is what personal-town chats want. */
+export interface TownContext {
+  townSlug: string;
+  /** "user:<id>" / "guest:<id>" — same shape Conversation rows use. */
+  subjectKey: string;
+  /** NPC row id, stored on VisitorTag.awardedByNpc / VisitorItem.awardedByNpc
+   *  for audit. May be null if the NPC is ephemeral / not persisted. */
+  npcId: string | null;
+  /** The town's catalog (tags + item templates with SVG bodies). null
+   *  means the town hasn't authored one yet — grant_tag and give_item
+   *  silently don't register. */
+  catalog: TownCatalog | null;
+  /** True when the caller is the town's owner chatting in their own
+   *  town. The award tools (grant_tag / give_item) refuse to register
+   *  for owners — earning your own NPC's tags would pollute the data
+   *  and isn't a meaningful in-world reward. web_search stays on. */
+  isOwner: boolean;
+  /** Absolute base URL for constructed share links (e.g. "https://town.getcore.me").
+   *  When omitted, give_item returns a path-relative share_url. */
+  publicBaseUrl?: string;
+}
+
 /**
  * Build the AI-SDK tools object for an NPC chat turn.
  *
@@ -164,6 +209,7 @@ export function buildNpcTools(
   ownerToken: string | null,
   permissions: NpcPermissions,
   callableSkills: CallableSkillMeta[] = [],
+  townCtx: TownContext | null = null,
 ): Record<string, Tool> {
   const ctxOrErr = makeContext(ownerToken);
   const tools: Record<string, Tool> = {};
@@ -419,6 +465,246 @@ export function buildNpcTools(
         return res.skill ?? { error: "skill-not-found" };
       },
     });
+  }
+
+  // ── Town: web_search ─────────────────────────────────────────────────
+  // Permission-gated, env-gated. The tool is only present when both the
+  // NPC has the grant AND the server has a search provider configured —
+  // so the model never sees a tool it can't actually use.
+  if (permissions.town?.web_search && isWebSearchConfigured()) {
+    tools.web_search = tool({
+      description:
+        "Search the public web for facts to ground a reply. Use sparingly — only when the conversation needs a recent or specific external fact (a real article, a recent event, a public figure's actual position). Don't call for small talk.",
+      inputSchema: z.object({
+        query: z.string().min(1).describe("Natural-language search query."),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(10)
+          .default(5)
+          .describe("Max number of results to return."),
+      }),
+      async execute({ query, limit }) {
+        try {
+          return await webSearch(query, limit);
+        } catch (e) {
+          return {
+            error: "web-search-failed",
+            detail: e instanceof Error ? e.message : "unknown",
+          };
+        }
+      },
+    });
+  }
+
+  // Per-turn award budgets — one grant_tag and one give_item per chat
+  // request. The model gets to make a deliberate, single award; further
+  // calls within the same turn return {error: "award-limit-reached"} so
+  // the NPC doesn't end up spamming pills above the visitor's head or
+  // dumping a stack of duplicate cards into their inventory.
+  let tagAwardsRemaining = 1;
+  let itemAwardsRemaining = 1;
+
+  // ── Town: grant_tag ──────────────────────────────────────────────────
+  // Registers only when (a) NPC is permitted, (b) we have a town context,
+  // (c) the caller is NOT the town owner, (d) the catalog ships at least
+  // one tag the NPC may grant. Owner gate: the public town's "owner" is
+  // the company account; we don't want operators piling up first-contact
+  // / convicted / roasted tags on themselves while sanity-checking NPCs.
+  // The tool description embeds the NPC's whitelisted tag set + each
+  // tag's authored "when to grant" hint, so the model has everything it
+  // needs inline — no discovery tool.
+  const tagGrant = permissions.town?.grant_tag;
+  if (tagGrant && townCtx && !townCtx.isOwner && townCtx.catalog) {
+    const allowedTagDefs = tagGrant.allowed_tag_ids
+      .map((id) => findTag(townCtx.catalog!, id))
+      .filter((t): t is NonNullable<typeof t> => !!t);
+
+    if (allowedTagDefs.length > 0) {
+      const allowedIds = new Set(allowedTagDefs.map((t) => t.id));
+      const lines = allowedTagDefs.map(
+        (t) =>
+          `- ${t.id}  ${t.emoji} ${t.label} — ${t.description}` +
+          (t.defaultTtlSeconds === null
+            ? " (permanent)"
+            : ` (expires after ${Math.round(t.defaultTtlSeconds / 3600)}h)`),
+      );
+      tools.grant_tag = tool({
+        description: [
+          "Award a tag to the visitor you're talking to. Tags float above the visitor's character in the overworld for other players to see — they're a visible reward for a moment in the conversation.",
+          "Only grant when the visitor has clearly earned it per the tag's described trigger. Don't grant on small talk or as a greeting.",
+          "",
+          "Tags you may grant:",
+          ...lines,
+        ].join("\n"),
+        inputSchema: z.object({
+          tag_id: z.string().min(1).describe("One of the tag ids listed above."),
+          reason: z
+            .string()
+            .max(200)
+            .optional()
+            .describe(
+              "One short sentence explaining what the visitor did to earn this. Stored for audit, never shown.",
+            ),
+        }),
+        async execute({ tag_id, reason }) {
+          if (tagAwardsRemaining <= 0) {
+            return { error: "award-limit-reached", detail: "one tag per turn" };
+          }
+          if (!allowedIds.has(tag_id)) {
+            return { error: "tag-not-permitted", tag_id };
+          }
+          const def = findTag(townCtx.catalog!, tag_id);
+          if (!def) return { error: "tag-not-in-catalog", tag_id };
+          // Decrement before the write so a transient DB error doesn't
+          // re-open the budget for a retry within the same turn.
+          tagAwardsRemaining--;
+          const expiresAt =
+            def.defaultTtlSeconds === null
+              ? null
+              : new Date(Date.now() + def.defaultTtlSeconds * 1000);
+          // Upsert — re-granting the same tag refreshes the expiry and
+          // updates the awardedByNpc/reason audit. Idempotent for the
+          // model so it can re-grant without polluting the row count.
+          await prisma.visitorTag.upsert({
+            where: {
+              townSlug_subjectKey_tagId: {
+                townSlug: townCtx.townSlug,
+                subjectKey: townCtx.subjectKey,
+                tagId: tag_id,
+              },
+            },
+            update: {
+              awardedByNpc: townCtx.npcId,
+              reason: reason ?? null,
+              expiresAt,
+            },
+            create: {
+              townSlug: townCtx.townSlug,
+              subjectKey: townCtx.subjectKey,
+              tagId: tag_id,
+              awardedByNpc: townCtx.npcId,
+              reason: reason ?? null,
+              expiresAt,
+            },
+          });
+          return {
+            ok: true,
+            tag: {
+              id: def.id,
+              label: def.label,
+              emoji: def.emoji,
+              color: def.color,
+              expiresAt: expiresAt?.toISOString() ?? null,
+            },
+          };
+        },
+      });
+    }
+  }
+
+  // ── Town: give_item ──────────────────────────────────────────────────
+  // Same gating shape as grant_tag — owners don't receive collectibles
+  // from their own NPCs. The tool description inlines the field schema
+  // for every template the NPC may issue so the model doesn't need a
+  // discovery call.
+  const itemGrant = permissions.town?.give_item;
+  if (itemGrant && townCtx && !townCtx.isOwner && townCtx.catalog) {
+    const allowedItemDefs = itemGrant.allowed_template_ids
+      .map((id) => findItem(townCtx.catalog!, id))
+      .filter((t): t is NonNullable<typeof t> => !!t);
+
+    if (allowedItemDefs.length > 0) {
+      const allowedTemplateIds = new Set(allowedItemDefs.map((t) => t.id));
+      const lines = allowedItemDefs.map((it) => {
+        const fieldSpec = it.fields
+          .map((f) => `${f.name}≤${f.maxLength}`)
+          .join(", ");
+        return `- ${it.id}  "${it.label}" — ${it.description}\n    fields: { ${fieldSpec} }`;
+      });
+      tools.give_item = tool({
+        description: [
+          "Hand the visitor a collectible card. Cards are designer-made SVG templates with fillable text fields — the visitor receives a shareable image they can post or save to their inventory.",
+          "Only issue when the conversation has reached a moment that calls for it (per the template's described trigger).",
+          "",
+          "Templates you may issue:",
+          ...lines,
+        ].join("\n"),
+        inputSchema: z.object({
+          template_id: z
+            .string()
+            .min(1)
+            .describe("One of the template ids listed above."),
+          // Accept primitive values (string / number / boolean / null).
+          // Models routinely pass numeric values for fields like sentence
+          // length ("sentence: 30") and a stricter z.record(string, string)
+          // would reject them, surfacing as a bad-request error in the
+          // chat. renderItemSvg coerces to a trimmed string at substitution
+          // time; nulls become empty strings (and trip the field-empty
+          // validator there).
+          fields: z
+            .record(
+              z.string(),
+              z.union([z.string(), z.number(), z.boolean(), z.null()]),
+            )
+            .describe(
+              "Object mapping each template field name to its value. Values are HTML-escaped before substitution; respect each field's maxLength.",
+            ),
+        }),
+        async execute({ template_id, fields }) {
+          if (itemAwardsRemaining <= 0) {
+            return { error: "award-limit-reached", detail: "one item per turn" };
+          }
+          if (!allowedTemplateIds.has(template_id)) {
+            return { error: "template-not-permitted", template_id };
+          }
+          const def = findItem(townCtx.catalog!, template_id);
+          if (!def) return { error: "template-not-in-catalog", template_id };
+          // Coerce all values to strings for the renderer. null becomes ""
+          // (which renderItemSvg will reject as empty), other primitives
+          // are stringified.
+          const stringFields: Record<string, string> = {};
+          for (const [k, v] of Object.entries(fields)) {
+            stringFields[k] = v === null || v === undefined ? "" : String(v);
+          }
+          const rendered = renderItemSvg(def, stringFields);
+          if (rendered.issues.length > 0) {
+            return {
+              error: "field-validation-failed",
+              issues: rendered.issues,
+            };
+          }
+          // Decrement only after field validation passes — a bad-input
+          // call shouldn't burn the budget, so the model can retry with
+          // corrected fields within the same turn.
+          itemAwardsRemaining--;
+          // Persist only the field values, not the rendered SVG. The
+          // share endpoint re-renders on demand against the current
+          // catalog so a designer's SVG fix propagates to past cards.
+          const row = await prisma.visitorItem.create({
+            data: {
+              townSlug: townCtx.townSlug,
+              subjectKey: townCtx.subjectKey,
+              templateId: template_id,
+              fields: stringFields,
+              awardedByNpc: townCtx.npcId,
+            },
+            select: { id: true },
+          });
+          const sharePath = `/items/${row.id}`;
+          const share_url = townCtx.publicBaseUrl
+            ? `${townCtx.publicBaseUrl.replace(/\/$/, "")}${sharePath}`
+            : sharePath;
+          return {
+            ok: true,
+            item_id: row.id,
+            template_id,
+            share_url,
+          };
+        },
+      });
+    }
   }
 
   return tools;

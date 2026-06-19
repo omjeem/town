@@ -26,10 +26,13 @@ import { resolve, isAbsolute } from "node:path";
 import { getConfig } from "../config.js";
 import {
   readCustomPlots,
+  readItemsDir,
   readNpcsDir,
   readTownJson,
   type CustomPlotDTO,
   type LoadedCustomPlot,
+  type TownItemBundle,
+  type TownTagDef,
 } from "../shared/town-io.js";
 
 interface PostBody {
@@ -50,6 +53,13 @@ interface PostBody {
     prompt: string;
     permissions?: unknown;
   }>;
+  /** Per-town catalog. Omitted when the deployment has neither inline
+   *  `tags` nor an `items/` directory — server treats absence as "leave
+   *  the existing catalog alone" so a partial deploy doesn't wipe content. */
+  catalog?: {
+    tags: TownTagDef[];
+    items: TownItemBundle[];
+  };
 }
 
 interface PostError {
@@ -127,10 +137,10 @@ async function uploadLocalSprites(
   }
 
   const nextInterior = {
-    spriteCandidates: await Promise.all(
-      plot.interior.spriteCandidates.map((s, i) =>
-        rewrite(s, `customPlots/${plot.id}.interior.spriteCandidates[${i}]`),
-      ),
+    ...plot.interior,
+    sprite: await rewrite(
+      plot.interior.sprite,
+      `customPlots/${plot.id}.interior.sprite`,
     ),
     props: await Promise.all(
       plot.interior.props.map(async (prop, i) => ({
@@ -146,13 +156,9 @@ async function uploadLocalSprites(
   const nextVariants = await Promise.all(
     plot.variants.map(async (v, i) => ({
       ...v,
-      exteriorSpriteCandidates: await Promise.all(
-        v.exteriorSpriteCandidates.map((s, j) =>
-          rewrite(
-            s,
-            `customPlots/${plot.id}.variants[${i}].exteriorSpriteCandidates[${j}]`,
-          ),
-        ),
+      exteriorSprite: await rewrite(
+        v.exteriorSprite,
+        `customPlots/${plot.id}.variants[${i}].exteriorSprite`,
       ),
     })),
   );
@@ -164,7 +170,7 @@ async function uploadLocalSprites(
   };
 }
 
-async function runDeploy(opts: { dir?: string }): Promise<void> {
+async function runDeploy(opts: { dir?: string; reflow?: boolean }): Promise<void> {
   p.intro(chalk.bgCyan(chalk.black(" town deploy ")));
 
   const cfg = getConfig();
@@ -185,10 +191,12 @@ async function runDeploy(opts: { dir?: string }): Promise<void> {
   let town;
   let customPlots: LoadedCustomPlot[];
   let npcs;
+  let items: TownItemBundle[];
   try {
     town = await readTownJson(dir);
     customPlots = await readCustomPlots(dir);
     npcs = await readNpcsDir(dir);
+    items = await readItemsDir(dir);
   } catch (err) {
     p.cancel(err instanceof Error ? err.message : "unknown error reading files");
     process.exit(1);
@@ -225,6 +233,7 @@ async function runDeploy(opts: { dir?: string }): Promise<void> {
   }
 
   // 2. POST the consolidated payload.
+  const hasCatalog = (town.tags && town.tags.length > 0) || items.length > 0;
   const body: PostBody = {
     buildings: town.buildings.map((b) => ({
       id: b.id,
@@ -237,10 +246,23 @@ async function runDeploy(opts: { dir?: string }): Promise<void> {
     })),
     customPlots: mergedCustomPlots,
     npcs,
+    ...(hasCatalog
+      ? {
+          catalog: {
+            tags: town.tags ?? [],
+            items,
+          },
+        }
+      : {}),
   };
 
-  spinner.start("Uploading town…");
-  const res = await fetch(`${townUrl}/api/town`, {
+  spinner.start(
+    opts.reflow ? "Uploading town (re-laying out)…" : "Uploading town…",
+  );
+  const url = opts.reflow
+    ? `${townUrl}/api/town?reflow=1`
+    : `${townUrl}/api/town`;
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -286,7 +308,11 @@ export function registerDeploy(program: Command): void {
       "-d, --dir <path>",
       "Folder containing town.json + customPlots/ + npcs/. Defaults to the current directory.",
     )
-    .action(async (opts: { dir?: string }) => {
+    .option(
+      "--reflow",
+      "Wipe the server-side plot before applying so the layout re-runs from scratch. Use when the existing town has buildings spread too wide to read as a settlement.",
+    )
+    .action(async (opts: { dir?: string; reflow?: boolean }) => {
       await runDeploy(opts);
     });
 }

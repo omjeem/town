@@ -40,10 +40,26 @@ export interface CustomInteriorProp extends TilePos {
 }
 
 /** Interior shell + props for a CustomPlot. All variants of one
- *  CustomPlot share this interior — the "one room, many doors" pattern. */
+ *  CustomPlot share this interior — the "one room, many doors" pattern.
+ *
+ *  Dimensions + walkability are explicit so the renderer doesn't have to
+ *  guess. Tile coords are 0-indexed top-left; pixels = tiles × 16. */
 export interface CustomInterior {
-  spriteCandidates: SpriteRef[];
+  sprite: SpriteRef;
   props: CustomInteriorProp[];
+  /** Room size in tile units. Sprite must be (widthTiles*16) × (heightTiles*16). */
+  widthTiles: number;
+  heightTiles: number;
+  /** Main walkable rect — the floor the player can roam. */
+  walkable: TileRect;
+  /** Extra walkable tiles outside the main rect (porches, doormats). */
+  extraWalkable?: TileRect[];
+  /** Furniture / wall rects inside `walkable` the player cannot cross. */
+  blocked?: TileRect[];
+  /** Tile the player appears on when entering. */
+  spawn: TilePos;
+  /** Tile the player walks onto to return to the overworld. */
+  exit: TilePos;
 }
 
 /** One slot inside a CustomPlot variant. */
@@ -58,7 +74,14 @@ export interface CustomNpcPosition extends TilePos {
 /** One exterior variant of a CustomPlot. */
 export interface CustomVariant {
   id: string;
-  exteriorSpriteCandidates: SpriteRef[];
+  exteriorSprite: SpriteRef;
+  /** Actual sprite tile dimensions (16 px each). Set when the sprite is
+   *  larger than the building's footprint so the world placement can
+   *  reserve room above for it — without these, two tall sprites placed
+   *  on non-overlapping footprints stack visually. Defaults to (w, h)
+   *  when omitted. */
+  spriteW?: number;
+  spriteH?: number;
   /** Legacy single-position slot. Optional — variants that ship
    *  `npcPositions` can omit it. At least one of the two must exist. */
   npcPosition?: CustomNpcPosition;

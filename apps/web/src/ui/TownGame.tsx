@@ -4,10 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { bootGame, type GameContext } from "../game/boot";
 import { BootScreen } from "./BootScreen";
 import { refreshSession } from "../game/auth";
-import { startNowPlayingPoller } from "../game/spotify";
 import { startSuggestionsPoller } from "../game/suggestions";
 import { startWorkspaceSync } from "../game/workspace";
-import { startNpcsSync } from "../game/npcs";
+import { startNpcsSync, getNpcCount, onNpcsChange } from "../game/npcs";
 import { setViewerTownSlug } from "../game/plotClient";
 import { setPlayerCharacter } from "../game/character";
 import {
@@ -26,11 +25,11 @@ import { Explorer } from "./Explorer";
 import { Tasks } from "./Tasks";
 import { Dialogue } from "./Dialogue";
 import { Chat } from "./Chat";
-import { NowPlaying } from "./NowPlaying";
 import { Invite } from "./Invite";
 import { ShareImage } from "./ShareImage";
 import { Suggestions } from "./Suggestions";
 import { Dm } from "./Dm";
+import { ItemsBadge } from "./ItemsBadge";
 import { RemoteCards } from "./RemoteCards";
 import { VisitorHud } from "./VisitorHud";
 import { PALETTE } from "../game/config";
@@ -45,7 +44,7 @@ import { TransitionLoading } from "./TransitionLoading";
 // visitor-mode (read-only canvas of someone else's town):
 //   • owner    — what was here before. Boots pollers + own-plot fetch.
 //   • visitor  — points plotClient at /api/plot?town=<slug>, skips the
-//                owner-only pollers (spotify / workspace).
+//                owner-only pollers (workspace).
 //
 // Owner is the default so the existing root `/` page keeps working
 // unchanged.
@@ -88,7 +87,6 @@ export function TownGame(props: TownGameProps = {}) {
     tasks,
     dialogue,
     chat,
-    nowPlaying,
     invite,
     shareImage,
     proximity,
@@ -166,7 +164,6 @@ export function TownGame(props: TownGameProps = {}) {
     void refreshSession();
     const stopWorkspace = startWorkspaceSync();
     const stopNpcs = startNpcsSync();
-    const stopNowPlaying = startNowPlayingPoller();
     const stopSuggestions = startSuggestionsPoller();
 
     let rt: RealtimeHandle | null = null;
@@ -180,7 +177,6 @@ export function TownGame(props: TownGameProps = {}) {
     return () => {
       stopWorkspace();
       stopNpcs();
-      stopNowPlaying();
       stopSuggestions();
       rt?.stop();
       stopPending?.();
@@ -225,8 +221,14 @@ export function TownGame(props: TownGameProps = {}) {
       />
 
       {/* React-rendered cards floating above each remote player. Picks
-          up positions from kaplay via the projection helper. */}
-      <RemoteCards canvasRef={canvasRef} />
+          up positions from kaplay via the projection helper. The town
+          slug (owner or visitor mode resolves to the same string) lets
+          RemoteCards poll the head-tag endpoint and stack pills above
+          each player's name card. */}
+      <RemoteCards
+        canvasRef={canvasRef}
+        townSlug={ownerSlug ?? visitorSlug}
+      />
 
       {/* HUD — owner-mode renders the identity badge; visitor-mode renders
           the "Visiting X" card. */}
@@ -246,7 +248,9 @@ export function TownGame(props: TownGameProps = {}) {
 
       {/* Top-right stack. Population badge sits on top for both owner +
           visitor — it's a shared "how busy is this town" signal. Owner
-          also gets Suggestions + NowPlaying below it. */}
+          also gets Suggestions below it. Visitors get an Items badge
+          underneath that hides itself when the inventory is empty —
+          owners never earn items so it stays off for them. */}
       <div className="pointer-events-auto absolute right-4 top-4 z-30 flex flex-col items-end gap-2">
         <PopulationBadge
           ownerParticipantKey={
@@ -254,14 +258,13 @@ export function TownGame(props: TownGameProps = {}) {
               ? (props as { ownerParticipantKey: string }).ownerParticipantKey
               : null
           }
-          alwaysShow={isVisitor}
         />
-        {!isVisitor ? (
-          <>
-            <SuggestionsBadge count={suggestions.count} />
-            <NowPlaying state={nowPlaying} />
-          </>
+        {isVisitor ? (
+          <ItemsBadge
+            townSlug={(props as { townSlug: string }).townSlug}
+          />
         ) : null}
+        {!isVisitor ? <SuggestionsBadge count={suggestions.count} /> : null}
       </div>
 
       {prompt ? (
@@ -339,30 +342,31 @@ export function TownGame(props: TownGameProps = {}) {
   );
 }
 
-// Top-right "Population: N" card. Counts every remote player the realtime
-// bus knows about plus the local viewer.
-//
-// Visitor mode passes `ownerParticipantKey` + `alwaysShow=true` so the
-// invitee always sees the card and, when the owner isn't currently in
-// town, an "owner away" tag underneath the count. Owner mode passes
-// `null` + `alwaysShow=false` so the card stays hidden until at least
-// one *other* person joins.
+// Top-right "Population: N" card. Counts every NPC the user has authored
+// plus every remote player the realtime bus knows about plus the local
+// viewer. Always visible — even an empty-feeling town has NPC residents,
+// and the badge is the cheapest "this is a populated place" signal we
+// have. Visitor mode also drops an "owner not in town" tag underneath
+// when the owner isn't currently roaming.
 function PopulationBadge({
   ownerParticipantKey,
-  alwaysShow,
 }: {
   ownerParticipantKey: string | null;
-  alwaysShow: boolean;
 }) {
   const [remotes, setRemotes] = useState(() => getRemotePlayers());
+  const [npcCount, setNpcCount] = useState(() => getNpcCount());
   useEffect(() => {
     const update = () => setRemotes(getRemotePlayers());
     update();
     return onRemotesChange(update);
   }, []);
-  const remoteCount = remotes.length;
-  if (!alwaysShow && remoteCount < 1) return null;
-  const total = remoteCount + 1;
+  useEffect(() => {
+    const update = () => setNpcCount(getNpcCount());
+    update();
+    return onNpcsChange(update);
+  }, []);
+  // remotes + NPCs + viewer themselves.
+  const total = remotes.length + npcCount + 1;
   const ownerAway =
     !!ownerParticipantKey &&
     !remotes.some((r) => r.participantKey === ownerParticipantKey);
@@ -373,8 +377,8 @@ function PopulationBadge({
       aria-label={`Population: ${total}${ownerAway ? ", owner not in town" : ""}`}
       title={
         ownerAway
-          ? `${total} in town · owner isn't here right now`
-          : `${total} people in this town`
+          ? `${total} in town (NPCs + visitors) · owner isn't here right now`
+          : `${total} in town — NPCs + visitors + you`
       }
     >
       <span className="text-[12px] font-bold leading-tight text-ink">

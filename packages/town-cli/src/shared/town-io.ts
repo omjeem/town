@@ -33,7 +33,9 @@ export interface CustomNpcPositionDTO {
 
 export interface CustomVariantDTO {
   id: string;
-  exteriorSpriteCandidates: string[];
+  exteriorSprite: string;
+  spriteW?: number;
+  spriteH?: number;
   /** Legacy single-position slot. Optional — variants that ship
    *  `npcPositions` can omit it. At least one of the two is required. */
   npcPosition?: CustomNpcPositionDTO;
@@ -43,15 +45,69 @@ export interface CustomVariantDTO {
   npcPositions?: CustomNpcPositionDTO[];
 }
 
+export interface TileRectDTO {
+  tx: number;
+  ty: number;
+  w: number;
+  h: number;
+}
+
+export interface TilePosDTO {
+  tx: number;
+  ty: number;
+}
+
 export interface CustomPlotDTO {
   id: string;
   label: string;
   category: string;
   interior: {
-    spriteCandidates: string[];
+    sprite: string;
     props: Array<{ tx: number; ty: number; sprite: string }>;
+    widthTiles: number;
+    heightTiles: number;
+    walkable: TileRectDTO;
+    extraWalkable?: TileRectDTO[];
+    blocked?: TileRectDTO[];
+    spawn: TilePosDTO;
+    exit: TilePosDTO;
   };
   variants: CustomVariantDTO[];
+}
+
+// -----------------------------------------------------------------------------
+// Per-town catalog: visitor tags (inline in town.json) + SVG item templates
+// (walked from items/manifest.json + items/<id>.svg). These DTOs mirror
+// TownCatalog from @town/types — kept duplicated here because @town/town-cli
+// is a published standalone package without workspace deps.
+// -----------------------------------------------------------------------------
+
+export interface TownTagDef {
+  id: string;
+  label: string;
+  emoji: string;
+  color: string;
+  /** null = permanent; otherwise expires after N seconds. */
+  defaultTtlSeconds: number | null;
+  description: string;
+}
+
+export interface TownItemFieldDef {
+  name: string;
+  label: string;
+  maxLength: number;
+}
+
+export interface TownItemDef {
+  id: string;
+  label: string;
+  description: string;
+  fields: TownItemFieldDef[];
+}
+
+/** Wire shape with the SVG body inlined — what `town deploy` sends. */
+export interface TownItemBundle extends TownItemDef {
+  svg: string;
 }
 
 export interface TownJson {
@@ -60,6 +116,10 @@ export interface TownJson {
    *  `customPlots/<id>/plot.json` for the canonical definitions and
    *  merges them in before sending. */
   customPlots?: CustomPlotDTO[];
+  /** Visitor tag definitions. Tiny structured data, inline here. Item
+   *  templates are bulkier (SVGs) so they live under `items/` and the CLI
+   *  walks that directory. */
+  tags?: TownTagDef[];
 }
 
 export interface NpcDTO {
@@ -223,4 +283,145 @@ export async function writeCustomPlot(
   const baseDir = join(dir, "customPlots", cp.id);
   await mkdir(baseDir, { recursive: true });
   await writeJson(join(baseDir, "plot.json"), cp);
+}
+
+// -----------------------------------------------------------------------------
+// items/ directory walker — pairs each manifest entry with the matching
+// <id>.svg body, validates that every {{placeholder}} in the SVG is declared
+// in the manifest entry's `fields` and vice versa. Mismatch is a hard error
+// at deploy time so drift is caught locally instead of at runtime.
+// -----------------------------------------------------------------------------
+
+const PLACEHOLDER_RE = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g;
+
+function placeholdersIn(svg: string): Set<string> {
+  const out = new Set<string>();
+  for (const m of svg.matchAll(PLACEHOLDER_RE)) {
+    out.add(m[1]!);
+  }
+  return out;
+}
+
+// Deploy-time hardening for designer-authored SVGs. The viewer page
+// renders via <img src=...> (image sandbox, no DOM access), but the
+// server-side PNG rasteriser (@napi-rs/canvas) decodes the SVG with
+// network access — so an `<image href="https://attacker">` element
+// would SSRF on every render. Block the obvious offenders here so the
+// deploy fails locally with a useful error instead of shipping the
+// payload and silently exfiltrating server identity.
+//
+// We also forbid placeholders inside script/style blocks and URL
+// attributes — the field escaper only handles text-node and attribute
+// contexts, and placeholders inside <script> / <style> / href would
+// bypass it.
+
+const FORBIDDEN_TAGS = ["script", "foreignObject", "iframe", "object", "embed"];
+const URL_ATTRS = ["href", "xlink:href", "src", "action", "formaction"];
+
+function assertSafeSvg(id: string, svg: string): void {
+  for (const tag of FORBIDDEN_TAGS) {
+    const re = new RegExp(`<\\s*${tag}\\b`, "i");
+    if (re.test(svg)) {
+      throw new Error(
+        `items/${id}.svg contains a <${tag}> element. Forbidden — would execute in the viewer or SSRF the renderer.`,
+      );
+    }
+  }
+  // <image href="..."> with an external scheme. Local refs (relative
+  // paths, data: URIs, fragment ids) are fine; remote http(s) is not.
+  const imageHrefRe = /<\s*image\b[^>]*?\s(?:xlink:)?href\s*=\s*["']([^"']+)["']/gi;
+  for (const m of svg.matchAll(imageHrefRe)) {
+    const href = m[1]!.trim();
+    if (/^https?:\/\//i.test(href)) {
+      throw new Error(
+        `items/${id}.svg has an <image href="${href}"> pointing at a remote URL. ` +
+          `Remote refs would SSRF the PNG renderer — inline the asset as a data: URI or remove it.`,
+      );
+    }
+  }
+  // Placeholders inside <script>/<style> or URL attributes get past the
+  // field escaper. Reject at deploy so authors must move them into
+  // text nodes or harmless attributes.
+  const blockRe = /<\s*(script|style)\b[^>]*>([\s\S]*?)<\s*\/\s*\1\s*>/gi;
+  for (const m of svg.matchAll(blockRe)) {
+    if (PLACEHOLDER_RE.test(m[2]!)) {
+      PLACEHOLDER_RE.lastIndex = 0;
+      throw new Error(
+        `items/${id}.svg has a {{placeholder}} inside a <${m[1]}> block. ` +
+          `Placeholders are only safe in text nodes and plain attributes.`,
+      );
+    }
+    PLACEHOLDER_RE.lastIndex = 0;
+  }
+  for (const attr of URL_ATTRS) {
+    const attrRe = new RegExp(
+      `\\s${attr}\\s*=\\s*["'][^"']*\\{\\{[^}]+\\}\\}[^"']*["']`,
+      "gi",
+    );
+    if (attrRe.test(svg)) {
+      throw new Error(
+        `items/${id}.svg has a {{placeholder}} inside a ${attr}="..." attribute. ` +
+          `Placeholders in URL attributes can produce javascript:/data: scheme injection — keep them in text nodes only.`,
+      );
+    }
+  }
+}
+
+export async function readItemsDir(dir: string): Promise<TownItemBundle[]> {
+  const root = join(dir, "items");
+  if (!existsSync(root)) return [];
+  const st = await stat(root);
+  if (!st.isDirectory()) return [];
+  const manifestPath = join(root, "manifest.json");
+  if (!existsSync(manifestPath)) {
+    throw new Error(
+      `items/ exists but has no manifest.json — add one declaring each template's id, label, description, and field schema.`,
+    );
+  }
+  const manifest = await readJson<TownItemDef[]>(manifestPath);
+  if (!Array.isArray(manifest)) {
+    throw new Error(`items/manifest.json must be a JSON array of item defs.`);
+  }
+  const out: TownItemBundle[] = [];
+  for (const def of manifest) {
+    const svgPath = join(root, `${def.id}.svg`);
+    if (!existsSync(svgPath)) {
+      throw new Error(
+        `items/manifest.json declares "${def.id}" but items/${def.id}.svg is missing.`,
+      );
+    }
+    const svg = await readFile(svgPath, "utf8");
+    assertSafeSvg(def.id, svg);
+    const inSvg = placeholdersIn(svg);
+    const declared = new Set(def.fields.map((f) => f.name));
+    for (const ph of inSvg) {
+      if (!declared.has(ph)) {
+        throw new Error(
+          `items/${def.id}.svg uses {{${ph}}} but the manifest entry doesn't declare a field with that name.`,
+        );
+      }
+    }
+    for (const f of def.fields) {
+      if (!inSvg.has(f.name)) {
+        throw new Error(
+          `items/manifest.json declares field "${f.name}" on "${def.id}" but items/${def.id}.svg has no {{${f.name}}} placeholder.`,
+        );
+      }
+    }
+    out.push({ ...def, svg });
+  }
+  return out;
+}
+
+export async function writeItemsDir(
+  dir: string,
+  items: TownItemBundle[],
+): Promise<void> {
+  const root = join(dir, "items");
+  await mkdir(root, { recursive: true });
+  const manifest: TownItemDef[] = items.map(({ svg: _svg, ...rest }) => rest);
+  await writeJson(join(root, "manifest.json"), manifest);
+  for (const it of items) {
+    await writeFile(join(root, `${it.id}.svg`), it.svg);
+  }
 }

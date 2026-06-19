@@ -8,7 +8,6 @@
 // structural type instead of pulling DOM lib types into the server
 // build.
 
-export const SCREENSHOT_BOTTOM_TRIM_PX = 40;
 export const SIGN_MARGIN_PX = 10;
 
 // The browser's CanvasRenderingContext2D and @napi-rs/canvas's
@@ -144,6 +143,51 @@ export function drawTownSign(
     bodyCenterX,
     signY + padY + titleFontPx + lineGap,
   );
+}
+
+/** Stamp a "Population: N" pill in the top-right corner. Mirrors the
+ *  in-game PopulationBadge so the postcard reads the same as the live
+ *  HUD. Population is the static-snapshot residents of the town: the
+ *  owner + every authored NPC. Visitors aren't counted (they come and
+ *  go; the postcard is a fixed artifact). Same neobrutalism vocabulary
+ *  as drawCoreBadge — paper fill, black border, drop shadow. */
+export function drawPopulationBadge(
+  rawCtx: unknown,
+  canvasW: number,
+  canvasH: number,
+  population: number,
+): void {
+  const ctx = rawCtx as Ctx2DLike;
+
+  const text = `Population: ${population}`;
+  const fontPx = Math.max(11, Math.round(canvasH * 0.024));
+  const padX = Math.round(fontPx * 0.9);
+  const padY = Math.round(fontPx * 0.5);
+
+  const font = `800 ${fontPx}px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+  ctx.font = font;
+  const textW = ctx.measureText(text).width;
+
+  const w = Math.round(textW + padX * 2);
+  const h = Math.round(fontPx + padY * 2);
+  const x = canvasW - w - SIGN_MARGIN_PX;
+  const y = SIGN_MARGIN_PX;
+  const shadowOffset = Math.max(2, Math.round(h * 0.12));
+
+  ctx.fillStyle = "#0e1116";
+  ctx.fillRect(x + shadowOffset, y + shadowOffset, w, h);
+
+  ctx.fillStyle = "#f6f3ea";
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = "#1a1d22";
+  ctx.lineWidth = Math.max(2, Math.round(h * 0.08));
+  ctx.strokeRect(x, y, w, h);
+
+  ctx.fillStyle = "#1a1d22";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = font;
+  ctx.fillText(text, x + w / 2, y + h / 2);
 }
 
 /** Stamp a small "town · getcore.me" attribution pill in the top-left

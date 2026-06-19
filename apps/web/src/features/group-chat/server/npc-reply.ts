@@ -17,7 +17,14 @@ import { streamText, convertToModelMessages, type UIMessage } from "ai";
 
 import { publish } from "@/lib/centrifugo";
 import { getChatModel } from "@/lib/chat-model";
+import { getOwnerCoreToken } from "@/lib/core-token";
 import { prisma } from "@/lib/db";
+import type { NpcPermissions } from "@/lib/npc-templates";
+import {
+  buildNpcTools,
+  loadCallableSkillMeta,
+  loadInjectedSkills,
+} from "@/lib/npc-tools";
 import { safeBlock, safeInline } from "@/lib/prompt-sanitize";
 
 import type { GroupMessageWire, GroupTypingWire } from "../types";
@@ -80,13 +87,21 @@ NOT on duty.
 export interface NpcReplyInput {
   channelId: string;
   pick: ModeratorPick;
-  /** NPC's authored row from the Npc table. */
-  npc: { id: string; name: string; description: string; prompt: string };
+  /** NPC's authored row from the Npc table, including permissions so we
+   *  can hand the same CORE tool surface to group-chat replies that the
+   *  1-1 /api/npc-chat path uses. */
+  npc: {
+    id: string;
+    name: string;
+    description: string;
+    prompt: string;
+    permissions: NpcPermissions;
+  };
   /** Town owner — used to mark the resident's lines in the history as
-   *  `[owner]` so the model never confuses a guest for the host, and
-   *  to brief it on the owner's display name in the system prompt so
-   *  the NPC can still address them properly. */
-  owner: { participantKey: string; name: string };
+   *  `[owner]` so the model never confuses a guest for the host, brief
+   *  the model on the owner's display name in the system prompt, and
+   *  route all CORE tool calls through the owner's access token. */
+  owner: { participantKey: string; name: string; userId: string };
   /** Last ~N rows in the room, oldest → newest. The most recent row is
    *  the human message that triggered this reply. */
   history: Array<{
@@ -116,13 +131,13 @@ const HISTORY_TURNS_MAX = 20;
  *  soon as the stream completes, so a "ghost reply to an empty room"
  *  is cheap.
  *
- *  No tools: unlike /api/npc-chat (which exposes `memory_search` for
- *  deep grounded 1-1 conversations), the group-chat NPC reply runs
- *  with only the authored prompt + recent room history. The premise
- *  is "ambient room dynamics" — fast, in-character, short. Players
- *  who want a grounded answer should walk over and start a 1-1 chat,
- *  which is exactly what the SPACE-on-NPC gate prevents while a room
- *  is open. */
+ *  Tools: the picked NPC gets the same CORE tool surface the 1-1
+ *  /api/npc-chat path builds — memory_search, integrations, tasks,
+ *  read_skill, web_search — modulo the town-scoped award tools
+ *  (grant_tag / give_item), which stay 1-1-only because attributing
+ *  awards to a single visitor inside a multi-visitor room is
+ *  ambiguous. We pass `townCtx: null` to buildNpcTools so those two
+ *  tools self-suppress while the rest of the surface registers. */
 export async function generateAndPublishNpcReply(
   input: NpcReplyInput,
 ): Promise<void> {
@@ -140,7 +155,30 @@ export async function generateAndPublishNpcReply(
   };
   await publish(channelId, typingWire);
 
-  const system = buildGroupSystemPrompt(npc, owner, pick.addressed);
+  // Resolve the CORE tool surface for this picked NPC. Same path as
+  // /api/npc-chat — owner token gates the data scope, the NPC's
+  // permissions gate the tool set. Run in parallel to keep the
+  // "typing → reply" gap tight.
+  const ownerToken = await getOwnerCoreToken(owner.userId);
+  const [injectedSkills, callableSkills] = await Promise.all([
+    loadInjectedSkills(ownerToken, npc.permissions),
+    loadCallableSkillMeta(ownerToken, npc.permissions),
+  ]);
+  // townCtx = null → grant_tag / give_item won't register; every other
+  // permitted tool will. Awards stay 1-1-only by construction.
+  const tools = buildNpcTools(
+    ownerToken,
+    npc.permissions,
+    callableSkills,
+    null,
+  );
+
+  const system = buildGroupSystemPrompt(
+    npc,
+    owner,
+    pick.addressed,
+    injectedSkills,
+  );
   const uiMessages = historyToUIMessages(
     history.slice(-HISTORY_TURNS_MAX),
     npc.id,
@@ -173,6 +211,7 @@ export async function generateAndPublishNpcReply(
     const result = streamText({
       model,
       system,
+      tools,
       messages: await convertToModelMessages(uiMessages),
     });
     // No streaming to Centrifugo (publishes are whole frames) — accumulate
@@ -220,10 +259,19 @@ export async function generateAndPublishNpcReply(
   await publish(channelId, wire);
 }
 
+const TOOL_RULES = `## Tools
+
+You have a tool surface in this room — same one as a 1-1 chat, minus the award tools (no grant_tag / give_item; those only fire when a visitor walks up to you alone). Everything else is fair game when it grounds your reply or completes a request.
+
+GROUNDING FIRST: if memory_search is on your tool surface, call it at the START of any substantive reply with a query built from the most recent message + the conversation context. Treat anything it surfaces as the source of truth before improvising. Skip ONLY for pure social beats ("nice, ha", a one-word acknowledgement) — substantive turns should be grounded. The cost is small; the upside is replies that reference what the resident actually remembers.
+
+If a tool returns nothing useful or {error: ...}, answer from common sense — do not invent specifics, and do not surface the error to the room.`;
+
 function buildGroupSystemPrompt(
   npc: { name: string; description: string; prompt: string },
   owner: { name: string },
   addressed: boolean,
+  injectedSkills: Array<{ id: string; title: string; content: string }> = [],
 ): string {
   const name = safeInline(npc.name, 80);
   const role = safeInline(npc.description, 240);
@@ -245,15 +293,51 @@ function buildGroupSystemPrompt(
     voice,
   ].join("\n");
 
-  // 2. Room context — who else is in the conversation and how the
-  //    transcript is formatted.
+  // 2. Room context — who else is in the conversation, how the
+  //    transcript is formatted, and how to tell the resident apart
+  //    from visiting guests. Spelled out explicitly so the model
+  //    doesn't have to infer the owner/guest distinction from the
+  //    prefix alone.
   const context = [
     "## Room context",
     "",
-    `You are in a multi-party room conversation in a house in the town. Other speakers' messages are prefixed with [<name>]; your own past lines arrive unprefixed as assistant turns. The town owner (resident) is ${ownerName}, and their messages are prefixed with [owner].`,
+    `You are in a multi-party room conversation in a house in the town. Other speakers' messages are prefixed with [<name>]; your own past lines arrive unprefixed as assistant turns.`,
+    "",
+    `The town owner (the resident — the person who lives here, who you know) is ${ownerName}. Their messages are tagged [owner] regardless of how they're named elsewhere — greet them warmly and treat them as the host.`,
+    "",
+    `Any other prefix belongs to a guest passing through — a visitor, not the resident. Be welcoming, but don't treat them as the host. If a guest asks about the resident's private life (in-progress work, plans, anything unflattering), keep it vague — your authored voice above is the rule for what's appropriate to share.`,
   ].join("\n");
 
-  return [identity, "", context, "", ROOM_RULES, "", tone].join("\n");
+  // 3. Preloaded skill content — same shape /api/npc-chat uses. Each
+  //    skill body is sanitised with safeBlock so injected control
+  //    markers can't escape the labelled reference block.
+  const skillsBlock =
+    injectedSkills.length === 0
+      ? null
+      : [
+          "## Preloaded knowledge (resident-authored skills)",
+          "",
+          ...injectedSkills.map(
+            (s) =>
+              `--- ${safeInline(s.title, 80)} (${s.id}) ---\n${safeBlock(
+                s.content,
+                4000,
+              )}`,
+          ),
+        ].join("\n");
+
+  return [
+    identity,
+    "",
+    context,
+    ...(skillsBlock ? ["", skillsBlock] : []),
+    "",
+    TOOL_RULES,
+    "",
+    ROOM_RULES,
+    "",
+    tone,
+  ].join("\n");
 }
 
 function historyToUIMessages(

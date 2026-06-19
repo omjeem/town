@@ -66,6 +66,13 @@ model Town {
   shareCode     String         @unique
   plot          PlotRow?
   conversations Conversation[]
+  // Per-town catalog of visitor tags + SVG item templates. Authored under
+  // the town deployment directory (tags inline in town.json, items as
+  // items/manifest.json + items/<id>.svg) and uploaded via /api/town.
+  // Shape mirrors TownCatalog from @town/types: { tags, items: [...{svg}] }.
+  // Null = the town has no catalog → grant_tag / give_item NPC tools won't
+  // register for any NPC in this town.
+  catalogJson   Json?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
@@ -360,4 +367,49 @@ model GroupMessage {
   createdAt  DateTime @default(now())
 
   @@index([channelId, createdAt])
+}
+
+// Tag awarded to a visitor by an NPC. Town-scoped (so the same browser can
+// carry separate tag sets in personal towns vs. the public Core town).
+// `subjectKey` follows the same "user:<id>" / "guest:<id>" shape as
+// Conversation / GroupMessage so signed-in and anonymous visitors share
+// one award model.
+//
+// `tagId` references an entry in apps/web/src/data/town-tags.ts — kept as
+// a string (no FK) because the catalog lives in app code, not the DB.
+// The unique on (townSlug, subjectKey, tagId) makes re-grants idempotent.
+model VisitorTag {
+  id           String    @id @default(cuid())
+  townSlug     String
+  subjectKey   String
+  tagId        String
+  awardedByNpc String?
+  reason       String?
+  // null = permanent. Expired rows stay on the row for audit and can be
+  // filtered out at read time; a sweeper can purge later if storage matters.
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@unique([townSlug, subjectKey, tagId])
+  @@index([townSlug, subjectKey])
+}
+
+// SVG-template item awarded to a visitor. Templates live as .svg files in
+// apps/web/src/data/town-items/; `templateId` is the file basename minus
+// the .svg extension. `fields` is the per-issue placeholder substitution
+// blob (e.g. {defendant, charge, sentence} for verdict-card).
+//
+// One row per award — visitors can collect multiple verdict cards from
+// multiple trials. The public share page reads by id.
+model VisitorItem {
+  id           String   @id @default(cuid())
+  townSlug     String
+  subjectKey   String
+  templateId   String
+  fields       Json
+  awardedByNpc String?
+  createdAt    DateTime @default(now())
+
+  @@index([townSlug, subjectKey, createdAt])
+  @@index([templateId, createdAt])
 }

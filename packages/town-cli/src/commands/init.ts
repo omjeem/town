@@ -26,11 +26,14 @@ import { townFolderReadme } from "../shared/readme.js";
 import { fetchCoreWorkspace, writeDefaultNpcs } from "../shared/seed-npcs.js";
 import {
   writeCustomPlot,
+  writeItemsDir,
   writeNpcMdx,
   writeTownJson,
   type CustomPlotDTO,
   type NpcDTO,
   type TownBuilding,
+  type TownItemBundle,
+  type TownTagDef,
 } from "../shared/town-io.js";
 
 interface TownsMeResponse {
@@ -50,6 +53,13 @@ interface TownGetResponse {
   customPlots: CustomPlotDTO[];
   npcs: Array<NpcDTO & { id: string }>;
   version: number;
+  /** Per-town catalog — tags + SVG item templates. Absent when the town
+   *  hasn't authored one. Tags get inlined into town.json; items get
+   *  written as manifest.json + sibling .svg files. */
+  catalog?: {
+    tags: TownTagDef[];
+    items: TownItemBundle[];
+  };
 }
 
 interface DefaultBuilding {
@@ -134,7 +144,6 @@ async function scaffoldNew(
 ): Promise<void> {
   await writeTownJson(targetDir, {
     buildings: DEFAULT_BUILDINGS,
-    customPlots: [],
   });
   await mkdir(join(targetDir, "customPlots"), { recursive: true });
 
@@ -164,16 +173,24 @@ async function cloneExisting(
   const spinner = p.spinner();
   spinner.start("Fetching town…");
   const town = await getJson<TownGetResponse>(`${townUrl}/api/town`, pat);
+  const catalogTags = town.catalog?.tags ?? [];
+  const catalogItems = town.catalog?.items ?? [];
   spinner.stop(
     chalk.green(
       `Fetched town v${town.version} — ${town.buildings.length} building(s), ` +
-        `${town.customPlots.length} customPlot(s), ${town.npcs.length} NPC(s)`,
+        `${town.customPlots.length} customPlot(s), ${town.npcs.length} NPC(s)` +
+        (town.catalog
+          ? `, ${catalogTags.length} tag(s), ${catalogItems.length} item template(s)`
+          : ""),
     ),
   );
 
+  // Tags get inlined into town.json so editors see them next to the
+  // buildings list. Items go into items/ as a manifest.json plus one
+  // .svg per template so designers keep file-level workflows.
   await writeTownJson(targetDir, {
     buildings: town.buildings,
-    customPlots: [],
+    ...(catalogTags.length > 0 ? { tags: catalogTags } : {}),
   });
   await mkdir(join(targetDir, "customPlots"), { recursive: true });
   for (const cp of town.customPlots) {
@@ -182,6 +199,9 @@ async function cloneExisting(
   await mkdir(join(targetDir, "npcs"), { recursive: true });
   for (const npc of town.npcs) {
     await writeNpcMdx(targetDir, npc);
+  }
+  if (catalogItems.length > 0) {
+    await writeItemsDir(targetDir, catalogItems);
   }
   await writeFile(join(targetDir, "README.md"), townFolderReadme());
 

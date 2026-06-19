@@ -24,7 +24,13 @@ export interface EffectiveNpcSlot {
 
 export interface EffectiveVariant {
   id: string;
-  exteriorSpriteCandidates: string[];
+  exteriorSprite: string;
+  /** Actual sprite tile dimensions when the variant ships its own
+   *  (customPlots only — catalog variants get these from the extras
+   *  manifest via plot-gen's `manifestBuildingDims`). Used to reserve
+   *  vertical space for tall sprites during placement. */
+  spriteW?: number;
+  spriteH?: number;
   /** Every NPC slot the variant supports, in canonical order. The CLI
    *  binds an MDX file's `slotId` to the matching entry's `id`. */
   npcSlots: EffectiveNpcSlot[];
@@ -76,7 +82,9 @@ export function resolveEffectivePlot(
       category: cp.category,
       variants: cp.variants.map((v) => ({
         id: v.id,
-        exteriorSpriteCandidates: v.exteriorSpriteCandidates,
+        exteriorSprite: v.exteriorSprite,
+        ...(v.spriteW !== undefined ? { spriteW: v.spriteW } : {}),
+        ...(v.spriteH !== undefined ? { spriteH: v.spriteH } : {}),
         npcSlots: projectSlots(v.npcPositions, v.npcPosition),
       })),
     };
@@ -88,7 +96,7 @@ export function resolveEffectivePlot(
     category: cp.category,
     variants: cp.variants.map((v) => ({
       id: v.id,
-      exteriorSpriteCandidates: v.exteriorSpriteCandidates,
+      exteriorSprite: v.exteriorSprite,
       npcSlots: projectSlots(v.npcPositions, v.npcPosition),
     })),
   };

@@ -40,6 +40,7 @@ import { z } from "zod";
 
 import { resolveUser } from "@/lib/auth-bearer";
 import { getChatModel } from "@/lib/chat-model";
+import { ingestNpcTurn } from "@/lib/core-memory";
 import { getOwnerCoreToken } from "@/lib/core-token";
 import { prisma } from "@/lib/db";
 import { ensureNpcsForUser } from "@/lib/plot";
@@ -48,8 +49,10 @@ import {
   buildNpcTools,
   loadCallableSkillMeta,
   loadInjectedSkills,
+  type TownContext,
 } from "@/lib/npc-tools";
 import { safeBlock, safeInline } from "@/lib/prompt-sanitize";
+import { loadTownCatalog } from "@/lib/town-tools";
 import { resolveViewer } from "@/lib/viewer";
 
 export const runtime = "nodejs";
@@ -113,6 +116,13 @@ Rules:
   when the conversation needs grounded context or a concrete action. Don't
   call them for small talk. Your authored voice & behaviour below is the rule
   for what's appropriate to do or share — follow it.
+- GROUNDING FIRST: if a memory_search tool is on your tool surface, call it
+  at the START of any non-trivial reply with a query built from the most
+  recent message + the conversation context. Treat anything it surfaces as
+  the source of truth before improvising. Skip ONLY for pure small talk
+  ("hi", "thanks") — every substantive turn should be grounded if you have
+  the tool. The cost is small; the upside is replies that reference what
+  the resident actually remembers instead of plausibly-shaped guesses.
 - If a tool returns nothing useful or {error: ...}, answer from common sense
   — do not invent specifics, and do not surface the error to the player.`;
 
@@ -264,6 +274,10 @@ export async function POST(req: Request) {
   //     succeed (cookie session or PAT) — there's no other identity.
   let npcOwnerId: string;
   let viewer: ViewerContext;
+  // The town-scoped tools (grant_tag / give_item) need the visitor's
+  // stable participantKey to attribute awards. Captured here when the
+  // route is hit with townSlug so we can build a TownContext below.
+  let visitorSubjectKey: string | null = null;
   if (body.townSlug) {
     const view = await resolveViewer(body.townSlug);
     if ("error" in view) {
@@ -277,6 +291,7 @@ export async function POST(req: Request) {
     }
     npcOwnerId = view.town.ownerId;
     viewer = { isOwner: view.isOwner, name: view.displayName };
+    visitorSubjectKey = view.participantKey;
   } else {
     const resolved = await resolveUser(req);
     if (!resolved) {
@@ -287,6 +302,7 @@ export async function POST(req: Request) {
     }
     npcOwnerId = resolved.user.id;
     viewer = { isOwner: true, name: resolved.user.name || "the owner" };
+    visitorSubjectKey = `user:${resolved.user.id}`;
   }
 
   let npc = await resolveNpc(body.npcId, npcOwnerId);
@@ -315,11 +331,36 @@ export async function POST(req: Request) {
   // purposes. Inject content goes into the system prompt; callable
   // meta gets advertised inside read_skill's tool description so the
   // model knows which ids are valid without guessing.
-  const [injectedSkills, callableSkills] = await Promise.all([
+  // Town-scoped tools fire only for towns that ship a catalog (tags +
+  // item templates). Personal towns get null and the town tools simply
+  // don't register. Loaded in parallel with the skill metadata to keep
+  // chat startup latency flat.
+  const [injectedSkills, callableSkills, townCatalog] = await Promise.all([
     loadInjectedSkills(ownerToken, npc.permissions),
     loadCallableSkillMeta(ownerToken, npc.permissions),
+    body.townSlug ? loadTownCatalog(body.townSlug) : Promise.resolve(null),
   ]);
-  const tools = buildNpcTools(ownerToken, npc.permissions, callableSkills);
+  const townCtx: TownContext | null =
+    body.townSlug && visitorSubjectKey
+      ? {
+          townSlug: body.townSlug,
+          subjectKey: visitorSubjectKey,
+          npcId: npc.id,
+          catalog: townCatalog,
+          // grant_tag / give_item self-suppress when this is true. The
+          // owner-only path below (no townSlug) never builds a townCtx
+          // at all, so this only matters when the owner is touring
+          // their own public town as a logged-in user.
+          isOwner: viewer.isOwner,
+          publicBaseUrl: process.env.PUBLIC_BASE_URL,
+        }
+      : null;
+  const tools = buildNpcTools(
+    ownerToken,
+    npc.permissions,
+    callableSkills,
+    townCtx,
+  );
 
   const system = buildSystemPrompt(
     npc,
@@ -349,12 +390,69 @@ export async function POST(req: Request) {
     );
   }
 
+  // Capture the speaker's most recent message before streaming starts —
+  // by the time onFinish fires the request body is long gone, and the
+  // OnFinishEvent only carries assistant content. We pair the two in
+  // memory ingest so the owner's CORE graph sees the same speaker/NPC
+  // turn pattern the live chat does.
+  const speakerText = extractLastUserText(body.messages);
+
   const result = streamText({
     model,
     system,
     messages: await convertToModelMessages(uiMessages),
     tools,
+    async onFinish(event) {
+      // Final visible reply for a single-step turn is on event.text;
+      // multi-step (tool-call) generations sometimes leave the last
+      // step empty, so fall back to joining every step's text. Either
+      // way ingestNpcTurn will short-circuit on empty input.
+      const assistantText =
+        event.text?.trim() ||
+        event.steps.map((s) => s.text ?? "").join("").trim();
+      await ingestNpcTurn({
+        ownerToken,
+        npcName: npc!.name,
+        isOwner: viewer.isOwner,
+        speakerName: viewer.name,
+        speakerText,
+        assistantText,
+        source: "town:npc-chat",
+        metadata: {
+          npcId: npc!.id,
+          mode: body.mode,
+          ...(body.invitee ? { invitee: body.invitee.name } : {}),
+        },
+      });
+    },
   });
 
   return result.toUIMessageStreamResponse();
+}
+
+/** Pull the most recent user message text out of the incoming body.
+ *  AI-SDK clients can send either `content: "..."` (legacy raw) or
+ *  `parts: [{type: "text", text: "..."}]` (UIMessage shape); we accept
+ *  both because BodySchema does. Returns "" if there is no user
+ *  message — ingest will then no-op. */
+function extractLastUserText(
+  messages: Array<{
+    role: "system" | "user" | "assistant";
+    content?: string;
+    parts?: Array<{ type: string; text?: string }>;
+  }>,
+): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m.role !== "user") continue;
+    if (m.content && m.content.trim()) return m.content;
+    if (m.parts) {
+      const joined = m.parts
+        .filter((p) => p.type === "text" && p.text)
+        .map((p) => p.text as string)
+        .join("");
+      if (joined.trim()) return joined;
+    }
+  }
+  return "";
 }

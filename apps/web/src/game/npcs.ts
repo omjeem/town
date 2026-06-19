@@ -51,6 +51,15 @@ export function onNpcsChange(fn: () => void): () => void {
   };
 }
 
+/** Total NPC rows in the cache — the sum across every building. Used by
+ *  the top-right population badge so visitors see "town has N residents
+ *  + you" even when nobody else is currently roaming. */
+export function getNpcCount(): number {
+  let total = 0;
+  for (const rows of byBuildingId.values()) total += rows.length;
+  return total;
+}
+
 function emit() {
   for (const fn of listeners) fn();
 }

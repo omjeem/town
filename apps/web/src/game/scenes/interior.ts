@@ -22,6 +22,24 @@ import {
   isGroupChatOverlayOpen,
   mountGroupChatForScene,
 } from "../../features/group-chat";
+import { customPlotId, resolveSpriteUrl } from "@town/plot";
+
+// Sprites referenced by CustomPlot interiors aren't pre-loaded at boot
+// (they aren't known until the user's plot lands). We register each
+// unique ref the first time we see it and remember the kaplay key so
+// repeat entries don't double-load.
+const customSpriteKeyByRef = new Map<string, string>();
+function ensureCustomSpriteLoaded(k: KAPLAYCtx, ref: string): string {
+  const cached = customSpriteKeyByRef.get(ref);
+  if (cached) return cached;
+  // Kaplay sprite keys are bare strings; sanitise the ref so colons /
+  // slashes don't trip any lookup.
+  const safe = ref.replace(/[^a-z0-9]/gi, "_");
+  const key = `custom-${safe}`;
+  k.loadSprite(key, resolveSpriteUrl(ref));
+  customSpriteKeyByRef.set(ref, key);
+  return key;
+}
 
 // ===========================================================================
 // Interior scene — one generic scene used for all four buildings.
@@ -105,6 +123,12 @@ type Npc = {
   primaryInstanceOnly?: boolean;
 };
 
+// CustomPlot interior props — single-tile, top-left anchored sprites.
+// Drawn at (tx*TILE, ty*TILE) with no per-prop height offset. The
+// catalog-side `Prop` type (with `spritePxH` / multi-tile footprint)
+// is used by the code-composed STORE / OFFICE / LIBRARY interiors.
+type CustomProp = { tx: number; ty: number; sprite: string };
+
 // Multi-tile static prop (e.g. ATM, kiosk). `tx,ty` is the bottom-left tile
 // the prop occupies; `w,h` is its tile footprint. The sprite is drawn anchored
 // so its feet sit on row `ty`. All footprint tiles block movement.
@@ -138,6 +162,9 @@ type InteriorSpec = {
   interacts?: Interactable[];
   npcs?: Npc[];
   props?: Prop[];
+  // CustomPlot interior props — separate from `props` because they're
+  // 1×1 top-left anchored rather than multi-tile bottom-anchored.
+  customProps?: CustomProp[];
 };
 
 // ---------------------------------------------------------------------------
@@ -843,7 +870,41 @@ export type InteriorOpts = {
 
 export function registerInteriorScene(k: KAPLAYCtx) {
   k.scene("interior", (opts: InteriorOpts) => {
-    const baseSpec = INTERIORS[opts.building];
+    // Custom-plot interior takes over when the building's plotKey starts
+    // with "custom:" AND a matching customPlot is in the cached plot.
+    // Otherwise fall back to the per-category INTERIORS[] spec.
+    const cachedPlot = getCachedPlot();
+    const targetBuilding = cachedPlot?.buildings.find(
+      (b) => b.id === opts.buildingId,
+    );
+    const customId = targetBuilding ? customPlotId(targetBuilding.plotKey) : null;
+    const customPlot = customId
+      ? (cachedPlot?.customPlots ?? []).find((cp) => cp.id === customId) ?? null
+      : null;
+
+    const baseSpec: InteriorSpec = customPlot
+      ? (() => {
+          const ci = customPlot.interior;
+          const drawKey = ensureCustomSpriteLoaded(k, ci.sprite);
+          const customProps: CustomProp[] = ci.props.map((p) => ({
+            tx: p.tx,
+            ty: p.ty,
+            sprite: ensureCustomSpriteLoaded(k, p.sprite),
+          }));
+          return {
+            draw: drawKey,
+            roomW: ci.widthTiles * TILE,
+            roomH: ci.heightTiles * TILE,
+            walkable: ci.walkable,
+            ...(ci.extraWalkable ? { extraWalkable: ci.extraWalkable } : {}),
+            ...(ci.blocked ? { blocked: ci.blocked } : {}),
+            spawn: ci.spawn,
+            exit: ci.exit,
+            title: customPlot.label || opts.building,
+            customProps,
+          };
+        })()
+      : INTERIORS[opts.building];
 
     // Plot-driven NPCs for THIS building. plot.npcs[] now ships one
     // entry per variant slot (see @town/catalog `Variant.npcPositions`),
@@ -862,7 +923,7 @@ export function registerInteriorScene(k: KAPLAYCtx) {
     //     fallback name. openNpcGreeting gates the actual chat behind a
     //     "Sign in with CORE" CTA on this branch, so the fallback id
     //     never reaches /api/npc-chat.
-    const plot = getCachedPlot();
+    const plot = cachedPlot;
     const plotNpcs = (plot?.npcs ?? []).filter(
       (n) => n.buildingId === opts.buildingId,
     );
@@ -1001,6 +1062,14 @@ export function registerInteriorScene(k: KAPLAYCtx) {
         k.z(45),
       ]);
     }
+    // CustomPlot props — top-left anchored single-tile sprites.
+    for (const prop of spec.customProps ?? []) {
+      k.add([
+        k.sprite(prop.sprite),
+        k.pos(prop.tx * TILE, prop.ty * TILE),
+        k.z(45),
+      ]);
+    }
 
     // NPCs (drawn before player so player z=50 renders over them).
     for (const npc of spec.npcs ?? []) {
@@ -1040,6 +1109,10 @@ export function registerInteriorScene(k: KAPLAYCtx) {
           occupied.add(`${prop.tx + dx},${prop.ty - dy}`);
         }
       }
+    }
+    // CustomPlot props are 1×1 at their declared tile.
+    for (const prop of spec.customProps ?? []) {
+      occupied.add(`${prop.tx},${prop.ty}`);
     }
     // Tiles explicitly marked as furniture / interior walls.
     for (const r of spec.blocked ?? []) {

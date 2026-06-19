@@ -68,7 +68,7 @@ export function generatePlot(input: GenerateInput): Plot {
     const resolved = resolveVariant(input.catalog, plotKey, input.variantOverrides?.[plotKey]);
     if (!resolved) continue;
     const { catalogPlot, variant } = resolved;
-    const exteriorSprite = variant.exteriorSpriteCandidates[0] ?? "";
+    const exteriorSprite = variant.exteriorSprite ?? "";
     const spriteDims = manifestBuildingById.get(baseKey(plotKey));
     buildings.push({
       id: plotKey,

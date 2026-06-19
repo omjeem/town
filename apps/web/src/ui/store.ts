@@ -147,23 +147,6 @@ export type SuggestionsState = {
   fetchedAt: string;
 };
 
-// Currently playing Spotify track (CORE integration). Driven by
-// /api/core/spotify/now-playing on a 10s poll. Card hides itself when
-// `connected` is false or `playing` is false.
-export type NowPlayingState = {
-  connected: boolean;
-  playing: boolean;
-  track?: {
-    name: string;
-    artists: string;
-    album: string | null;
-    albumImage: string | null;
-    progressMs: number;
-    durationMs: number;
-    url: string | null;
-  };
-};
-
 type State = {
   hud: HudKind | null;
   prompt: PromptState;
@@ -172,7 +155,6 @@ type State = {
   tasks: TasksState;
   dialogue: DialogueState;
   chat: ChatState;
-  nowPlaying: NowPlayingState;
   invite: InviteState;
   shareImage: ShareImageState;
   proximity: ProximityState;
@@ -192,7 +174,6 @@ let state: State = {
   tasks: null,
   dialogue: null,
   chat: null,
-  nowPlaying: { connected: false, playing: false },
   invite: null,
   shareImage: null,
   proximity: null,
@@ -286,11 +267,6 @@ export const ui = {
   closeChat() {
     if (!state.chat) return;
     state = { ...state, chat: null };
-    emit();
-  },
-
-  setNowPlaying(nowPlaying: NowPlayingState) {
-    state = { ...state, nowPlaying };
     emit();
   },
 

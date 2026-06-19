@@ -16,7 +16,7 @@ const program = new Command();
 program
   .name("town")
   .description("Edit your town plot from the command line.")
-  .version("0.1.4");
+  .version("0.1.11");
 
 registerLogin(program);
 registerInit(program);

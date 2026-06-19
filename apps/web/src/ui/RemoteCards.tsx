@@ -6,6 +6,7 @@ import { getKaplayContext } from "../game/boot";
 import { PALETTE, TILE } from "../game/config";
 import { projectWorldPixelToScreen } from "../game/projection";
 import { isPending } from "../game/realtime";
+import { useTownTags, type TownTag } from "./useTownTags";
 
 // Floating, React-rendered name cards anchored above each remote player.
 //
@@ -25,6 +26,13 @@ type Card = {
   pending: boolean;
 };
 
+/** Max tag pills stacked above any one player's head card. Beyond this we
+ *  show the first two earned + a "+N" overflow chip rather than an
+ *  ever-growing tower. Keeps the overworld readable in dense scenes; two
+ *  is enough to signal "this person has earned things" without crowding
+ *  the name. */
+const MAX_VISIBLE_TAGS = 2;
+
 type KaplayRemoteObj = {
   participantKey: string;
   displayName: string;
@@ -33,12 +41,18 @@ type KaplayRemoteObj = {
 
 export function RemoteCards({
   canvasRef,
+  townSlug,
 }: {
   canvasRef: RefObject<HTMLCanvasElement | null>;
+  /** Town this canvas belongs to. Drives the head-tag poll. Optional so
+   *  scenes that haven't wired tags yet (or personal towns without a
+   *  catalog) skip the fetch entirely. */
+  townSlug?: string;
 }) {
   const [cards, setCards] = useState<Card[]>([]);
   const lastRef = useRef<string>("");
   const rafRef = useRef<number | null>(null);
+  const tagsBySubject = useTownTags(townSlug);
 
   useEffect(() => {
     let stopped = false;
@@ -91,11 +105,17 @@ export function RemoteCards({
   return (
     <div className="pointer-events-none absolute inset-0 z-20">
       {cards.map((c) => (
-        <NameCard key={c.key} card={c} />
+        <NameCard
+          key={c.key}
+          card={c}
+          tags={tagsBySubject[c.key] ?? EMPTY_TAGS}
+        />
       ))}
     </div>
   );
 }
+
+const EMPTY_TAGS: TownTag[] = [];
 
 // Pool of pill backgrounds. We skip h90 (reserved for the pending dot)
 // and stick to hues that work with cream text. The participant key is
@@ -122,59 +142,92 @@ function pickBg(key: string): string {
   return CARD_BG_POOL[Math.abs(h) % CARD_BG_POOL.length]!;
 }
 
-function NameCard({ card }: { card: Card }) {
+function NameCard({ card, tags }: { card: Card; tags: TownTag[] }) {
   const bg = pickBg(card.key);
+  const visible = tags.slice(0, MAX_VISIBLE_TAGS);
+  const overflow = tags.length - visible.length;
   return (
     <div
       className="absolute"
       style={{
         left: card.x,
         top: card.y,
-        // Sit the pill above the head with a small gap; the triangle tail
-        // bridges the gap visually.
+        // The whole stack sits above the head. The bottom-most element is
+        // the name pill (with the triangle tail pointing at the sprite);
+        // earned tag pills stack above the name in column order.
         transform: "translate(-50%, calc(-100% - 8px))",
       }}
     >
-      <div
-        className="relative inline-flex items-center gap-1.5 rounded-full border-2 border-ink px-3 py-1 text-[11px] font-bold leading-none whitespace-nowrap shadow-[2px_2px_0_0_#0e1116]"
-        style={{ background: bg, color: "#f6f3ea" }}
-      >
-        <span>{card.name}</span>
-        {card.pending ? (
-          <span
-            aria-label="needs reply"
-            className="inline-block h-2 w-2 rounded-full border border-ink"
-            style={{ background: PALETTE.h90 }}
-          />
+      <div className="flex flex-col items-center gap-[3px]">
+        {visible.length > 0 ? (
+          <div className="flex flex-row items-center gap-[3px]">
+            {visible.map((t) => (
+              <TagPill key={t.id} tag={t} />
+            ))}
+            {overflow > 0 ? (
+              <span
+                className="rounded-full border-2 border-ink px-1.5 py-[1px] text-[9px] font-bold leading-none"
+                style={{ background: "#1a1d22", color: "#f6f3ea" }}
+              >
+                +{overflow}
+              </span>
+            ) : null}
+          </div>
         ) : null}
-        {/* Triangle tail pointing at the character — black outline drawn
-            first, fill stacked on top so the outline shows. */}
-        <span
-          aria-hidden
-          className="absolute left-1/2 -translate-x-1/2"
-          style={{
-            top: "100%",
-            width: 0,
-            height: 0,
-            borderLeft: "5px solid transparent",
-            borderRight: "5px solid transparent",
-            borderTop: "6px solid #1a1d22",
-          }}
-        />
-        <span
-          aria-hidden
-          className="absolute left-1/2 -translate-x-1/2"
-          style={{
-            top: "100%",
-            marginTop: "-2px",
-            width: 0,
-            height: 0,
-            borderLeft: "4px solid transparent",
-            borderRight: "4px solid transparent",
-            borderTop: `5px solid ${bg}`,
-          }}
-        />
+        <div
+          className="relative inline-flex items-center gap-1.5 rounded-full border-2 border-ink px-3 py-1 text-[11px] font-bold leading-none whitespace-nowrap shadow-[2px_2px_0_0_#0e1116]"
+          style={{ background: bg, color: "#f6f3ea" }}
+        >
+          <span>{card.name}</span>
+          {card.pending ? (
+            <span
+              aria-label="needs reply"
+              className="inline-block h-2 w-2 rounded-full border border-ink"
+              style={{ background: PALETTE.h90 }}
+            />
+          ) : null}
+          {/* Triangle tail pointing at the character — black outline drawn
+              first, fill stacked on top so the outline shows. */}
+          <span
+            aria-hidden
+            className="absolute left-1/2 -translate-x-1/2"
+            style={{
+              top: "100%",
+              width: 0,
+              height: 0,
+              borderLeft: "5px solid transparent",
+              borderRight: "5px solid transparent",
+              borderTop: "6px solid #1a1d22",
+            }}
+          />
+          <span
+            aria-hidden
+            className="absolute left-1/2 -translate-x-1/2"
+            style={{
+              top: "100%",
+              marginTop: "-2px",
+              width: 0,
+              height: 0,
+              borderLeft: "4px solid transparent",
+              borderRight: "4px solid transparent",
+              borderTop: `5px solid ${bg}`,
+            }}
+          />
+        </div>
       </div>
     </div>
+  );
+}
+
+function TagPill({ tag }: { tag: TownTag }) {
+  return (
+    <span
+      title={tag.label}
+      className="rounded-full border-2 border-ink px-1.5 py-[1px] text-[10px] font-bold leading-none"
+      style={{ background: tag.color, color: "#0e1116" }}
+    >
+      <span className="mr-0.5">{tag.emoji}</span>
+      <span>{tag.label}</span>
+    </span>
   );
 }

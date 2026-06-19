@@ -148,7 +148,7 @@ async function applyDiff(
       ? { groupChatEnabled: b.groupChatEnabled }
       : {}),
   }));
-  const diff = diffBuildings(startingPlot, specs);
+  const diff = diffBuildings(startingPlot, specs, ctx);
   let nextPlot: Plot;
   try {
     nextPlot = applyBuildingDiff(startingPlot, ctx, diff);

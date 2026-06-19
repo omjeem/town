@@ -52,10 +52,13 @@ export async function GET(req: Request) {
   }
 
   const { plot } = await getPlotForUser(ownTown.ownerId);
-  const owner = await prisma.user.findUnique({
-    where: { id: ownTown.ownerId },
-    select: { name: true },
-  });
+  const [owner, npcCount] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: ownTown.ownerId },
+      select: { name: true },
+    }),
+    prisma.npc.count({ where: { userId: ownTown.ownerId } }),
+  ]);
 
   let png: Buffer;
   try {
@@ -64,6 +67,8 @@ export async function GET(req: Request) {
       manifest: loadManifest(),
       townName: ownTown.name,
       ownerName: owner?.name ?? "",
+      // Static-snapshot population: owner + every authored NPC.
+      population: npcCount + 1,
     });
   } catch (err) {
     console.error("[export] render failed", err);

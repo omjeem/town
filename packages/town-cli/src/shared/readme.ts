@@ -8,9 +8,9 @@
 // current shape straight from main.
 
 const CATALOG_URL =
-  "https://github.com/RedPlanetHQ/town/blob/main/apps/web/public/sprites/catalog/variants.json";
+  "https://github.com/RedPlanetHQ/town/blob/main/packages/catalog/src/catalog.json";
 const CATALOG_RAW =
-  "https://raw.githubusercontent.com/RedPlanetHQ/town/main/apps/web/public/sprites/catalog/variants.json";
+  "https://raw.githubusercontent.com/RedPlanetHQ/town/main/packages/catalog/src/catalog.json";
 const MANIFEST_URL =
   "https://github.com/RedPlanetHQ/town/blob/main/apps/web/public/sprites/extras/MANIFEST.json";
 const MANIFEST_RAW =
@@ -155,9 +155,10 @@ the town-next repo. Skim or fetch as needed:
 
 Each catalog plot has \`id\` (use as \`plotKey\`), \`category\`,
 \`interior\`, and one or more \`variants\`. Each variant has an
-\`exteriorSpriteCandidates\` list and one or more \`npcPositions\` (slot
-ids you can target from MDX). Use these as templates when authoring a
-customPlot.
+\`exteriorSprite\` and one or more \`npcPositions\` (slot ids you can
+target from MDX). Use these as templates when authoring a customPlot —
+to offer a second exterior, ship a second variant or a separate
+customPlot rather than a list.
 
 ## CustomPlot sprite mix-and-match
 

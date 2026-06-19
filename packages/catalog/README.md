@@ -27,16 +27,18 @@ Plot {
 }
 
 Interior {
-  spriteCandidates: string[];  // shells under /sprites/catalog/...
+  sprite: string;              // shell under /sprites/catalog/...
   props: InteriorProp[];       // { sprite, tx, ty } anchored top-left
 }
 
 Variant {
   id: string;
   canonical: string;
-  exteriorSpriteCandidates: string[];   // candidates under /sprites/catalog/exteriors/...
-  npcPosition: { tx, ty, label };       // ONLY per-variant thing inside the shared room
-  // plus optional metadata: profession, vibe, paletteAccent, anchorObjects, triggers
+  exteriorSprite: string;                          // path under /sprites/catalog/exteriors/...
+  npcPositions: { id?, tx, ty, label }[];          // one slot per NPC the variant supports
+  // legacy single-slot form: npcPosition: { tx, ty, label } — still accepted
+  // for old single-NPC variants. New variants should use the array.
+  // plus optional metadata: profession, vibe, paletteAccent
 }
 ```
 
@@ -50,16 +52,14 @@ small and matches the rendering pipeline.
 1. Drop the exterior PNG under `apps/web/public/sprites/catalog/exteriors/<category>/`.
 2. Edit `src/catalog.json` — add a new entry under the relevant plot's
    `variants[]` with the exterior path + a unique `npcPosition.tx/ty`.
-3. Run `pnpm catalog:sync` from the repo root.
-4. Refresh the catalog HTML page at `http://localhost:3000/sprites/catalog/index.html`
-   to verify.
+3. Refresh the catalog HTML page at `http://localhost:3000/sprites/catalog/index.html`
+   to verify (it fetches the catalog over `/api/catalog`).
 
 ## Adding a new plot (whole new category)
 
 1. Drop interior shell + prop PNGs under `apps/web/public/sprites/`.
 2. Edit `src/catalog.json` — add a new top-level plot with `interior`
-   and at least one `variants[]` entry.
-3. `pnpm catalog:sync`, refresh.
+   and at least one `variants[]` entry. Refresh.
 
 ## Adding new sprite assets only
 
@@ -76,11 +76,10 @@ const home = getPlot("home");
 const cottage = getVariant("home.cottage");
 ```
 
-## Why a separate sync step?
+## Single source of truth
 
-The catalog HTML page is a plain static page that does `fetch('variants.json')`
-— no bundler involvement. So we keep a built copy at
-`apps/web/public/sprites/catalog/variants.json`. The TypeScript app imports
-the typed version straight from `@town/catalog`.
-
-The `sync` script keeps the two in lockstep. Commit both.
+`src/catalog.json` is the only catalog file in the repo. The TypeScript app
+imports it via `@town/catalog`. The static playground at
+`apps/web/public/sprites/catalog/index.html` fetches the same data over
+`/api/catalog` (served from `apps/web/src/app/api/catalog/route.ts`), so
+there's nothing to sync — edit one file, refresh.

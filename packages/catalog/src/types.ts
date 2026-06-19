@@ -38,9 +38,10 @@ export interface InteriorProp extends TilePos {
 /** Shared interior for an entire plot — every variant inside the plot uses
  *  this exact shell + prop list. The only per-variant thing is npcPosition. */
 export interface Interior {
-  /** First entry is the canonical shell. Others are alternates for swap.
-   *  Path is relative to /sprites/catalog/ — e.g. "interiors/home/foo.png". */
-  spriteCandidates: string[];
+  /** Interior sprite, relative to /sprites/catalog/ — e.g.
+   *  "interiors/home/foo.png". One per plot; a variant that wants a
+   *  different shell ships as a separate plot. */
+  sprite: string;
   props: InteriorProp[];
 }
 
@@ -65,11 +66,10 @@ export interface Variant {
   profession?: string;
   vibe?: string;
   paletteAccent?: string;
-  /** First entry is canonical exterior. Others are alternates. Path is
-   *  relative to /sprites/catalog/ — e.g. "exteriors/home/villa-1.png". */
-  exteriorSpriteCandidates: string[];
-  anchorObjects?: string[];
-  triggers?: string[];
+  /** Exterior sprite path, relative to /sprites/catalog/ — e.g.
+   *  "exteriors/home/villa-1.png". One per variant; use a separate
+   *  variant (or a CustomPlot) if you want a different exterior. */
+  exteriorSprite: string;
   /** Legacy single-position slot. Optional now — variants that ship
    *  `npcPositions` can omit it. Readers fall back to `npcPositions[0]`
    *  when absent. At least one of the two must be present. */

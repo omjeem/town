@@ -471,8 +471,8 @@
 
     async function pgLoadCatalog() {
       if (PG_CATALOG) return PG_CATALOG;
-      const res = await fetch('variants.json?ts=' + Date.now());
-      if (!res.ok) throw new Error('failed to fetch variants.json');
+      const res = await fetch('/api/catalog?ts=' + Date.now());
+      if (!res.ok) throw new Error('failed to fetch /api/catalog');
       PG_CATALOG = await res.json();
       return PG_CATALOG;
     }
@@ -482,7 +482,7 @@
       try {
         data = await pgLoadCatalog();
       } catch {
-        document.getElementById('counter').textContent = 'Failed to load variants.json.';
+        document.getElementById('counter').textContent = 'Failed to load /api/catalog.';
         return;
       }
       const plots = data.plots || [];
@@ -514,8 +514,8 @@
     })();
 
     function isNeedsArt(v, plotInterior) {
-      const ext = (v.exteriorSpriteCandidates || []).length;
-      const inte = (plotInterior && plotInterior.spriteCandidates || []).length;
+      const ext = v.exteriorSprite ? 1 : 0;
+      const inte = (plotInterior && plotInterior.sprite) ? 1 : 0;
       return v.needsArt === true || (ext === 0 && inte === 0);
     }
 
@@ -576,10 +576,10 @@
 
       const sprites = document.createElement('div');
       sprites.className = 'sprites';
-      sprites.appendChild(renderSpriteSlot('exterior', v.exteriorSpriteCandidates));
+      sprites.appendChild(renderSpriteSlot('exterior', v.exteriorSprite ? [v.exteriorSprite] : null));
       // Interior is now shared at the plot level — the variant only
       // owns the NPC spawn point that sits inside it.
-      const interiorCandidates = plotInterior ? plotInterior.spriteCandidates : null;
+      const interiorCandidates = plotInterior && plotInterior.sprite ? [plotInterior.sprite] : null;
       const interiorProps = plotInterior ? plotInterior.props : null;
       sprites.appendChild(renderSpriteSlot('interior', interiorCandidates, interiorProps, v.npcPosition));
       card.appendChild(sprites);
@@ -1144,7 +1144,7 @@
       for (const plotKey of Object.keys(layout)) {
         const cp = catalogPlotsById[pgBaseKey(plotKey)];
         const variant = cp && cp.variants && cp.variants[0];
-        const ext = variant && (variant.exteriorSpriteCandidates || [])[0];
+        const ext = variant && variant.exteriorSprite;
         if (ext) exteriorPaths.push(ext);
       }
       await pgEnsureBuildingDims(exteriorPaths);
@@ -1606,7 +1606,7 @@
         const label = PG.PLOT_LABEL[baseKey] || baseKey.toUpperCase();
         const cp = catalogPlotsById[baseKey];
         const variant = cp && cp.variants && cp.variants[0];
-        const exteriorSprite = variant && (variant.exteriorSpriteCandidates || [])[0];
+        const exteriorSprite = variant && variant.exteriorSprite;
         const dims = exteriorSprite ? PG_SPRITE_DIMS.get(exteriorSprite) : null;
 
         if (exteriorSprite && dims) {
@@ -1668,7 +1668,7 @@
         const cp = catalogPlotsById[pgBaseKey(plotKey)];
         if (!cp || !cp.variants || !cp.variants.length) continue;
         const variant = cp.variants[0];
-        const exteriorSprite = (variant.exteriorSpriteCandidates || [])[0] || '';
+        const exteriorSprite = variant.exteriorSprite || '';
         plotBuildings.push({
           id: plotKey,
           plotKey: plotKey,

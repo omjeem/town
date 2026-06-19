@@ -82,6 +82,29 @@ function rectsOverlap(
  *  collide with any existing building. Search order is salted by seed +
  *  plotKey so two different additions to the same plot don't fight over
  *  the same cell. */
+/** Effective rect a building occupies VISUALLY — anchored at the south
+ *  edge of the footprint, extending up by the sprite tile height. For
+ *  buildings whose sprite matches the footprint this collapses to the
+ *  footprint itself. Used so a tall sprite (terraced-house at 12×15,
+ *  tavern at 18×19) doesn't get parked on top of a neighbour. */
+function effectiveRect(b: {
+  tx: number;
+  ty: number;
+  w: number;
+  h: number;
+  spriteW?: number;
+  spriteH?: number;
+}): { tx: number; ty: number; w: number; h: number } {
+  const sw = b.spriteW ?? b.w;
+  const sh = b.spriteH ?? b.h;
+  return {
+    tx: b.tx + (b.w - sw) / 2,
+    ty: b.ty + b.h - sh,
+    w: sw,
+    h: sh,
+  };
+}
+
 function findFreeRect(
   plot: Plot,
   plotKey: string,
@@ -93,7 +116,33 @@ function findFreeRect(
   for (let r = 0; r < WORLD.ROWS; r++) {
     for (let c = 0; c < WORLD.COLS; c++) cells.push({ col: c, row: r });
   }
+
+  // Cluster bias: prefer cells near existing buildings (or the world
+  // centre if the plot is empty). Without this the first few additions
+  // scatter across the 6×5 grid via raw hash order, leaving a tiny
+  // village in the middle of a giant forest. Hash is the per-seed
+  // tiebreak so two plots with the same building list still differ.
+  const centreCol = (WORLD.COLS - 1) / 2;
+  const centreRow = (WORLD.ROWS - 1) / 2;
+  function clusterCost(col: number, row: number): number {
+    if (plot.buildings.length === 0) {
+      return Math.hypot(col - centreCol, row - centreRow);
+    }
+    const cellCx = col * WORLD.CELL_W + WORLD.CELL_W / 2;
+    const cellCy = row * WORLD.CELL_H + WORLD.CELL_H / 2;
+    let best = Infinity;
+    for (const b of plot.buildings) {
+      const bx = b.tx + b.w / 2;
+      const by = b.ty + b.h / 2;
+      const d = Math.hypot(cellCx - bx, cellCy - by);
+      if (d < best) best = d;
+    }
+    return best;
+  }
   cells.sort((a, b) => {
+    const ca = clusterCost(a.col, a.row);
+    const cb = clusterCost(b.col, b.row);
+    if (ca !== cb) return ca - cb;
     const ha = hash32(seed + "::add::" + plotKey + "::" + a.col + "," + a.row);
     const hb = hash32(seed + "::add::" + plotKey + "::" + b.col + "," + b.row);
     return ha - hb;
@@ -109,20 +158,23 @@ function findFreeRect(
     const ty = Math.round(Math.max(4, Math.min(WORLD.H - WORLD.PLOT_H - 4, baseTy + jy)));
     const rect = { tx, ty, w: WORLD.PLOT_W, h: WORLD.PLOT_H };
 
+    // Overlap test against EFFECTIVE sprite extents — footprint plus
+    // any spriteW/spriteH overhang. Without this, tall sprites stack on
+    // top of their neighbours' roofs even when the footprints clear.
+    const candidateEff = effectiveRect({
+      ...rect,
+      ...(manifestDims
+        ? { spriteW: manifestDims.tileW, spriteH: manifestDims.tileH }
+        : {}),
+    });
     let collides = false;
     for (const b of plot.buildings) {
-      if (rectsOverlap(rect, b, 1)) {
+      if (rectsOverlap(candidateEff, effectiveRect(b), 1)) {
         collides = true;
         break;
       }
     }
-    if (!collides) {
-      // The footprint search uses the layout PLOT_W/H; surface the
-      // manifest dims separately so the building entry can render a
-      // taller sprite without changing the no-overlap footprint.
-      void manifestDims;
-      return rect;
-    }
+    if (!collides) return rect;
   }
   return null;
 }
@@ -227,7 +279,14 @@ export function addBuilding(
     );
   }
 
-  const dims = manifestBuildingDims(ctx.manifest, input.plotKey);
+  // Variant-declared dims (customPlots) beat the manifest. A customPlot
+  // can wrap a catalog sprite or ship its own PNG and either way it
+  // tells us how tall the sprite actually is. Catalog plotKeys without
+  // a custom wrapper fall back to the extras manifest.
+  const dims =
+    variant.spriteW !== undefined && variant.spriteH !== undefined
+      ? { tileW: variant.spriteW, tileH: variant.spriteH }
+      : manifestBuildingDims(ctx.manifest, input.plotKey);
   const rect = findFreeRect(plot, input.plotKey, dims);
   if (!rect) {
     throw new IncrementalError(
@@ -236,7 +295,7 @@ export function addBuilding(
     );
   }
 
-  const exteriorSprite = variant.exteriorSpriteCandidates[0] ?? "";
+  const exteriorSprite = variant.exteriorSprite;
   const building: PlotBuilding = {
     id,
     plotKey: input.plotKey,
@@ -254,21 +313,46 @@ export function addBuilding(
       : {}),
   };
 
-  const home = ensureHome(plot);
+  const newShape = buildingToClearing(building);
   const allClearings: ClearingShape[] = [
     ...plot.buildings.map(buildingToClearing),
-    buildingToClearing(building),
+    newShape,
   ];
-  const homeShape = buildingToClearing(home);
-  const newShape = buildingToClearing(building);
-  let path: PlotPath | null = null;
-  if (home.id !== building.id) {
-    const tiles = roadTiles(plot.seed, homeShape, newShape, allClearings);
-    path = { from: home.id, to: building.id, tiles };
+  // Road routing depends on the canonical home anchor — id "home". Two
+  // cases:
+  //   • Adding a non-home building → route one path FROM home TO it.
+  //     ensureHome runs here and throws if the plot doesn't have one,
+  //     which is the right signal (every plot must keep its home).
+  //   • Adding the home itself (e.g. a plotKey rebuild of the home
+  //     building) → home doesn't exist yet, so skip ensureHome AND
+  //     restore the paths to every existing non-home building. The
+  //     previous home's paths were dropped by removeBuilding before
+  //     this call, so without re-routing the other buildings would
+  //     orphan.
+  const newPaths: PlotPath[] = [];
+  if (building.id !== "home") {
+    const home = ensureHome(plot);
+    const tiles = roadTiles(
+      plot.seed,
+      buildingToClearing(home),
+      newShape,
+      allClearings,
+    );
+    newPaths.push({ from: home.id, to: building.id, tiles });
+  } else {
+    for (const other of plot.buildings) {
+      const tiles = roadTiles(
+        plot.seed,
+        newShape,
+        buildingToClearing(other),
+        allClearings,
+      );
+      newPaths.push({ from: building.id, to: other.id, tiles });
+    }
   }
 
   const buildings = [...plot.buildings, building];
-  const paths = path ? [...plot.paths, path] : plot.paths;
+  const paths = [...plot.paths, ...newPaths];
   const npcs = [
     ...plot.npcs,
     ...variant.npcSlots.map((slot) => ({
@@ -300,15 +384,6 @@ export function removeBuilding(
     throw new IncrementalError(
       "unknown-building",
       `no building with id "${input.id}" in plot`,
-    );
-  }
-  // The canonical home is identified by id "home" (not by plotKey).
-  // The system Founder, the spawn anchor, and the workspace-name
-  // override all key off this one building.
-  if (target.id === "home") {
-    throw new IncrementalError(
-      "remove-home-forbidden",
-      `cannot remove the building with id "home"`,
     );
   }
   const buildings = plot.buildings.filter((b) => b.id !== input.id);
@@ -357,9 +432,23 @@ export function changeVariant(
       `variantId "${input.variantId}" not on plot "${current.plotKey}"`,
     );
   }
-  const exteriorSprite = variant.exteriorSpriteCandidates[0] ?? current.exteriorSprite;
+  const exteriorSprite = variant.exteriorSprite ?? current.exteriorSprite;
+  // If the new variant ships its own sprite dims, refresh them on the
+  // building so overworld collision keeps reading the right size. We
+  // can't drop spriteW/spriteH for variants that don't declare them
+  // (otherwise re-deploying a catalog variant after a custom swap would
+  // lose the manifest dims that addBuilding originally wrote).
+  const spriteDimsPatch =
+    variant.spriteW !== undefined && variant.spriteH !== undefined
+      ? { spriteW: variant.spriteW, spriteH: variant.spriteH }
+      : {};
   const buildings = plot.buildings.slice();
-  buildings[idx] = { ...current, variantId: variant.id, exteriorSprite };
+  buildings[idx] = {
+    ...current,
+    variantId: variant.id,
+    exteriorSprite,
+    ...spriteDimsPatch,
+  };
   // Reset every PlotNpc bound to this building from the new variant's
   // slot list. Slot ids that survive the swap (same id in the new
   // variant) keep their Npc DB row matched on the renderer side; new
@@ -407,8 +496,34 @@ export interface BuildingDiff {
 }
 
 /** Diff a current plot against an incoming building list. The result
- *  feeds straight into a sequence of incremental ops. */
-export function diffBuildings(plot: Plot, incoming: BuildingSpec[]): BuildingDiff {
+ *  feeds straight into a sequence of incremental ops.
+ *
+ *  `ctx` is optional purely for compatibility with older call sites; pass
+ *  it whenever you want the diff to detect "the variant's declared
+ *  spriteW/spriteH no longer match what's persisted on the building" and
+ *  force a rebuild so the placement search re-runs with the new dims.
+ *  Without it those changes go unnoticed and the building stays parked
+ *  in its old (now visually overlapping) cell. */
+export function diffBuildings(
+  plot: Plot,
+  incoming: BuildingSpec[],
+  ctx?: IncrementalCtx,
+): BuildingDiff {
+  // Invariant: the canonical home (id "home") must survive the diff.
+  // The system Founder, the spawn anchor, and the workspace-name override
+  // all key off this one building. A plotKey swap is a remove+re-add of
+  // the same id, so checking the incoming list is what we want — it
+  // permits rebuilds while still rejecting outright deletions.
+  if (
+    plot.buildings.some((b) => b.id === "home") &&
+    !incoming.some((b) => b.id === "home")
+  ) {
+    throw new IncrementalError(
+      "missing-home-building",
+      `incoming building list must keep the building with id "home"`,
+    );
+  }
+
   const current = new Map(plot.buildings.map((b) => [b.id, b]));
   const next = new Map(incoming.map((b) => [b.id, b]));
 
@@ -419,6 +534,7 @@ export function diffBuildings(plot: Plot, incoming: BuildingSpec[]): BuildingDif
   const changedGroupChat: Array<{ id: string; enabled: boolean }> = [];
   const rebuild: BuildingSpec[] = [];
 
+  const customPlots = plot.customPlots ?? [];
   for (const [id, spec] of next.entries()) {
     const have = current.get(id);
     if (!have) {
@@ -428,6 +544,24 @@ export function diffBuildings(plot: Plot, incoming: BuildingSpec[]): BuildingDif
     if (have.plotKey !== spec.plotKey) {
       rebuild.push(spec);
       continue;
+    }
+    // Sprite dim drift → rebuild. When a customPlot updates
+    // spriteW/spriteH on its variant, the persisted building still
+    // carries the old size and findFreeRect overlap-tested against
+    // those old dims. Force a remove+re-add so the new size is the
+    // one collision sees.
+    if (ctx) {
+      const eff = resolveEffectivePlot(ctx.catalog, customPlots, spec.plotKey);
+      const variant = eff ? pickVariant(eff, spec.variantId) : null;
+      if (
+        variant &&
+        variant.spriteW !== undefined &&
+        variant.spriteH !== undefined &&
+        (variant.spriteW !== have.spriteW || variant.spriteH !== have.spriteH)
+      ) {
+        rebuild.push(spec);
+        continue;
+      }
     }
     if (spec.variantId && spec.variantId !== have.variantId) {
       changedVariant.push({ id, variantId: spec.variantId });
@@ -505,11 +639,48 @@ export function applyBuildingDiff(
     );
     next = { ...next, buildings };
   }
+  // Rebuild adds before regular adds, and the home goes first within
+  // the rebuild batch. This keeps `ensureHome` happy when other
+  // rebuilds / fresh additions need to route a path from home.
+  const rebuildAdds = [...diff.rebuild].sort((a, b) =>
+    a.id === "home" ? -1 : b.id === "home" ? 1 : 0,
+  );
+  for (const spec of rebuildAdds) {
+    next = addBuilding(next, ctx, spec).plot;
+  }
   for (const spec of diff.added) {
     next = addBuilding(next, ctx, spec).plot;
   }
-  for (const spec of diff.rebuild) {
-    next = addBuilding(next, ctx, spec).plot;
+  // Final sync — re-derive plot.npcs from each building's effective
+  // variant. addBuilding + changeVariant already write npcs in their
+  // happy paths; this catches the case where a customPlot's
+  // npcPositions changed but the building's variantId didn't, so
+  // diffBuildings didn't emit a changeVariant op. Without this the
+  // owner would edit the customPlot, redeploy, and see the old
+  // NPC tiles because nothing refreshed plot.npcs.
+  return syncNpcsFromVariants(next, ctx);
+}
+
+/** Rewrite plot.npcs from each building's current variant. Idempotent
+ *  for catalog plots; load-bearing when a customPlot edits npcPositions
+ *  without changing variantId (the diff wouldn't otherwise refresh). */
+export function syncNpcsFromVariants(plot: Plot, ctx: IncrementalCtx): Plot {
+  const customPlots = plot.customPlots ?? [];
+  const npcs: typeof plot.npcs = [];
+  for (const b of plot.buildings) {
+    const eff = resolveEffectivePlot(ctx.catalog, customPlots, b.plotKey);
+    if (!eff) continue;
+    const variant = pickVariant(eff, b.variantId);
+    if (!variant) continue;
+    for (const slot of variant.npcSlots) {
+      npcs.push({
+        buildingId: b.id,
+        slotId: slot.id,
+        tx: slot.tx,
+        ty: slot.ty,
+        label: slot.label,
+      });
+    }
   }
-  return next;
+  return { ...plot, npcs };
 }

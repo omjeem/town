@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import { publish } from "@/lib/centrifugo";
 import { prisma } from "@/lib/db";
+import { normalizePermissions } from "@/lib/npc-templates";
 import { ensureNpcsForUser } from "@/lib/plot";
 
 import type {
@@ -204,10 +205,17 @@ async function maybeTriggerNpcReply(access: GroupChatAccess): Promise<void> {
         name: picked.name,
         description: picked.description,
         prompt: picked.prompt,
+        // `permissions` arrives as a JSONB blob from Prisma — run it
+        // through the same normaliser /api/town POST uses so an MDX
+        // typo can't smuggle in an unknown key. `null` (no grant) is
+        // normalised to an empty object inside, which buildNpcTools
+        // treats as "no tools".
+        permissions: normalizePermissions(picked.permissions),
       },
       owner: {
         participantKey: access.ownerParticipantKey,
         name: access.ownerName,
+        userId: access.viewer.town.ownerId,
       },
       history,
     });

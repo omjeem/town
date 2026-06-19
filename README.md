@@ -244,7 +244,12 @@ Open `catalog.json` in your folder — `exteriorSprites`, `interiorSprites`,
   "label": "Record Store",
   "category": "MARKET",
   "interior": {
-    "spriteCandidates": ["./interior.png"],
+    "sprite": "./interior.png",
+    "widthTiles": 14,
+    "heightTiles": 13,
+    "walkable":   { "tx": 1, "ty": 2, "w": 12, "h": 9 },
+    "spawn":      { "tx": 7, "ty": 11 },
+    "exit":       { "tx": 7, "ty": 12 },
     "props": [
       { "tx": 4, "ty": 3, "sprite": "./props/crate.png" },
       { "tx": 6, "ty": 3, "sprite": "props/lamp-standing.png" }
@@ -253,7 +258,7 @@ Open `catalog.json` in your folder — `exteriorSprites`, `interiorSprites`,
   "variants": [
     {
       "id": "record-store.classic",
-      "exteriorSpriteCandidates": ["./exterior.png"],
+      "exteriorSprite": "./exterior.png",
       "npcPositions": [
         { "id": "",        "tx": 5, "ty": 4, "label": "shopkeep" },
         { "id": "regular", "tx": 7, "ty": 6, "label": "regular" }
@@ -349,7 +354,6 @@ load it via `dotenv-cli`.
 | `pnpm db:migrate` | `prisma migrate dev` in `@town/db` |
 | `pnpm db:generate` | Regenerate the Prisma client |
 | `pnpm db:studio` | Open Prisma Studio |
-| `pnpm catalog:sync` | Rebuild `public/sprites/catalog/variants.json` from `@town/catalog` |
 | `pnpm plot:build-default` | Regenerate the committed default plot |
 
 The event worker (BullMQ consumer for CORE webhooks) runs separately:

@@ -5,7 +5,12 @@
 // envelopes against these types and writes them as TownEventRow rows.
 // The events worker rehydrates them and converts each into PlotSuggestion
 // rows for the player to approve/decline from the in-game sidebar.
+//
+// Town catalog (per-deployment tags + SVG item templates) lives in
+// town-catalog.ts and is re-exported below.
 // =============================================================================
+
+export * from "./town-catalog";
 
 // -----------------------------------------------------------------------------
 // Event envelope — CORE → town.

@@ -67,21 +67,53 @@ function validateCustomPlot(
       message: `id "${cp.id}" must not contain ":" (the "custom:" prefix is added automatically)`,
     });
   }
-  if (!cp.interior || !Array.isArray(cp.interior.spriteCandidates)) {
+  if (!cp.interior) {
     issues.push({ path: `${prefix}.interior`, message: `missing interior` });
     return;
   }
-  if (cp.interior.spriteCandidates.length === 0) {
+  if (typeof cp.interior.sprite !== "string" || cp.interior.sprite.length === 0) {
     issues.push({
-      path: `${prefix}.interior.spriteCandidates`,
-      message: `at least one interior sprite candidate required`,
+      path: `${prefix}.interior.sprite`,
+      message: `interior sprite is required`,
     });
-  }
-  for (const [i, ref] of cp.interior.spriteCandidates.entries()) {
-    const issue = validateSpriteRef(ref, `${prefix}.interior.spriteCandidates[${i}]`);
+  } else {
+    const issue = validateSpriteRef(cp.interior.sprite, `${prefix}.interior.sprite`);
     if (issue) issues.push(issue);
   }
-  for (const [i, prop] of cp.interior.props.entries()) {
+  // Dimensions in tile units must be positive integers — the renderer
+  // multiplies by TILE (16px) to get the room's pixel size.
+  for (const f of ["widthTiles", "heightTiles"] as const) {
+    const v = cp.interior[f];
+    if (typeof v !== "number" || !Number.isInteger(v) || v <= 0) {
+      issues.push({
+        path: `${prefix}.interior.${f}`,
+        message: `${f} must be a positive integer`,
+      });
+    }
+  }
+  // walkable, spawn, exit are required; extraWalkable and blocked are
+  // optional. We don't bounds-check against widthTiles/heightTiles here —
+  // a bad value is obvious in the renderer, and surfacing it cleanly
+  // requires more context than the validator has.
+  if (!cp.interior.walkable || typeof cp.interior.walkable.tx !== "number") {
+    issues.push({
+      path: `${prefix}.interior.walkable`,
+      message: `walkable rect { tx, ty, w, h } is required`,
+    });
+  }
+  if (!cp.interior.spawn || typeof cp.interior.spawn.tx !== "number") {
+    issues.push({
+      path: `${prefix}.interior.spawn`,
+      message: `spawn { tx, ty } is required`,
+    });
+  }
+  if (!cp.interior.exit || typeof cp.interior.exit.tx !== "number") {
+    issues.push({
+      path: `${prefix}.interior.exit`,
+      message: `exit { tx, ty } is required`,
+    });
+  }
+  for (const [i, prop] of (cp.interior.props ?? []).entries()) {
     const issue = validateSpriteRef(prop.sprite, `${prefix}.interior.props[${i}].sprite`);
     if (issue) issues.push(issue);
   }
@@ -99,14 +131,13 @@ function validateCustomPlot(
     } else {
       variantIds.add(v.id);
     }
-    if (!Array.isArray(v.exteriorSpriteCandidates) || v.exteriorSpriteCandidates.length === 0) {
+    if (typeof v.exteriorSprite !== "string" || v.exteriorSprite.length === 0) {
       issues.push({
-        path: `${vprefix}.exteriorSpriteCandidates`,
-        message: `at least one exterior sprite candidate required`,
+        path: `${vprefix}.exteriorSprite`,
+        message: `exterior sprite is required`,
       });
-    }
-    for (const [j, ref] of (v.exteriorSpriteCandidates ?? []).entries()) {
-      const issue = validateSpriteRef(ref, `${vprefix}.exteriorSpriteCandidates[${j}]`);
+    } else {
+      const issue = validateSpriteRef(v.exteriorSprite, `${vprefix}.exteriorSprite`);
       if (issue) issues.push(issue);
     }
     // A variant must declare at least one NPC slot — via either the

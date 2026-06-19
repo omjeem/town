@@ -9,28 +9,10 @@
         {
           "id": "home.modern-villa",
           "canonical": "South Light",
-          "profession": "warm-modern default \u2014 the no-strong-signal-yet baseline",
+          "profession": "warm-modern default — the no-strong-signal-yet baseline",
           "vibe": "light, airy, lived-in",
           "paletteAccent": "#d6b87a",
-          "exteriorSpriteCandidates": [
-            "exteriors/home/villa-1.png",
-            "exteriors/home/villa-2.png",
-            "exteriors/home/villa-3.png",
-            "exteriors/home/villa-4.png",
-            "exteriors/home/villa-5.png",
-            "exteriors/home/modern-house.png"
-          ],
-          "anchorObjects": [
-            "sofa with throw",
-            "coffee table with one mug",
-            "bookshelf",
-            "single big plant",
-            "framed photo"
-          ],
-          "triggers": [
-            "op: always (default fallback)",
-            "signalStrength.HOME < 0.3"
-          ],
+          "exteriorSprite": "exteriors/home/villa-1.png",
           "npcPosition": {
             "tx": 8,
             "ty": 3,
@@ -43,21 +25,7 @@
           "profession": "cozy / homebody / domestic-craft",
           "vibe": "soft, quilt-stacked, herb-scented",
           "paletteAccent": "#a8d67a",
-          "exteriorSpriteCandidates": [
-            "exteriors/home/country-house.png",
-            "exteriors/home/country-house-no-banisters.png"
-          ],
-          "anchorObjects": [
-            "stone hearth or wood stove",
-            "quilt-draped chair",
-            "jars of dried herbs",
-            "knit blanket folded on sofa",
-            "well-loved rug"
-          ],
-          "triggers": [
-            "has_aspect Preference: cozy|slow|home|baking|garden",
-            "label_name_matches: home|cooking|garden|baking|cozy"
-          ],
+          "exteriorSprite": "exteriors/home/country-house.png",
           "npcPosition": {
             "tx": 5,
             "ty": 6,
@@ -67,24 +35,10 @@
         {
           "id": "home.condo",
           "canonical": "Tenth Floor",
-          "profession": "urban apartment dweller \u2014 view-from-the-tenth-floor",
+          "profession": "urban apartment dweller — view-from-the-tenth-floor",
           "vibe": "sleek, view-driven, compact",
           "paletteAccent": "#3a5a7a",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/condo-4-38.png",
-            "exteriors/office/condo-4-39.png"
-          ],
-          "anchorObjects": [
-            "statement chair facing the window",
-            "modern kitchen island",
-            "gallery wall of small frames",
-            "single tall plant",
-            "espresso machine"
-          ],
-          "triggers": [
-            "has_aspect Preference: city|urban|apartment",
-            "label_name_matches: city|nyc|sf|apartment|urban"
-          ],
+          "exteriorSprite": "exteriors/office/condo-4-38.png",
           "npcPosition": {
             "tx": 10,
             "ty": 4,
@@ -97,22 +51,7 @@
           "profession": "minimalist / disciplined-space / meditation practitioner",
           "vibe": "tatami, paper screens, careful emptiness",
           "paletteAccent": "#8a7a5a",
-          "exteriorSpriteCandidates": [
-            "exteriors/home/country-house-no-banisters.png",
-            "exteriors/home/country-house.png"
-          ],
-          "anchorObjects": [
-            "low chabudai table",
-            "floor cushion",
-            "single hanging scroll",
-            "tea set on a tray",
-            "sliding paper screen"
-          ],
-          "triggers": [
-            "has_aspect Preference: tatami|low table|minimalist|quiet space",
-            "label_name_matches: minimal|meditation practice|low table|tatami",
-            "has_aspect Habit: meditation practice|seated meditation|morning sit"
-          ],
+          "exteriorSprite": "exteriors/home/country-house-no-banisters.png",
           "npcPosition": {
             "tx": 4,
             "ty": 6,
@@ -125,21 +64,7 @@
           "profession": "loner / coastal / solo-creative-out-of-town",
           "vibe": "wind, salt, rotating light",
           "paletteAccent": "#d6c47a",
-          "exteriorSpriteCandidates": [
-            "exteriors/home/lighthouse-example.png",
-            "exteriors/home/lighthouse-base.png"
-          ],
-          "anchorObjects": [
-            "brass barometer",
-            "log book open on the desk",
-            "single chair facing the window",
-            "oil lamp",
-            "framed map of the coast"
-          ],
-          "triggers": [
-            "has_aspect Preference: solitude|coast|ocean|quiet|sea",
-            "label_name_matches: solo|alone|writing|coast"
-          ],
+          "exteriorSprite": "exteriors/home/lighthouse-example.png",
           "npcPosition": {
             "tx": 11,
             "ty": 4,
@@ -152,27 +77,12 @@
           "profession": "woodsy / outdoorsy / hands-on",
           "vibe": "pine, wood smoke, flannel",
           "paletteAccent": "#6a4a2a",
-          "exteriorSpriteCandidates": [
-            "exteriors/home/tree-house-1.png",
-            "exteriors/home/country-house.png"
-          ],
+          "exteriorSprite": "exteriors/home/tree-house-1.png",
           "npcPosition": {
             "tx": 6,
             "ty": 5,
             "label": "ranger"
-          },
-          "anchorObjects": [
-            "stone hearth",
-            "wool blanket on a rocking chair",
-            "axe by the door",
-            "kettle hung over coals",
-            "framed map of trails"
-          ],
-          "triggers": [
-            "has_aspect Preference: outdoors|cabin|woods|forest|hike",
-            "label_name_matches: outdoors|hike|trail|woods|cabin",
-            "has_integration: strava (hiking bias)"
-          ]
+          }
         },
         {
           "id": "home.victorian-house",
@@ -180,31 +90,12 @@
           "profession": "traditional / heritage / generational",
           "vibe": "floral wallpaper, dark wood trim, things-with-stories",
           "paletteAccent": "#7a3a5a",
-          "exteriorSpriteCandidates": [
-            "exteriors/home/victorian-house-4.png",
-            "exteriors/home/victorian-house-1.png",
-            "exteriors/home/victorian-house-2.png",
-            "exteriors/home/victorian-house-3.png",
-            "exteriors/home/victorian-house-5.png",
-            "exteriors/home/victorian-house-6.png",
-            "exteriors/home/victorian-house-7.png"
-          ],
+          "exteriorSprite": "exteriors/home/victorian-house-4.png",
           "npcPosition": {
             "tx": 3,
             "ty": 5,
             "label": "matriarch"
-          },
-          "anchorObjects": [
-            "mantel with mismatched frames",
-            "upright piano or grandmother clock",
-            "doily-topped side table",
-            "floral armchair",
-            "lace curtains"
-          ],
-          "triggers": [
-            "has_aspect Preference: classic|heritage|tradition|family",
-            "label_name_matches: family|heritage|tradition|antique"
-          ]
+          }
         },
         {
           "id": "home.salvage-house",
@@ -212,21 +103,7 @@
           "profession": "chaotic / punk / scavenger / built-from-found-pieces",
           "vibe": "corrugated, fairy-light, defiant",
           "paletteAccent": "#c44a3a",
-          "exteriorSpriteCandidates": [
-            "exteriors/home/post-apocalyptic-house-1.png",
-            "exteriors/home/post-apocalyptic-house-2.png"
-          ],
-          "anchorObjects": [
-            "salvaged-pallet table",
-            "fairy lights strung over a couch",
-            "plant growing out of a tin can",
-            "painted mural on a brick wall",
-            "repurposed amp as a side table"
-          ],
-          "triggers": [
-            "has_aspect Preference: DIY|punk|salvage|maker|chaos",
-            "label_name_matches: punk|diy|maker|salvage|zine"
-          ],
+          "exteriorSprite": "exteriors/home/post-apocalyptic-house-1.png",
           "npcPosition": {
             "tx": 9,
             "ty": 6,
@@ -239,22 +116,7 @@
           "profession": "parent / family coordinator / household lead",
           "vibe": "warm clutter, crayon-scribbled, snack-strewn",
           "paletteAccent": "#e8a85a",
-          "exteriorSpriteCandidates": [
-            "exteriors/home/terraced-house-5.png",
-            "exteriors/home/terraced-house-4.png",
-            "exteriors/home/modern-house.png"
-          ],
-          "anchorObjects": [
-            "shoe pile by the door",
-            "kids' backpack on a hook",
-            "fridge front covered in crayon art",
-            "weekly calendar on the wall",
-            "basket of folded laundry"
-          ],
-          "triggers": [
-            "has_aspect Habit: school run|pickup|dropoff|kids|family",
-            "label_name_matches: family|kids|school|pickup"
-          ],
+          "exteriorSprite": "exteriors/home/terraced-house-5.png",
           "npcPosition": {
             "tx": 5,
             "ty": 4,
@@ -263,9 +125,7 @@
         }
       ],
       "interior": {
-        "spriteCandidates": [
-          "interiors/home/generic-home-1.png"
-        ],
+        "sprite": "interiors/home/generic-home-1.png",
         "props": [
           {
             "sprite": "apartment/shelf",
@@ -306,22 +166,7 @@
           "profession": "software engineer / programmer",
           "vibe": "dim, focused, terminal-green",
           "paletteAccent": "#7b8a34",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/condo-9.png",
-            "exteriors/office/condo-8.png"
-          ],
-          "anchorObjects": [
-            "dual-monitor workstation",
-            "mechanical keyboard",
-            "whiteboard with arrows",
-            "cold coffee mug",
-            "snake plant"
-          ],
-          "triggers": [
-            "has_integration: github",
-            "has_aspect Habit: ship code",
-            "label_name_matches: engineering|programming|code"
-          ],
+          "exteriorSprite": "exteriors/office/condo-9.png",
           "npcPosition": {
             "tx": 4,
             "ty": 8,
@@ -334,21 +179,7 @@
           "profession": "designer (product / UI / graphic)",
           "vibe": "bright, paper-warm, intentional",
           "paletteAccent": "#c9744a",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/condo-6.png"
-          ],
-          "anchorObjects": [
-            "angled drafting table",
-            "color swatch wall",
-            "Wacom tablet",
-            "jar of pens",
-            "oversized monitor turned vertically"
-          ],
-          "triggers": [
-            "has_integration: figma",
-            "has_aspect Habit: design",
-            "label_name_matches: design|ux|ui|visual"
-          ],
+          "exteriorSprite": "exteriors/office/condo-6.png",
           "npcPosition": {
             "tx": 7,
             "ty": 8,
@@ -361,21 +192,7 @@
           "profession": "writer / journalist / essayist",
           "vibe": "quiet, paper-strewn, bookish",
           "paletteAccent": "#5a6b8a",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/condo-example.png"
-          ],
-          "anchorObjects": [
-            "narrow writing desk",
-            "typewriter-style keyboard",
-            "stack of legal pads",
-            "coffee ring on the desk",
-            "framed pull-quote"
-          ],
-          "triggers": [
-            "has_integration: substack OR notion",
-            "has_aspect Habit: writes|essays|newsletter",
-            "label_name_matches: writing|essays|drafts"
-          ],
+          "exteriorSprite": "exteriors/office/condo-example.png",
           "npcPosition": {
             "tx": 11,
             "ty": 8,
@@ -388,21 +205,7 @@
           "profession": "founder / exec / CEO",
           "vibe": "lean, momentum-tracking, slightly chaotic",
           "paletteAccent": "#d04a3a",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/office-example-2.png"
-          ],
-          "anchorObjects": [
-            "standing desk",
-            "runway whiteboard",
-            "big map of customers",
-            "single phone on the desk",
-            "framed first-customer thank-you"
-          ],
-          "triggers": [
-            "has_aspect Goal: shipping|building|company|startup|raise",
-            "has_integration: linear AND slack",
-            "label_name_matches: founder|exec|company|fundraising"
-          ],
+          "exteriorSprite": "exteriors/office/office-example-2.png",
           "npcPosition": {
             "tx": 7,
             "ty": 5,
@@ -415,22 +218,7 @@
           "profession": "researcher / academic",
           "vibe": "paper-stacked, citation-heavy, quietly obsessive",
           "paletteAccent": "#6e5a3a",
-          "exteriorSpriteCandidates": [
-            "exteriors/library/clock-tower-2.png",
-            "exteriors/office/condo-6.png"
-          ],
-          "anchorObjects": [
-            "standing-height bookshelf wall",
-            "citation cards pinned to a corkboard",
-            "microscope or instrument on a side table",
-            "half-graded papers",
-            "kettle"
-          ],
-          "triggers": [
-            "has_integration: zotero OR arxiv",
-            "has_aspect Habit: reads.*papers|research",
-            "has_aspect Goal: PhD|publish.*paper|thesis"
-          ],
+          "exteriorSprite": "exteriors/library/clock-tower-2.png",
           "npcPosition": {
             "tx": 1,
             "ty": 5,
@@ -443,21 +231,7 @@
           "profession": "consultant / strategist",
           "vibe": "clean, slide-deck open, two coffees on the table",
           "paletteAccent": "#4a6a8a",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/office-example-1.png"
-          ],
-          "anchorObjects": [
-            "clean wide desk",
-            "single big monitor",
-            "framed engagement letter or org chart",
-            "whiteboard with 2x2 matrix",
-            "water carafe"
-          ],
-          "triggers": [
-            "has_aspect Habit: strategy|consult|advising",
-            "label_name_matches: consulting|strategy|clients",
-            "has_aspect Goal: partner|practice|book of business"
-          ],
+          "exteriorSprite": "exteriors/office/office-example-1.png",
           "npcPosition": {
             "tx": 14,
             "ty": 5,
@@ -470,20 +244,7 @@
           "profession": "finance / trader / quant",
           "vibe": "six monitors, ticker-tape green, market-open jitter",
           "paletteAccent": "#1a8a3a",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/office-example-2.png"
-          ],
-          "anchorObjects": [
-            "six-monitor bank",
-            "ticker chart wall",
-            "fast keyboard",
-            "single high-end chair",
-            "framed first-trade printout"
-          ],
-          "triggers": [
-            "has_aspect Habit: trade|market.*open|portfolio",
-            "label_name_matches: trading|markets|finance|portfolio|quant"
-          ],
+          "exteriorSprite": "exteriors/office/office-example-2.png",
           "npcPosition": {
             "tx": 9,
             "ty": 5,
@@ -496,21 +257,7 @@
           "profession": "product manager",
           "vibe": "sticky-note dense, calm, schedule-shaped",
           "paletteAccent": "#e8a83a",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/office-example-1.png"
-          ],
-          "anchorObjects": [
-            "roadmap wall with stickies",
-            "single big monitor",
-            "dense notebook open mid-page",
-            "mug with team logo",
-            "framed customer quote"
-          ],
-          "triggers": [
-            "has_aspect Habit: spec.*writing|product.*review|PM",
-            "label_name_matches: product|roadmap|specs|features",
-            "has_integration: linear AND notion"
-          ],
+          "exteriorSprite": "exteriors/office/office-example-1.png",
           "npcPosition": {
             "tx": 8,
             "ty": 6,
@@ -523,20 +270,7 @@
           "profession": "teacher / educator",
           "vibe": "warm wood, chalk dust, kid-art on the wall",
           "paletteAccent": "#c47a3a",
-          "exteriorSpriteCandidates": [
-            "exteriors/library/school-1.png"
-          ],
-          "anchorObjects": [
-            "chalkboard with the day's agenda",
-            "teacher's desk",
-            "ring of student chairs",
-            "kid-drawn poster",
-            "well-thumbed lesson plan book"
-          ],
-          "triggers": [
-            "has_aspect Habit: teach|lesson.*plan|grade|class",
-            "label_name_matches: teaching|classroom|lessons|students"
-          ],
+          "exteriorSprite": "exteriors/library/school-1.png",
           "npcPosition": {
             "tx": 10,
             "ty": 6,
@@ -549,21 +283,7 @@
           "profession": "data analyst / data scientist",
           "vibe": "dual-monitor, dashboard-blue, mug-of-the-team-logo",
           "paletteAccent": "#5a7ad6",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/condo-6.png"
-          ],
-          "anchorObjects": [
-            "dual monitors (SQL + chart)",
-            "framed first-dashboard print",
-            "notebook of pivot scribbles",
-            "mug",
-            "post-its in clusters"
-          ],
-          "triggers": [
-            "has_aspect Habit: SQL|dashboard|analytics|metrics",
-            "label_name_matches: analytics|data|metrics|dashboards",
-            "has_integration: looker OR mode OR metabase"
-          ],
+          "exteriorSprite": "exteriors/office/condo-6.png",
           "npcPosition": {
             "tx": 8,
             "ty": 7,
@@ -576,21 +296,7 @@
           "profession": "marketer / growth",
           "vibe": "colorful, sticky-noted, slightly loud",
           "paletteAccent": "#e85a8a",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/office-example-2.png"
-          ],
-          "anchorObjects": [
-            "big pinboard of ad creatives",
-            "mood-board collage",
-            "copy-decked monitor",
-            "mug with brand logo",
-            "framed first-launch screenshot"
-          ],
-          "triggers": [
-            "has_aspect Habit: campaign|growth|marketing|launch",
-            "label_name_matches: marketing|growth|launch|campaign|copy",
-            "has_integration: hubspot OR mixpanel OR linkedin"
-          ],
+          "exteriorSprite": "exteriors/office/office-example-2.png",
           "npcPosition": {
             "tx": 9,
             "ty": 7,
@@ -603,21 +309,7 @@
           "profession": "remote operator / customer support / sales / account exec",
           "vibe": "dual-monitor glow, slack-ping ambient, headset cushion squish",
           "paletteAccent": "#3a8ad6",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/condo-6.png",
-            "exteriors/office/office-example-1.png"
-          ],
-          "anchorObjects": [
-            "headset resting on keyboard",
-            "takeaway coffee cup",
-            "dual monitor (CRM + Slack)",
-            "post-its lining monitor bezel",
-            "framed first-account-won card"
-          ],
-          "triggers": [
-            "has_integration: salesforce OR intercom OR zendesk",
-            "label_name_matches: support|sales|onboarding|account"
-          ],
+          "exteriorSprite": "exteriors/office/condo-6.png",
           "npcPosition": {
             "tx": 1,
             "ty": 7,
@@ -630,21 +322,7 @@
           "profession": "student / apprentice / learner-in-residence",
           "vibe": "daylight from the side, half-eaten food, textbook propped open",
           "paletteAccent": "#d6c47a",
-          "exteriorSpriteCandidates": [
-            "exteriors/home/terraced-house-1.png",
-            "exteriors/library/school-1.png"
-          ],
-          "anchorObjects": [
-            "textbook stack with bookmarks",
-            "laptop with stickers",
-            "half-eaten sandwich",
-            "single houseplant in a clay pot",
-            "desk lamp angled low"
-          ],
-          "triggers": [
-            "has_aspect Goal: graduate|certif|exam|bootcamp|learn",
-            "label_name_matches: school|class|study|homework|course"
-          ],
+          "exteriorSprite": "exteriors/home/terraced-house-1.png",
           "npcPosition": {
             "tx": 14,
             "ty": 7,
@@ -653,9 +331,7 @@
         }
       ],
       "interior": {
-        "spriteCandidates": [
-          "interiors/office/empty-office-room.png"
-        ],
+        "sprite": "interiors/office/empty-office-room.png",
         "props": [
           {
             "sprite": "office/corkboard",
@@ -716,21 +392,7 @@
           "profession": "chef / kitchen lead",
           "vibe": "stainless steel, gas-flame blue, heat",
           "paletteAccent": "#d04a2a",
-          "exteriorSpriteCandidates": [
-            "exteriors/cafe/market-small-2.png",
-            "exteriors/store/market-big-2.png"
-          ],
-          "anchorObjects": [
-            "stainless prep table",
-            "knife magnet strip",
-            "walk-in door",
-            "pass with ticket rail",
-            "chef's whites on a hook"
-          ],
-          "triggers": [
-            "has_aspect Habit: cook|recipe.*test|kitchen|menu",
-            "label_name_matches: cooking|restaurant|menu|kitchen|chef"
-          ],
+          "exteriorSprite": "exteriors/cafe/market-small-2.png",
           "npcPosition": {
             "tx": 3,
             "ty": 7,
@@ -743,20 +405,7 @@
           "profession": "wet-lab scientist / biologist / chemist",
           "vibe": "fluorescent, faint chemical smell, careful",
           "paletteAccent": "#9ab8d6",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/hospital-1.png"
-          ],
-          "anchorObjects": [
-            "lab bench with pipettes",
-            "microscope on a stand",
-            "labeled sample fridge",
-            "lab notebook",
-            "framed first-paper figure"
-          ],
-          "triggers": [
-            "has_aspect Habit: lab|experiment|protocol|assay",
-            "label_name_matches: biology|chemistry|lab|experiments"
-          ],
+          "exteriorSprite": "exteriors/office/hospital-1.png",
           "npcPosition": {
             "tx": 12,
             "ty": 7,
@@ -769,21 +418,7 @@
           "profession": "sysadmin / SRE / devops",
           "vibe": "blinking LEDs, cold air, low fan-hum",
           "paletteAccent": "#3a5a4a",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/condo-8.png"
-          ],
-          "anchorObjects": [
-            "server rack with cable management",
-            "monitoring dashboards on the wall",
-            "pager or phone with red light",
-            "runbook binder",
-            "energy drink can"
-          ],
-          "triggers": [
-            "has_integration: datadog OR pagerduty",
-            "has_aspect Habit: on call|incidents|infrastructure",
-            "label_name_matches: devops|sre|infra|ops"
-          ],
+          "exteriorSprite": "exteriors/office/condo-8.png",
           "npcPosition": {
             "tx": 13,
             "ty": 4,
@@ -796,20 +431,7 @@
           "profession": "architect",
           "vibe": "trace paper, basswood smell, careful light",
           "paletteAccent": "#a89a7a",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/office-example-1.png"
-          ],
-          "anchorObjects": [
-            "large drafting table",
-            "basswood site model on a stand",
-            "roll of trace paper",
-            "T-square on a hook",
-            "framed building plan"
-          ],
-          "triggers": [
-            "has_aspect Habit: draft.*plan|model|architect",
-            "label_name_matches: architecture|drafting|plans|site"
-          ],
+          "exteriorSprite": "exteriors/office/office-example-1.png",
           "npcPosition": {
             "tx": 4,
             "ty": 4,
@@ -818,9 +440,7 @@
         }
       ],
       "interior": {
-        "spriteCandidates": [
-          "interiors/workshop/empty-workshop-room.png"
-        ],
+        "sprite": "interiors/workshop/empty-workshop-room.png",
         "props": [
           {
             "sprite": "office/corkboard",
@@ -861,21 +481,7 @@
           "profession": "artist / illustrator",
           "vibe": "turpentine, north-light, mess-as-process",
           "paletteAccent": "#b85a8a",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/condo-8.png"
-          ],
-          "anchorObjects": [
-            "wooden easel",
-            "drying rack of canvases",
-            "jar of brushes",
-            "palette with crusted dabs",
-            "stool with paint on its legs"
-          ],
-          "triggers": [
-            "has_integration: behance OR instagram (art-tag bias)",
-            "has_aspect Habit: paint|illustrat|draw",
-            "label_name_matches: art|illustration|painting"
-          ],
+          "exteriorSprite": "exteriors/office/condo-8.png",
           "npcPosition": {
             "tx": 2,
             "ty": 7,
@@ -888,21 +494,7 @@
           "profession": "musician / composer / producer",
           "vibe": "acoustic-treated, dim, cable-tangled",
           "paletteAccent": "#4a3a6e",
-          "exteriorSpriteCandidates": [
-            "exteriors/office/condo-9.png"
-          ],
-          "anchorObjects": [
-            "mixing desk with monitors",
-            "condenser mic on a boom",
-            "guitar or keyboard on a stand",
-            "acoustic panels",
-            "lyric notebook"
-          ],
-          "triggers": [
-            "has_integration: spotify",
-            "has_aspect Habit: produc|composing|writing music",
-            "label_name_matches: music|composition|songwriting"
-          ],
+          "exteriorSprite": "exteriors/office/condo-9.png",
           "npcPosition": {
             "tx": 12,
             "ty": 7,
@@ -915,20 +507,7 @@
           "profession": "podcaster / broadcaster",
           "vibe": "foam-paneled, warm-dim, mic-front-and-center",
           "paletteAccent": "#d6a83a",
-          "exteriorSpriteCandidates": [
-            "exteriors/studio/condo-8.png"
-          ],
-          "anchorObjects": [
-            "boom mic with pop filter",
-            "headphone pair",
-            "mixer with VU lights",
-            "on-air sign",
-            "framed first-episode artwork"
-          ],
-          "triggers": [
-            "has_aspect Habit: podcast|recording|interview",
-            "label_name_matches: podcast|episodes|guests|recording"
-          ],
+          "exteriorSprite": "exteriors/studio/condo-8.png",
           "npcPosition": {
             "tx": 3,
             "ty": 8,
@@ -941,22 +520,7 @@
           "profession": "filmmaker / video editor",
           "vibe": "dim, dual-monitor glow, color-calibrated",
           "paletteAccent": "#3a4a5a",
-          "exteriorSpriteCandidates": [
-            "exteriors/studio/condo-9.png",
-            "exteriors/office/condo-8.png"
-          ],
-          "anchorObjects": [
-            "dual reference monitors",
-            "color-grading panel",
-            "shelf of hard drives",
-            "foam baffles",
-            "framed still from a past project"
-          ],
-          "triggers": [
-            "has_integration: youtube OR vimeo",
-            "has_aspect Habit: editing|filmmaking|video",
-            "label_name_matches: video|film|edit|cinema"
-          ],
+          "exteriorSprite": "exteriors/studio/condo-9.png",
           "npcPosition": {
             "tx": 10,
             "ty": 7,
@@ -969,21 +533,7 @@
           "profession": "creator / streamer / live broadcaster",
           "vibe": "ring-light glow, blue capture-LED, chat scrolling",
           "paletteAccent": "#8a3ad6",
-          "exteriorSpriteCandidates": [
-            "exteriors/studio/condo-8.png",
-            "exteriors/studio/condo-9.png"
-          ],
-          "anchorObjects": [
-            "ring light on a boom",
-            "capture card with blue LED",
-            "microphone on a boom arm",
-            "multi-monitor with chat overlay",
-            "energy drink can"
-          ],
-          "triggers": [
-            "(has_integration: twitch OR youtube) AND has_aspect Habit: stream|record|publish video",
-            "label_name_matches: stream|broadcast|live|vod"
-          ],
+          "exteriorSprite": "exteriors/studio/condo-8.png",
           "npcPosition": {
             "tx": 5,
             "ty": 8,
@@ -992,9 +542,7 @@
         }
       ],
       "interior": {
-        "spriteCandidates": [
-          "interiors/studio/empty-studio-room.png"
-        ],
+        "sprite": "interiors/studio/empty-studio-room.png",
         "props": [
           {
             "sprite": "studio/monitor_tv",
@@ -1052,23 +600,10 @@
         {
           "id": "library.the-archive",
           "canonical": "The Archive",
-          "profession": "dusty-basement reader \u2014 collector, historian, deep-cuts",
+          "profession": "dusty-basement reader — collector, historian, deep-cuts",
           "vibe": "dim, box-stacked, paper-smelling",
           "paletteAccent": "#5a4a3a",
-          "exteriorSpriteCandidates": [
-            "exteriors/library/generic-building-condo-6.png"
-          ],
-          "anchorObjects": [
-            "floor-to-ceiling boxes",
-            "sliding ladder",
-            "single desk under a bare bulb",
-            "label maker",
-            "magnifying glass on a chain"
-          ],
-          "triggers": [
-            "has_aspect Habit: archive|catalog|collect|historical",
-            "label_name_matches: archive|history|collection|catalog"
-          ],
+          "exteriorSprite": "exteriors/library/generic-building-condo-6.png",
           "npcPosition": {
             "tx": 5,
             "ty": 7,
@@ -1077,9 +612,7 @@
         }
       ],
       "interior": {
-        "spriteCandidates": [
-          "interiors/library/empty-archive-room.png"
-        ],
+        "sprite": "interiors/library/empty-archive-room.png",
         "props": [
           {
             "sprite": "lib_bookshelf_tall",
@@ -1132,25 +665,10 @@
         {
           "id": "store.the-corner-store",
           "canonical": "The Corner Store",
-          "profession": "default neighborhood shopper \u2014 small food + sundries",
+          "profession": "default neighborhood shopper — small food + sundries",
           "vibe": "small, familiar, packed shelves",
           "paletteAccent": "#d6b87a",
-          "exteriorSpriteCandidates": [
-            "exteriors/store/market-small-1.png",
-            "exteriors/store/market-small-11.png"
-          ],
-          "anchorObjects": [
-            "packed wall shelves",
-            "counter with register",
-            "soda cooler",
-            "produce crate by the door",
-            "gum/mint rack"
-          ],
-          "triggers": [
-            "op: always (default fallback for MARKET)",
-            "signalStrength.MARKET < 0.4",
-            "has_aspect Habit: cook|recipe|meal plan|grocery"
-          ],
+          "exteriorSprite": "exteriors/store/market-small-1.png",
           "npcPosition": {
             "tx": 4,
             "ty": 5,
@@ -1163,21 +681,7 @@
           "profession": "big-box / multi-store shopper / online-heavy buyer",
           "vibe": "big, glossy, fountain-in-the-middle",
           "paletteAccent": "#5ad6c4",
-          "exteriorSpriteCandidates": [
-            "exteriors/store/mall-1.png"
-          ],
-          "anchorObjects": [
-            "central fountain or planter",
-            "glossy floor",
-            "multiple storefront facades",
-            "food-court directory",
-            "escalator"
-          ],
-          "triggers": [
-            "has_aspect Habit: shop online|amazon|haul|browse",
-            "label_name_matches: shopping|wishlist|online orders",
-            "has_integration: amazon"
-          ],
+          "exteriorSprite": "exteriors/store/mall-1.png",
           "npcPosition": {
             "tx": 8,
             "ty": 7,
@@ -1190,21 +694,7 @@
           "profession": "whimsical / treat-buyer / weekend-indulgent",
           "vibe": "pastel, sweet, child-of-a-summer-afternoon",
           "paletteAccent": "#f8b8c4",
-          "exteriorSpriteCandidates": [
-            "exteriors/store/market-small-3.png",
-            "exteriors/store/market-small-9.png"
-          ],
-          "anchorObjects": [
-            "glass case of ice-cream tubs",
-            "pastel-tiled counter",
-            "soda fountain",
-            "small round tables",
-            "jukebox or radio"
-          ],
-          "triggers": [
-            "has_aspect Preference: sweet|dessert|treat|whimsical",
-            "label_name_matches: dessert|treats|baking|whimsy"
-          ],
+          "exteriorSprite": "exteriors/store/market-small-3.png",
           "npcPosition": {
             "tx": 8,
             "ty": 5,
@@ -1217,20 +707,7 @@
           "profession": "clothing / fashion / curated-style shopper",
           "vibe": "racks, soft music, focused mirror",
           "paletteAccent": "#8a5a3a",
-          "exteriorSpriteCandidates": [
-            "exteriors/store/market-big-4.png"
-          ],
-          "anchorObjects": [
-            "brass clothing rail",
-            "full-length mirror",
-            "mannequin in the center",
-            "folded-stack shelf",
-            "single chair for waiting"
-          ],
-          "triggers": [
-            "has_aspect Preference: style|fashion|outfit|curat.*wardrobe",
-            "label_name_matches: fashion|style|outfits|wardrobe"
-          ],
+          "exteriorSprite": "exteriors/store/market-big-4.png",
           "npcPosition": {
             "tx": 12,
             "ty": 7,
@@ -1243,22 +720,7 @@
           "profession": "farmer-market / craft-fair / local-curator",
           "vibe": "open-air, hand-painted signs, mixed-stalls",
           "paletteAccent": "#e8a85a",
-          "exteriorSpriteCandidates": [
-            "exteriors/store/market-small-3.png",
-            "exteriors/store/market-small-6.png",
-            "exteriors/store/market-small-9.png"
-          ],
-          "anchorObjects": [
-            "striped awning",
-            "wood plank table",
-            "mason jars of preserves",
-            "hand-painted price signs",
-            "small cash box"
-          ],
-          "triggers": [
-            "has_aspect Habit: farmers market|local|seasonal|preserv",
-            "label_name_matches: local|farmers market|seasonal|csa"
-          ],
+          "exteriorSprite": "exteriors/store/market-small-3.png",
           "npcPosition": {
             "tx": 1,
             "ty": 5,
@@ -1271,22 +733,7 @@
           "profession": "coffee-obsessed home barista / hospitality enthusiast",
           "vibe": "roast smell, milk-steaming hiss, brass-and-wood",
           "paletteAccent": "#6a3a2a",
-          "exteriorSpriteCandidates": [
-            "exteriors/cafe/market-small-2.png",
-            "exteriors/cafe/market-small-5.png",
-            "exteriors/cafe/market-small-7.png"
-          ],
-          "anchorObjects": [
-            "espresso machine",
-            "conical burr grinder",
-            "scale + cups",
-            "jar of single-origin beans",
-            "framed first-latte-art"
-          ],
-          "triggers": [
-            "has_aspect Habit: espresso|pour over|coffee.*daily",
-            "label_name_matches: coffee|barista|espresso"
-          ],
+          "exteriorSprite": "exteriors/cafe/market-small-2.png",
           "npcPosition": {
             "tx": 4,
             "ty": 2,
@@ -1295,9 +742,7 @@
         }
       ],
       "interior": {
-        "spriteCandidates": [
-          "interiors/cafe/empty-cafe-room.png"
-        ],
+        "sprite": "interiors/cafe/empty-cafe-room.png",
         "props": [
           {
             "sprite": "cafe/espresso_machine",
@@ -1348,21 +793,7 @@
           "profession": "strength athlete / lifter",
           "vibe": "chalk dust, plate-on-plate clang, mirror wall",
           "paletteAccent": "#3a3a3a",
-          "exteriorSpriteCandidates": [
-            "exteriors/library/school-1.png"
-          ],
-          "anchorObjects": [
-            "squat rack with loaded bar",
-            "mirror wall",
-            "chalk bucket",
-            "notebook with PR log",
-            "bench with towel"
-          ],
-          "triggers": [
-            "has_aspect Habit: lift|squat|train|gym",
-            "label_name_matches: lifting|strength|gym|powerlifting",
-            "has_integration: strava (strength bias)"
-          ],
+          "exteriorSprite": "exteriors/library/school-1.png",
           "npcPosition": {
             "tx": 4,
             "ty": 4,
@@ -1375,21 +806,7 @@
           "profession": "runner / endurance athlete",
           "vibe": "light, breezy, foam-rolled",
           "paletteAccent": "#5ad6e8",
-          "exteriorSpriteCandidates": [
-            "exteriors/library/school-1.png"
-          ],
-          "anchorObjects": [
-            "treadmill",
-            "foam roller and bands",
-            "route map of the city",
-            "water bottle",
-            "framed bib from first race"
-          ],
-          "triggers": [
-            "has_aspect Habit: run|jog|long run",
-            "label_name_matches: running|marathon|10k|half",
-            "has_integration: strava (run bias)"
-          ],
+          "exteriorSprite": "exteriors/library/school-1.png",
           "npcPosition": {
             "tx": 9,
             "ty": 10,
@@ -1398,9 +815,7 @@
         }
       ],
       "interior": {
-        "spriteCandidates": [
-          "interiors/gym/gym-1.png"
-        ],
+        "sprite": "interiors/gym/gym-1.png",
         "props": [
           {
             "sprite": "gym/power_rack",

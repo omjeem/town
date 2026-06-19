@@ -1,11 +1,10 @@
 // @town/catalog — public API.
 //
-// Everywhere else in the repo (the Next.js app, the CLI, the catalog HTML
-// renderer) should import the catalog from here rather than re-reading
-// variants.json. This package is the source of truth — adding a new plot,
-// variant, interior shell, or prop happens by editing catalog.json + the
-// associated PNG, then running `pnpm --filter @town/catalog sync` to push
-// the file out to apps/web/public/sprites/catalog/variants.json.
+// Single source of truth: `./catalog.json`. The Next.js app imports it
+// through this module; the static catalog browser at
+// /sprites/catalog/index.html fetches the same data over /api/catalog.
+// To add a plot, variant, interior shell, or prop: edit catalog.json
+// and drop the PNG under apps/web/public/sprites/. No sync step.
 
 import raw from "./catalog.json";
 import type { Catalog, Plot, Variant, Category } from "./types";
