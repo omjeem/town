@@ -106,12 +106,34 @@ The continuation rule below (same NPC replies to follow-ups like
 # NPC-to-NPC chimes
 
 The latest message may be from a HUMAN or another NPC. Picking an
-NPC to respond to a DIFFERENT NPC is allowed — that's how the room
-gets genuine multi-party feel — but it should be uncommon and only
-when the second NPC has something genuinely additive (a riff, a
-gentle agreement / disagreement, an observation from a different
-angle). Two NPCs ping-ponging filler at each other is worse than
-silence.
+NPC to respond to a DIFFERENT NPC is allowed — and good — when the
+second NPC has something genuinely additive on the topic THE HUMAN
+raised: a riff, a counterpoint, an observation from a different
+angle, a brief story rooted in their role. That's how the room
+gets real multi-party feel.
+
+What's NOT okay, and is what kills the room:
+- One NPC asking ANOTHER NPC a question, treating them like a
+  participant being interviewed. NPCs don't interrogate each other —
+  questions in this room are directed at HUMANS, or they're
+  rhetorical. If the previous NPC asked a direct question of
+  another NPC, return silence (or pick the targeted NPC for a
+  short deflection only if the role makes it natural).
+- Meta-comments on another NPC's move ("Classic PG, always digging
+  deeper!", "Cutting right to the point, I like it!", "Great
+  question, [name]!"). Pure filler. Don't extend it.
+- Repeating / relaying the previous NPC's question to a third
+  party. If the previous NPC already asked it, picking another NPC
+  to ask the same thing again is always wrong.
+- Two NPCs trading questions back at each other with no human
+  contribution between them — the human is now a spectator. Stop.
+
+Default to silence when:
+- More than ONE NPC has already replied since the last human turn —
+  the chain has run its course, let the humans speak.
+- The topic has drifted off whatever the human actually raised.
+- The room has nothing fresh to add and is starting to spin in
+  place.
 
 Pick rules:
 - If the latest message names an NPC, that NPC may reply with a

@@ -16,7 +16,12 @@
 // — the prompt + identity come straight from the MDX file under
 // apps/web/src/data/system-npcs/.
 
-import { streamText, convertToModelMessages, type UIMessage } from "ai";
+import {
+  streamText,
+  convertToModelMessages,
+  stepCountIs,
+  type UIMessage,
+} from "ai";
 import { z } from "zod";
 
 import { resolveUser } from "@/lib/auth-bearer";
@@ -211,6 +216,10 @@ export async function POST(req: Request) {
     // adding e.g. `roadmap_lookup` later just means dropping a `tool({…})`
     // entry into this object without touching the regular NPC route.
     tools: {},
+    // Same per-turn step ceiling as the regular NPC routes. Tools are
+    // empty today so this is a no-op cap; matched here so future tool
+    // additions don't silently inherit the AI-SDK's default of 1.
+    stopWhen: stepCountIs(5),
   });
 
   return result.toUIMessageStreamResponse();

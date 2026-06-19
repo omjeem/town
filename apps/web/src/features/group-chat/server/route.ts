@@ -113,9 +113,25 @@ export async function POST(req: Request, ctx: { params: Promise<Params> }) {
 // Hard cap on the number of NPC turns that can land between two
 // human messages. Even if the moderator keeps picking, we bail at
 // this count so a runaway "NPCs chatting to each other forever"
-// scenario can't happen. The LLM moderator already tapers naturally
-// — this is belt-and-braces.
-const MAX_NPC_CHAIN_TURNS = 20;
+// scenario can't happen. Kept low: one direct reply to the human +
+// at most one NPC-on-NPC riff. Anything past that reads as filler
+// (we shipped with 20 and observed rooms looping at each other for
+// 10+ turns asking each other rhetorical questions — silence is much
+// better than that).
+const MAX_NPC_CHAIN_TURNS = 2;
+
+// Human stop-signals that abort the chain mid-flight. We re-fetch
+// history every loop iteration so a "stop / enough / shut up" posted
+// while NPCs were mid-stream gets noticed before the next pick. Kept
+// deliberately small + colloquial — broad enough to catch real
+// frustration ("oh god stop it", "guys enough"), narrow enough to
+// avoid false positives on the word appearing inside an actual
+// question.
+const STOP_SIGNAL = /\b(?:stop|stoppp+|enough|quiet|shut\s*up|chill|please\s+stop|shush)\b/i;
+
+function isStopRequest(text: string): boolean {
+  return STOP_SIGNAL.test(text);
+}
 
 async function maybeTriggerNpcReply(access: GroupChatAccess): Promise<void> {
   // Load the NPCs in this house ONCE. Auto-seed if the user's plot
@@ -165,6 +181,13 @@ async function maybeTriggerNpcReply(access: GroupChatAccess): Promise<void> {
     // maybeTriggerNpcReply call in parallel) by anchoring on the
     // actual conversation state, not just our local loop counter.
     if (consecutiveNpcTurnsAtEnd(history) >= MAX_NPC_CHAIN_TURNS) return;
+
+    // Human stop-signal short-circuit. If ANY of the recent human
+    // messages since the last NPC turn says "stop / enough / shut
+    // up", drop the chain immediately — even mid-flight. The owner
+    // is right that ignoring "oh god stop it" is the worst possible
+    // failure mode for this loop.
+    if (recentHumanRequestedStop(history)) return;
 
     const pick = await pickResponder(
       access.channelId,
@@ -234,6 +257,22 @@ function consecutiveNpcTurnsAtEnd(
     else break;
   }
   return n;
+}
+
+/** True if any HUMAN message inside the trailing NPC-then-human window
+ *  matches STOP_SIGNAL. Scans newest-first and stops at the FIRST NPC
+ *  message it sees so we only consider humans posted SINCE the last NPC
+ *  turn (i.e. the humans who could be reacting to the in-flight chain).
+ *  Returning true causes the chain loop to bail before the next pick. */
+function recentHumanRequestedStop(
+  history: Array<{ isNpc: boolean; text: string }>,
+): boolean {
+  for (let i = history.length - 1; i >= 0; i--) {
+    const row = history[i]!;
+    if (row.isNpc) break;
+    if (isStopRequest(row.text)) return true;
+  }
+  return false;
 }
 
 async function loadNpcsForBuilding(access: GroupChatAccess) {

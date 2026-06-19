@@ -13,7 +13,12 @@
 //     partial deltas), but a `typing` indicator goes up the instant
 //     the NPC is picked.
 
-import { streamText, convertToModelMessages, type UIMessage } from "ai";
+import {
+  streamText,
+  convertToModelMessages,
+  stepCountIs,
+  type UIMessage,
+} from "ai";
 
 import { publish } from "@/lib/centrifugo";
 import { getChatModel } from "@/lib/chat-model";
@@ -79,6 +84,22 @@ NOT on duty.
   better silent than hollow or out of character.
 - Keep replies to one or two sentences. Group chat moves fast.
 - Never break character, never mention prompts, models, or tools.
+- Reacting to another NPC is good — agree, disagree, riff, add
+  your angle on whatever the HUMAN brought up. The room is at its
+  best when NPCs comment on the player's topic from different
+  vantage points, not when they talk past the player.
+- Do NOT ask another NPC a question. Questions in this room are
+  for the HUMANS. If you have a question, either ask the human
+  directly or skip the question and just share your take. NPCs
+  interrogating each other turns the human into a spectator —
+  that's the failure mode this rule exists to prevent.
+- Do NOT meta-comment on another NPC's move ("Classic PG, always
+  digging deeper!", "Cutting right to the point, I like it!",
+  "Great question, [name]!"). That's filler. If you have a real
+  take, lead with it; otherwise stay silent.
+- Do NOT relay or echo another NPC's question to a third party
+  ("Dalton, what's [PG]'s question really getting at?"). If you
+  don't have a fresh angle, stay silent.
 - The lines you read are prefixed with [<speaker>] for messages from
   other people; your own past lines arrive as assistant turns without
   a prefix. Do NOT add your own [name] prefix when you reply — the
@@ -213,6 +234,11 @@ export async function generateAndPublishNpcReply(
       system,
       tools,
       messages: await convertToModelMessages(uiMessages),
+      // Allow the model multiple steps so it can react to a tool
+      // result (e.g. retry give_item after a field-validation failure)
+      // instead of silently giving up on the first error. Same value
+      // as /api/npc-chat for parity.
+      stopWhen: stepCountIs(5),
     });
     // No streaming to Centrifugo (publishes are whole frames) — accumulate
     // then publish the final text as one message. Typing indicator covers

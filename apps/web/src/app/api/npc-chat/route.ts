@@ -35,7 +35,12 @@
 //     messages: { role: "user" | "assistant", content: string }[],
 //   }
 
-import { streamText, convertToModelMessages, type UIMessage } from "ai";
+import {
+  streamText,
+  convertToModelMessages,
+  type UIMessage,
+  stepCountIs,
+} from "ai";
 import { z } from "zod";
 
 import { resolveUser } from "@/lib/auth-bearer";
@@ -159,7 +164,9 @@ async function resolveNpc(
       where: { userId },
       select: { json: true },
     });
-    const plot = plotRow?.json as { buildings?: Array<{ id: string; plotKey: string }> } | null;
+    const plot = plotRow?.json as {
+      buildings?: Array<{ id: string; plotKey: string }>;
+    } | null;
     const building = plot?.buildings?.find((b) => b.id === row.buildingId);
     if (building) {
       const tmpl = getNpcTemplate(building.plotKey);
@@ -281,13 +288,10 @@ export async function POST(req: Request) {
   if (body.townSlug) {
     const view = await resolveViewer(body.townSlug);
     if ("error" in view) {
-      return new Response(
-        JSON.stringify({ error: view.error }),
-        {
-          status: view.error === "not-found" ? 404 : 403,
-          headers: { "content-type": "application/json" },
-        },
-      );
+      return new Response(JSON.stringify({ error: view.error }), {
+        status: view.error === "not-found" ? 404 : 403,
+        headers: { "content-type": "application/json" },
+      });
     }
     npcOwnerId = view.town.ownerId;
     viewer = { isOwner: view.isOwner, name: view.displayName };
@@ -375,9 +379,7 @@ export async function POST(req: Request) {
   const uiMessages: UIMessage[] = body.messages.map((m, i) => ({
     id: m.id ?? `m-${i}`,
     role: m.role,
-    parts:
-      m.parts ??
-      (m.content ? [{ type: "text", text: m.content }] : []),
+    parts: m.parts ?? (m.content ? [{ type: "text", text: m.content }] : []),
   })) as UIMessage[];
 
   let model;
@@ -385,7 +387,10 @@ export async function POST(req: Request) {
     model = getChatModel();
   } catch (e) {
     return new Response(
-      JSON.stringify({ error: "llm-not-configured", detail: (e as Error).message }),
+      JSON.stringify({
+        error: "llm-not-configured",
+        detail: (e as Error).message,
+      }),
       { status: 500, headers: { "content-type": "application/json" } },
     );
   }
@@ -402,6 +407,7 @@ export async function POST(req: Request) {
     system,
     messages: await convertToModelMessages(uiMessages),
     tools,
+    stopWhen: stepCountIs(5),
     async onFinish(event) {
       // Final visible reply for a single-step turn is on event.text;
       // multi-step (tool-call) generations sometimes leave the last
@@ -409,7 +415,10 @@ export async function POST(req: Request) {
       // way ingestNpcTurn will short-circuit on empty input.
       const assistantText =
         event.text?.trim() ||
-        event.steps.map((s) => s.text ?? "").join("").trim();
+        event.steps
+          .map((s) => s.text ?? "")
+          .join("")
+          .trim();
       await ingestNpcTurn({
         ownerToken,
         npcName: npc!.name,

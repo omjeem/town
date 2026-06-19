@@ -5,9 +5,9 @@
 // card the visitor has earned in this town, one at a time, with a
 // share button per card.
 //
-// Hidden when count is 0 — empty inventories shouldn't bait a click. The
-// component itself is rendered unconditionally so badges/labels can
-// appear instantly when an award fires; rendering is gated below.
+// Always visible — including at count 0 — so the player knows the slot
+// exists and can watch it tick up as they earn things. Clicks are
+// no-ops while empty; the modal needs at least one item to render.
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -60,17 +60,36 @@ export function ItemsBadge({ townSlug }: { townSlug: string }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, close, prev, next]);
 
-  if (items.length === 0) return null;
+  const isEmpty = items.length === 0;
 
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          // Empty state: button is purely informational, no modal to
+          // open. Clicking it does nothing — the cursor + disabled
+          // affordance below already signal that.
+          if (isEmpty) return;
+          setOpen(true);
+        }}
+        disabled={isEmpty}
         className="nb-card flex flex-col items-end gap-1 px-3 py-2"
-        style={{ background: "#ffffff", cursor: "pointer" }}
-        aria-label={`Items: ${items.length}. Click to view and share.`}
-        title={`${items.length} item${items.length === 1 ? "" : "s"} earned in this town`}
+        style={{
+          background: "#ffffff",
+          cursor: isEmpty ? "default" : "pointer",
+          opacity: isEmpty ? 0.6 : 1,
+        }}
+        aria-label={
+          isEmpty
+            ? "Items: 0. No items earned yet."
+            : `Items: ${items.length}. Click to view and share.`
+        }
+        title={
+          isEmpty
+            ? "No items earned in this town yet"
+            : `${items.length} item${items.length === 1 ? "" : "s"} earned in this town`
+        }
       >
         <span className="text-[12px] font-bold leading-tight text-ink">
           Items: {items.length}
