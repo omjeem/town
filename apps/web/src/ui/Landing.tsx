@@ -6,6 +6,8 @@ import { startLogin } from "../game/auth";
 import { PALETTE } from "../game/config";
 import { TownGame } from "./TownGame";
 
+const PUBLIC_TOWN_URL = "/core-town?invite_code=H4C0TZ";
+
 // Unsigned-root landing surface. The guest playground (the regular
 // <TownGame /> with no props) renders in the background. A "how this
 // works" card sits on top so a brand-new visitor sees the premise
@@ -92,6 +94,13 @@ function WelcomeCard({ onDemo }: { onDemo: () => void }) {
           >
             Own a town / Login
           </button>
+          <a
+            href={PUBLIC_TOWN_URL}
+            className="nb-tile px-4 py-2.5 text-center text-sm font-black uppercase tracking-wide"
+            style={{ background: PALETTE.h120, cursor: "pointer" }}
+          >
+            Explore CORE town
+          </a>
           <button
             type="button"
             onClick={onDemo}

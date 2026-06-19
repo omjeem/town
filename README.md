@@ -20,6 +20,10 @@ Powered by [CORE](https://app.getcore.me). Rendered with
 [kaplay](https://kaplayjs.com). Top-down, browser-native, deterministic from a
 seed so your town stays *your* town across logins.
 
+> **Take a tour.** Wander the public CORE town —
+> <https://town.getcore.me/core-town?invite_code=H4C0TZ>. No signup, no
+> install; arrow keys to move, **SPACE** at a local to chat.
+
 ---
 
 ## Make it yours
