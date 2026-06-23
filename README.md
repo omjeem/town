@@ -26,18 +26,27 @@ seed so your town stays *your* town across logins.
 
 ---
 
-### Chat with others
+## See it in action
+
+#### Chat with others
+
+Friends show up live, walking around the same town you're in — wave, bump
+into each other, or just see who else is around.
 
 <p align="center">
-  <img src="docs/assets/screenshot-multiplayer.png" alt="Two players standing together in the overworld, with a live population counter and an open chat bubble." width="480" />
+  <img src="docs/assets/screenshot-multiplayer.png" alt="Two players standing together in the overworld, with a live population counter and an open chat bubble." width="480" /><br />
+  <sub>Two visitors crossing paths in the overworld — population counter top right, chat bubble open.</sub>
 </p>
 
-### Chat with AI characters
+#### Chat with AI characters
+
+Walk up to a building and talk to whoever lives there — they react to what
+you actually say, not a script.
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/9bc9a494-1316-49f3-8e05-e6d013511be1" alt="Talking to Garry inside YC House." width="480" />
+  <img src="https://github.com/user-attachments/assets/9bc9a494-1316-49f3-8e05-e6d013511be1" alt="Talking to Garry inside YC House." width="480" /><br />
+  <sub>Pitching a startup idea to Garry inside YC House.</sub>
 </p>
-
 
 Every room is its own little experience, the characters react to what you
 actually say, and a few of them give you something to keep at the end of a
