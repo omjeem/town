@@ -26,6 +26,68 @@ seed so your town stays *your* town across logins.
 
 ---
 
+## What is CORE-Town?
+
+Town is a tiny pixel game you can build and share. It has buildings and AI
+characters with whom anyone can talk to.
+
+Every town is a slice of resident's [CORE](https://github.com/RedPlanetHQ/core),
+so the buildings and AI characters aren't just decoration but built around
+whatever that person actually cares about: their gym routine, their reading,
+their work, a side project. And the character inside each building can talk
+about it for real, because it's pulling from that person's actual memory, not
+making stuff up.
+
+It's also multiplayer. You can invite someone else who can browse these
+buildings, talk to AI characters or you can chat with them or even end up in
+a shared group chat where the AI characters jump in as well.
+
+<p align="center">
+  <img src="docs/assets/screenshot-multiplayer.png" alt="Two players standing together in the overworld, with a live population counter and an open chat bubble." width="780" />
+</p>
+
+Before building your own, you can just go visit ours. It's not one room with
+an "about us" character — it's a bunch of completely different rooms, each
+with its own AI character and its own personality:
+
+- A judge who puts you on trial for whatever you just typed and gives you a verdict.
+- A "YC House" where you can pitch your actual startup to characters written like real startup investors and they'll ask you the one question that exposes the hole in your pitch.
+- An alien embassy, a detective's office that interrogates you, and even the actual people who built CORE hanging out as characters you can talk to.
+
+<p align="center">
+  <img src="docs/assets/screenshot-yc-house-exterior.png" alt="Walking up to YC House in the overworld." width="380" />
+  <img src="docs/assets/screenshot-yc-house-chat.png" alt="Talking to Garry inside YC House." width="380" />
+</p>
+
+Every room is its own little experience, the characters react to what you
+actually say, and a few of them give you something to keep at the end of a
+good conversation.
+
+## Build your own
+
+Once you've poked around CORE-Town, the natural thing to think is "what
+would mine look like?" And you can just go build that — your own buildings,
+your own AI characters, written however you want, based on whatever's
+actually going on in your life or work. And it's not just for you — you can
+invite other people to come visit. They can walk around and chat with you
+directly if you're both online, and they can also talk to your AI
+characters, the same way you talked to the ones in CORE-Town, except now
+they're yours. Even when no one's visiting, you can chat with your own
+characters whenever you feel like it, just for fun.
+
+What could your town even be?
+
+- Your actual life — a gym building with a coach character who knows your training streak, a library with a critic who knows what you've been reading.
+- A side project or startup — your own version of the pitch room, where visitors get grilled by an investor-style character.
+- A hobby — a record store run by a character who only wants to talk music.
+- Just something fun — your own trial room, roast stage, whatever bit you want to build, the same way CORE-Town did it.
+
+Whatever you go with, the idea is simple: build something with a bit of
+personality in it, then send people the link and let them actually walk
+around in it instead of just reading about you.
+
+---
+
 ## Make it yours
 
 Editing a town is the same as editing a folder. Three steps.
