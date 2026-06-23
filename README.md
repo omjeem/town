@@ -10,11 +10,11 @@
   <img src="docs/assets/screenshot-tenkai.png" alt="An overworld screenshot of a town named Tenkai — three buildings nestled in a dense forest, signpost reading 'Tenkai · Harshith Mullapudi · 2 miles'." width="780" />
 </p>
 
-The things you care about — fitness, films, art, the side project — turn into
-buildings. Locals show up to live in them: a gym coach here, a film critic
-there, whoever your world calls for. Give them personalities, plug them into
-your tools, then share the address. Friends wander in, meet your locals, bump
-into each other — and learn who you are faster than any profile.
+Town is a tiny pixel game you can build and share. It has buildings and AI
+characters with whom anyone can talk to. 
+You can invite someone else to your own town who can browse these
+buildings, talk to AI characters or you can chat with them or even end up in
+a shared group chat where the AI characters jump in as well.
 
 Powered by [CORE](https://app.getcore.me). Rendered with
 [kaplay](https://kaplayjs.com). Top-down, browser-native, deterministic from a
@@ -26,38 +26,18 @@ seed so your town stays *your* town across logins.
 
 ---
 
-## What is CORE-Town?
-
-Town is a tiny pixel game you can build and share. It has buildings and AI
-characters with whom anyone can talk to.
-
-Every town is a slice of resident's [CORE](https://github.com/RedPlanetHQ/core),
-so the buildings and AI characters aren't just decoration but built around
-whatever that person actually cares about: their gym routine, their reading,
-their work, a side project. And the character inside each building can talk
-about it for real, because it's pulling from that person's actual memory, not
-making stuff up.
-
-It's also multiplayer. You can invite someone else who can browse these
-buildings, talk to AI characters or you can chat with them or even end up in
-a shared group chat where the AI characters jump in as well.
+### Chat with others
 
 <p align="center">
-  <img src="docs/assets/screenshot-multiplayer.png" alt="Two players standing together in the overworld, with a live population counter and an open chat bubble." width="780" />
+  <img src="docs/assets/screenshot-multiplayer.png" alt="Two players standing together in the overworld, with a live population counter and an open chat bubble." width="480" />
 </p>
 
-Before building your own, you can just go visit ours. It's not one room with
-an "about us" character — it's a bunch of completely different rooms, each
-with its own AI character and its own personality:
-
-- A judge who puts you on trial for whatever you just typed and gives you a verdict.
-- A "YC House" where you can pitch your actual startup to characters written like real startup investors and they'll ask you the one question that exposes the hole in your pitch.
-- An alien embassy, a detective's office that interrogates you, and even the actual people who built CORE hanging out as characters you can talk to.
+### Chat with AI characters
 
 <p align="center">
-  <img src="docs/assets/screenshot-yc-house-exterior.png" alt="Walking up to YC House in the overworld." width="380" />
-  <img src="docs/assets/screenshot-yc-house-chat.png" alt="Talking to Garry inside YC House." width="380" />
+  <img src="https://github.com/user-attachments/assets/9bc9a494-1316-49f3-8e05-e6d013511be1" alt="Talking to Garry inside YC House." width="480" />
 </p>
+
 
 Every room is its own little experience, the characters react to what you
 actually say, and a few of them give you something to keep at the end of a
