@@ -84,6 +84,28 @@ function loadAndPlay(index: number): void {
   });
 }
 
+// Default-play arm. Browsers reject Audio.play() without a user
+// gesture, so we wait for the first keydown / pointerdown anywhere
+// on the page and use that as the implicit "yes, start the radio"
+// signal. The arm is idempotent + a no-op after the first fire so
+// re-mounting components doesn't restart the playlist.
+let autoplayArmed = false;
+function armDefaultPlay(): void {
+  if (autoplayArmed) return;
+  if (typeof window === "undefined") return;
+  autoplayArmed = true;
+
+  const begin = () => {
+    window.removeEventListener("pointerdown", begin);
+    window.removeEventListener("keydown", begin);
+    // Don't trample on a user who already pressed play in the popover.
+    if (state.playing) return;
+    loadAndPlay(0);
+  };
+  window.addEventListener("pointerdown", begin, { once: true });
+  window.addEventListener("keydown", begin, { once: true });
+}
+
 export interface UseTownRadio {
   tracks: readonly RadioTrack[];
   current: RadioTrack;
@@ -105,6 +127,9 @@ export function useTownRadio(): UseTownRadio {
     // Re-sync on mount in case the singleton state changed between
     // the initial useState() and the effect firing.
     cb();
+    // Arm default playback once per page lifetime. The arm itself is
+    // idempotent so calling it from every hook mount is fine.
+    armDefaultPlay();
     return () => {
       listeners.delete(cb);
     };

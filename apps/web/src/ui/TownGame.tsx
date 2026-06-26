@@ -12,6 +12,8 @@ import { setPlayerCharacter } from "../game/character";
 import {
   startRealtime,
   getRemotePlayers,
+  getLocalScene,
+  onLocalSceneChange,
   onRemotesChange,
   type RealtimeHandle,
 } from "../game/realtime";
@@ -323,21 +325,17 @@ export function TownGame(props: TownGameProps = {}) {
           "Build your own town" CTA (visitor only) sits alongside the
           Town Radio music player and the Flyover intro launcher. One
           row keeps the left corner readable as a single peer to the
-          activity ticker. */}
-      <div
-        className="pointer-events-auto absolute left-3 z-30 flex items-end gap-2"
-        style={{ bottom: 40 }}
-      >
-        {isVisitor ? <BuildTownCta /> : null}
-        <TownRadio />
-        <FlyoverButton
-          townName={
-            isVisitor
-              ? (props as { townName: string }).townName
-              : null
-          }
-        />
-      </div>
+          activity ticker. The Flyover button only makes sense from
+          the overworld — hide it inside building interiors so the
+          intro doesn't try to fly over a scene with no plot loaded. */}
+      <BottomToolbar
+        isVisitor={isVisitor}
+        townName={
+          isVisitor
+            ? (props as { townName: string }).townName
+            : null
+        }
+      />
 
 
       {/* Bottom-bar — town activity toggle + rotating ticker + "Town
@@ -410,6 +408,38 @@ function PopulationBadge({
         {ownerAway ? `Population: ${total} · owner away` : `Population: ${total}`}
       </HudButton>
       {open ? <PopulationPopover onClose={() => setOpen(false)} /> : null}
+    </div>
+  );
+}
+
+// Left-side bottom toolbar: BuildTownCta (visitors) + Town Radio +
+// Flyover. Subscribes to scene changes so the Flyover button drops
+// off the moment the player walks into a building (the cinematic
+// fly-over only makes sense over the overworld plot).
+function BottomToolbar({
+  isVisitor,
+  townName,
+}: {
+  isVisitor: boolean;
+  townName: string | null;
+}) {
+  const [onOverworld, setOnOverworld] = useState(() =>
+    getLocalScene() === "overworld",
+  );
+  useEffect(() => {
+    setOnOverworld(getLocalScene() === "overworld");
+    return onLocalSceneChange((scene) => {
+      setOnOverworld(scene === "overworld");
+    });
+  }, []);
+  return (
+    <div
+      className="pointer-events-auto absolute left-3 z-30 flex items-end gap-2"
+      style={{ bottom: 40 }}
+    >
+      {isVisitor ? <BuildTownCta /> : null}
+      <TownRadio />
+      {onOverworld ? <FlyoverButton townName={townName} /> : null}
     </div>
   );
 }

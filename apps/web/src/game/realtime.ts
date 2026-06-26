@@ -118,10 +118,24 @@ export function setLocalScene(scene: string): void {
   if (lastSent) {
     publishLocal(lastSent.tx, lastSent.ty, lastSent.facing, lastSent.idle, scene);
   }
+  for (const fn of sceneListeners) fn(scene);
 }
 
 export function getLocalScene(): string {
   return localScene;
+}
+
+// React-side subscription so UI elements (e.g. the Flyover button that
+// only makes sense on the overworld) can show/hide as the player walks
+// between scenes without polling. Listeners fire after the scene id has
+// been updated and republished.
+type SceneListener = (scene: string) => void;
+const sceneListeners = new Set<SceneListener>();
+export function onLocalSceneChange(fn: SceneListener): () => void {
+  sceneListeners.add(fn);
+  return () => {
+    sceneListeners.delete(fn);
+  };
 }
 
 export function getRemotePlayers(): RemotePlayer[] {

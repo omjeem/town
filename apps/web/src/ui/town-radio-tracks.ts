@@ -16,7 +16,17 @@ export interface RadioTrack {
   src: string;
 }
 
+// Index 0 is the default track — the one auto-armed playback picks
+// up on the first user gesture (browsers reject autoplay without one).
+// "Wonders of the Earth" sits in front because its pace matches the
+// overworld camera better than the cinematic stings.
 export const TOWN_RADIO_TRACKS: readonly RadioTrack[] = [
+  {
+    id: "wonders-of-earth",
+    title: "Wonders of the Earth",
+    author: "Grand Project",
+    src: "/music/wonders-of-earth.mp3",
+  },
   {
     id: "atlas-teaser",
     title: "Atlas (Teaser)",
@@ -34,12 +44,6 @@ export const TOWN_RADIO_TRACKS: readonly RadioTrack[] = [
     title: "Fantasy Adventure Quest",
     author: "Alex Morgan",
     src: "/music/fantasy-quest.mp3",
-  },
-  {
-    id: "wonders-of-earth",
-    title: "Wonders of the Earth",
-    author: "Grand Project",
-    src: "/music/wonders-of-earth.mp3",
   },
   {
     id: "towards-victory",
