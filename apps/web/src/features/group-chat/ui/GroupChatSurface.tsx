@@ -72,14 +72,14 @@ export function GroupChatSurface() {
   const ownerKey = state.room?.ownerParticipantKey ?? "";
 
   return (
-    <div className="pointer-events-auto fixed bottom-4 right-4 z-30 flex w-[360px] flex-col gap-2 rounded-md border-2 border-ink bg-paper p-3 shadow-[6px_6px_0_0_#1a1d22]">
-      <div className="flex items-center justify-between gap-2 border-b-2 border-ink pb-2">
+    <div className="nb-card-dark pointer-events-auto fixed bottom-12 right-4 z-30 flex w-[360px] flex-col gap-2 p-3">
+      <div className="flex items-center justify-between gap-2 border-b-2 border-paper/15 pb-2">
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-ink">
+          <span className="text-xs font-bold uppercase tracking-wider text-paper">
             Group chat
           </span>
           {state.room ? (
-            <span className="text-[10px] uppercase tracking-wider text-ink opacity-60">
+            <span className="text-xs uppercase tracking-wider text-paper/60">
               · {state.room.buildingLabel}
             </span>
           ) : null}
@@ -87,7 +87,7 @@ export function GroupChatSurface() {
         <button
           type="button"
           onClick={() => void closeRoom()}
-          className="border-2 border-ink bg-paper px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink hover:bg-ink hover:text-paper"
+          className="border-2 border-paper/30 bg-transparent px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-paper hover:bg-white/10"
           aria-label="Close group chat (G or ESC)"
           title="Close (G or ESC)"
         >
@@ -100,15 +100,15 @@ export function GroupChatSurface() {
         className="flex max-h-[40vh] min-h-[160px] flex-col gap-1.5 overflow-y-auto pr-1"
       >
         {state.status === "loading" ? (
-          <div className="text-[11px] italic opacity-60">Connecting…</div>
+          <div className="text-xs italic text-paper/60">Connecting…</div>
         ) : null}
         {state.status === "error" ? (
-          <div className="text-[11px] italic text-red-700">
+          <div className="text-xs italic text-red-400">
             {state.errorMessage || "Something went wrong"}
           </div>
         ) : null}
         {state.status === "ready" && state.messages.length === 0 ? (
-          <div className="text-[11px] italic opacity-60">
+          <div className="text-xs italic text-paper/60">
             No messages yet — say hi.
           </div>
         ) : null}
@@ -118,7 +118,7 @@ export function GroupChatSurface() {
       </div>
 
       {typingNames.length > 0 ? (
-        <div className="text-[11px] italic leading-tight text-ink opacity-70">
+        <div className="text-xs italic leading-tight text-paper/70">
           {formatTypingLine(typingNames)}
         </div>
       ) : null}
@@ -135,12 +135,12 @@ export function GroupChatSurface() {
             if (e.target.value.length > 0) publishTyping();
           }}
           placeholder="Say something to the room"
-          className="flex-1 border-2 border-ink bg-white px-2 py-1 text-[13px] text-ink focus:outline-none"
+          className="flex-1 border-2 border-paper/20 bg-black/40 px-2 py-1 text-sm text-paper placeholder:text-paper/40 focus:border-paper/50 focus:outline-none"
         />
         <button
           type="submit"
           disabled={!input.trim()}
-          className="border-2 border-ink bg-ink px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-paper disabled:opacity-40"
+          className="border-2 border-paper/20 bg-paper px-2 py-1 text-xs font-bold uppercase tracking-wider text-ink disabled:opacity-40"
         >
           Send
         </button>
@@ -160,14 +160,14 @@ function MessageLine({
   // same color across messages, refreshes, and both sides of the chat.
   const isOwner = !m.isNpc && ownerKey !== "" && m.authorKey === ownerKey;
   return (
-    <div className="text-[13px] leading-snug text-ink">
+    <div className="text-sm leading-snug text-paper">
       <span
         className="mr-1 font-bold"
         style={{ color: authorColor(m.authorKey) }}
       >
         {m.authorName}
         {isOwner ? (
-          <span className="ml-1 text-[10px] font-bold uppercase tracking-wider opacity-60">
+          <span className="ml-1 text-xs font-bold uppercase tracking-wider text-paper/60">
             (owner)
           </span>
         ) : null}

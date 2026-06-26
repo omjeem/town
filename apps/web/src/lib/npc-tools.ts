@@ -754,6 +754,7 @@ export function buildNpcTools(
             ok: true,
             item_id: row.id,
             template_id,
+            template_label: def.label,
             share_url,
           };
         },

@@ -15,13 +15,13 @@ export function GroupChatPrompt() {
   if (!state.currentHouse) return null;
   if (state.open) return null;
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-30 flex items-center gap-2 rounded-md border-2 border-ink bg-paper px-3 py-1.5 shadow-[4px_4px_0_0_#1a1d22]">
-      <span className="border-2 border-ink bg-ink px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-paper">
+    <div className="nb-card-dark pointer-events-none fixed bottom-12 right-4 z-30 flex items-center gap-2 px-3 py-1.5">
+      <span className="border-2 border-paper/20 bg-paper px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-ink">
         G
       </span>
-      <span className="text-[12px] font-bold leading-none text-ink">
+      <span className="text-xs font-bold uppercase tracking-wider leading-none text-paper">
         Group chat · {state.currentHouse.buildingLabel}
-        <span className="ml-1 opacity-60">
+        <span className="ml-1 text-paper/60">
           · {state.othersHere + 1} here
         </span>
       </span>

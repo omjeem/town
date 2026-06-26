@@ -9,9 +9,11 @@ export const TILE = 16;
 
 // Virtual (logical) game resolution. The canvas stretches+letterboxes to
 // fit the viewport; pixel art stays crisp. Larger virtual size = camera
-// shows more world at once (zoom out). 960x540 ÷ 16 = 60x33.75 tiles visible.
-export const VIEW_W = 960;
-export const VIEW_H = 540;
+// shows more world at once (zoom out). 1120x630 ÷ 16 = 70x39.4 tiles visible
+// — slightly more than the 60x36 world so the whole map is in view at a
+// neighbourhood-vista scale instead of a tight follow-cam.
+export const VIEW_W = 1120;
+export const VIEW_H = 630;
 
 // World dimensions, in tiles. Width matches the 60-tile view (960÷16) so
 // the playfield fills the screen instead of leaving a letterbox strip on

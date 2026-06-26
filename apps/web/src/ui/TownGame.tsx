@@ -6,7 +6,7 @@ import { BootScreen } from "./BootScreen";
 import { refreshSession } from "../game/auth";
 import { startSuggestionsPoller } from "../game/suggestions";
 import { startWorkspaceSync } from "../game/workspace";
-import { startNpcsSync, getNpcCount, onNpcsChange } from "../game/npcs";
+import { startNpcsSync, getNpcCount, onNpcsChange, refreshNpcs } from "../game/npcs";
 import { setViewerTownSlug } from "../game/plotClient";
 import { setPlayerCharacter } from "../game/character";
 import {
@@ -35,7 +35,11 @@ import { VisitorHud } from "./VisitorHud";
 import { PALETTE } from "../game/config";
 import { ui } from "./store";
 import { GroupChatPrompt, GroupChatSurface } from "../features/group-chat";
-import { ActivityFeed } from "./ActivityFeed";
+import { BottomBar } from "./BottomBar";
+import { BuildTownCta } from "./BuildTownCta";
+import { CommunityLinks } from "./CommunityLinks";
+import { HudButton } from "./HudButton";
+import { PopulationPopover } from "./PopulationPopover";
 import { TransitionLoading } from "./TransitionLoading";
 
 // The mount point: a canvas owned by React, populated by kaplay in useEffect,
@@ -229,38 +233,31 @@ export function TownGame(props: TownGameProps = {}) {
           each player's name card. */}
       <RemoteCards canvasRef={canvasRef} townSlug={ownerSlug ?? visitorSlug} />
 
-      {/* HUD — owner-mode renders the identity badge; visitor-mode renders
-          the "Visiting X" card. */}
-      {isVisitor ? (
-        <div className="pointer-events-auto absolute left-4 top-4 z-30">
+      {/* Top-left row — identity HudButton + community pills (GitHub,
+          Discord). All siblings so they sit side-by-side at the same
+          height. Owner gets Hud; visitor gets the visiting/exit pair. */}
+      <div className="pointer-events-auto absolute left-3 top-3 z-30 flex items-center gap-2">
+        {isVisitor ? (
           <VisitorHud
             townName={(props as { townName: string }).townName}
             visitorName={(props as { visitorName: string }).visitorName}
             townSlug={(props as { townSlug: string }).townSlug}
           />
-        </div>
-      ) : hud ? (
-        <div className="pointer-events-auto absolute left-4 top-4 z-30">
+        ) : hud ? (
           <Hud hud={hud} />
-        </div>
-      ) : null}
+        ) : null}
+        <CommunityLinks />
+      </div>
 
-      {/* Top-right stack. Population badge sits on top for both owner +
-          visitor — it's a shared "how busy is this town" signal, and
-          it now hosts the inline FEED toggle for the right-edge
-          activity panel (only when a real town slug is in scope, not
-          on the guest `/` playground). Owner gets Suggestions below
-          it; visitors get the Items badge that self-hides when the
-          inventory is empty. */}
-      <div className="pointer-events-auto absolute right-4 top-4 z-30 flex flex-col items-end gap-2">
+      {/* Top-right row — population + items (visitor) / suggestions
+          (owner) as same-height HudButton siblings. */}
+      <div className="pointer-events-auto absolute right-3 top-3 z-30 flex items-center gap-2">
         <PopulationBadge
           ownerParticipantKey={
             isVisitor
               ? (props as { ownerParticipantKey: string }).ownerParticipantKey
               : null
           }
-          showFeedToggle={!!(ownerSlug || visitorSlug)}
-          feedOpen={!!feed}
         />
         {isVisitor ? (
           <ItemsBadge townSlug={(props as { townSlug: string }).townSlug} />
@@ -269,14 +266,14 @@ export function TownGame(props: TownGameProps = {}) {
       </div>
 
       {prompt ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-8 z-30 flex justify-center">
+        <div className="pointer-events-none absolute inset-x-0 bottom-12 z-30 flex justify-center">
           <InteractionPrompt prompt={prompt} />
         </div>
       ) : proximity ? (
         // Bottom-center prompt for the closest nearby player. Same vocab
         // as the building-interaction prompts so SPACE always means the
         // same thing visually.
-        <div className="pointer-events-none absolute inset-x-0 bottom-8 z-30 flex justify-center">
+        <div className="pointer-events-none absolute inset-x-0 bottom-12 z-30 flex justify-center">
           <InteractionPrompt
             prompt={{
               label: `SPACE to talk to ${proximity.name}`,
@@ -316,19 +313,21 @@ export function TownGame(props: TownGameProps = {}) {
       <GroupChatPrompt />
       <GroupChatSurface />
 
-      {/* Town activity feed (slide-in right panel). Only renders for
-          real towns — the guest playground at / has no slug. */}
-      {feed && (ownerSlug || visitorSlug) ? (
-        <ActivityFeed townSlug={(ownerSlug ?? visitorSlug)!} />
+      {/* "Build your own town" tile — visitor only. Floats just above
+          the BottomBar's left edge so the CTA reads as a peer to the
+          activity row, not buried in a corner card. */}
+      {isVisitor ? (
+        <div className="pointer-events-auto absolute left-3 z-30" style={{ bottom: 40 }}>
+          <BuildTownCta />
+        </div>
       ) : null}
 
-      {/* Bottom-left tile — combines the visitor pitch (only in visitor
-          mode) with the always-on "Town from core" attribution into a
-          single card. Sits left so the bottom-right corner stays clear
-          for the group chat overlay and the 1-1 DM panel. */}
-      <div className="pointer-events-auto absolute left-4 bottom-4 z-30">
-        <BottomLeftCard showBuildCta={isVisitor} />
-      </div>
+      {/* Bottom-bar — town activity toggle + rotating ticker + "Town
+          from core" attribution. Spans the full width of the screen. */}
+      <BottomBar
+        townSlug={ownerSlug ?? visitorSlug}
+        feedOpen={!!feed && !!(ownerSlug || visitorSlug)}
+      />
 
       {bootVisible ? (
         <BootScreen ready={worldReady} onDone={() => setBootVisible(false)} />
@@ -343,23 +342,18 @@ export function TownGame(props: TownGameProps = {}) {
   );
 }
 
-// Top-right "Population: N | Feed" card. Counts every NPC the user has
+// Top-right "Population: N" pill. Counts every NPC the user has
 // authored plus every remote player the realtime bus knows about plus
-// the local viewer. The right half is an inline FEED toggle that opens
-// the activity panel — packaged into the same card so the corner stays
-// quiet (one tile instead of two). The Feed segment hides on the guest
-// `/` playground where there's no slug to fetch against.
+// the local viewer. Clicking the pill opens a directory popover that
+// breaks the count down into NPCs vs Guests with a name search.
 function PopulationBadge({
   ownerParticipantKey,
-  showFeedToggle,
-  feedOpen,
 }: {
   ownerParticipantKey: string | null;
-  showFeedToggle: boolean;
-  feedOpen: boolean;
 }) {
   const [remotes, setRemotes] = useState(() => getRemotePlayers());
   const [npcCount, setNpcCount] = useState(() => getNpcCount());
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     const update = () => setRemotes(getRemotePlayers());
     update();
@@ -368,6 +362,12 @@ function PopulationBadge({
   useEffect(() => {
     const update = () => setNpcCount(getNpcCount());
     update();
+    // Defensive re-fetch — startNpcsSync's teardown wipes the cache,
+    // and in StrictMode dev that can land between the mount/cleanup
+    // cycle, leaving the count stuck at 0 with no listener to update
+    // it. Triggering a fresh fetch from the consumer guarantees we
+    // populate even if the cache was just nuked.
+    void refreshNpcs();
     return onNpcsChange(update);
   }, []);
   // remotes + NPCs + viewer themselves.
@@ -376,125 +376,40 @@ function PopulationBadge({
     !!ownerParticipantKey &&
     !remotes.some((r) => r.participantKey === ownerParticipantKey);
   return (
-    <div
-      className="nb-card flex flex-col items-end gap-1 px-3 py-2"
-      style={{ background: "#ffffff" }}
-      aria-label={`Population: ${total}${ownerAway ? ", owner not in town" : ""}`}
-      title={
-        ownerAway
-          ? `${total} in town (NPCs + visitors) · owner isn't here right now`
-          : `${total} in town — NPCs + visitors + you`
-      }
-    >
-      <span className="flex items-center gap-2 text-[12px] font-bold leading-tight text-ink">
-        <span>Population: {total}</span>
-        {showFeedToggle ? (
-          <>
-            <span aria-hidden className="opacity-30">
-              |
-            </span>
-            <button
-              type="button"
-              onClick={() => ui.toggleFeed()}
-              aria-pressed={feedOpen}
-              title={feedOpen ? "Hide activity feed" : "Show activity feed"}
-              className="flex items-center gap-1 text-[12px] font-bold uppercase tracking-wider hover:opacity-70"
-              style={{ color: feedOpen ? "#b58900" : "inherit" }}
-            >
-              Feed
-            </button>
-          </>
-        ) : null}
-      </span>
-      {ownerAway ? (
-        <span className="text-[10px] font-bold uppercase leading-tight tracking-wide text-ink opacity-60">
-          Owner not in town
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-// Bottom-left card. Two segments inside one tile:
-//   • Visitor pitch (visitor mode only): logo + "Build your own town"
-//     opening town.getcore.me in a new tab.
-//   • "Town from core" attribution — two open-source links — that's
-//     ALWAYS shown so credit travels with every deployed instance.
-// Owners see just the attribution row.
-function BottomLeftCard({ showBuildCta }: { showBuildCta: boolean }) {
-  return (
-    <div
-      className="nb-card flex flex-col items-start"
-      style={{ background: "#ffffff" }}
-      title="Open-source projects from RedPlanet HQ"
-    >
-      {showBuildCta ? (
-        <a
-          href="https://town.getcore.me"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex w-full items-center gap-2 px-3 py-2 hover:bg-black/5"
-          title="Start your own town at town.getcore.me"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/town_logo_dark.svg"
-            alt=""
-            aria-hidden
-            className="h-4 w-4 shrink-0"
-          />
-          <span className="text-base font-bold leading-tight text-ink">
-            Build your own town
-          </span>
-        </a>
-      ) : null}
-      <div
-        className={
-          "px-3 py-2 text-base font-bold leading-tight text-ink" +
-          (showBuildCta ? " border-t border-ink/10 opacity-80" : "")
+    <div className="relative inline-flex">
+      <HudButton
+        onClick={() => setOpen((v) => !v)}
+        active={open}
+        aria-label={`Population: ${total}${ownerAway ? ", owner not in town" : ""}`}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        title={
+          ownerAway
+            ? `${total} in town (NPCs + visitors) · owner isn't here right now`
+            : `${total} in town — NPCs + visitors + you`
         }
       >
-        <a
-          href="https://github.com/redplanethq/town"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline-offset-2 hover:underline"
-        >
-          Town
-        </a>
-        <span className="mx-1 opacity-60">from</span>
-        <a
-          href="https://github.com/redplanethq/core"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline-offset-2 hover:underline"
-        >
-          core
-        </a>
-      </div>
+        {ownerAway ? `Population: ${total} · owner away` : `Population: ${total}`}
+      </HudButton>
+      {open ? <PopulationPopover onClose={() => setOpen(false)} /> : null}
     </div>
   );
 }
 
 // Top-right pill: 🛎 + count. Renders nothing when count = 0 so the corner
-// stays quiet until the butler actually has something to propose.
+// stays quiet until the butler actually has something to propose. Uses
+// the CORE blue accent so it pops out of the dark pill row.
 function SuggestionsBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <button
-      type="button"
+    <HudButton
       onClick={() => ui.openSuggestions()}
-      className="nb-card flex items-center gap-2 px-3 py-2 text-left"
-      style={{ background: PALETTE.h240, color: "var(--ink)" }}
+      style={{ background: PALETTE.h240 }}
       title="Open suggestions"
       aria-label={`${count} suggestion${count === 1 ? "" : "s"} waiting`}
+      icon={<span aria-hidden>🛎</span>}
     >
-      <span aria-hidden className="text-base leading-none">
-        🛎
-      </span>
-      <span className="text-[12px] font-bold leading-tight">
-        {count === 1 ? "1 suggestion" : `${count} suggestions`}
-      </span>
-    </button>
+      {count === 1 ? "1 suggestion" : `${count} suggestions`}
+    </HudButton>
   );
 }

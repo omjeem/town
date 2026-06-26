@@ -6,18 +6,13 @@ import type { PromptState } from "./store";
 // viewport while the player is adjacent to an interactable.
 export function InteractionPrompt({ prompt }: { prompt: NonNullable<PromptState> }) {
   return (
-    <div
-      className="nb-card flex items-center gap-3 px-3 py-2"
-      style={{
-        // accent border feels like a directional cue without re-coloring
-        // the whole card — preserves the neobrutalism black border.
-        boxShadow: `3px 3px 0 0 #0e1116, inset 0 -3px 0 0 ${prompt.accent}`,
-      }}
-    >
-      <kbd className="nb-key flex h-6 items-center justify-center px-2 text-[11px] font-bold">
+    <div className="nb-card-dark flex items-center gap-2 px-3 py-1.5">
+      <kbd className="inline-flex h-5 items-center border-2 border-paper/30 bg-paper px-1.5 text-xs font-bold uppercase tracking-wider text-ink">
         SPACE
       </kbd>
-      <span className="text-sm font-semibold text-ink">{prompt.label}</span>
+      <span className="text-xs font-bold uppercase tracking-wider text-paper">
+        {prompt.label}
+      </span>
     </div>
   );
 }

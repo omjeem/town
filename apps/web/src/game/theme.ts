@@ -36,7 +36,7 @@ export const theme: Theme = {
     LIBRARY: { accent: PALETTE.h270 },
     STORE:   { accent: PALETTE.h330 },
   },
-  interiorBackdrop: "#0e1116", // SHADOW — same near-black for every room
+  interiorBackdrop: "#05070a", // pure-near-black so the dark HUD pills (bg #0e1116) sit visibly above the floor
   mailboxAccent: PALETTE.h90,
   signCream: "#f5edd4",
   overlay: { color: "#1a1d22", opacity: 0 },

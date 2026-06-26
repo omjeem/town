@@ -1,91 +1,50 @@
 "use client";
 
-// Right-edge slide-in panel that shows the town's recent activity:
-// visits, NPC chats, tag/item awards, and group-chat sessions. Opened
-// via the FEED button in the top-right HUD stack; closed via the X, the
-// FEED toggle, or Escape.
+// Popover anchored above the BottomBar's "Town activity" button. Lists
+// the recent town events: visits, NPC chats, tag/item awards, group
+// chats. The poll lives in useTownActivity so the bottom-bar ticker can
+// share the same data without firing a second request.
 //
-// Polls /api/towns/[slug]/activity every 20s while open. No realtime
-// for v1 — these events are slow and the poll cost is trivial.
+// Closes on the X, the "Town activity" toggle in the BottomBar, and
+// Escape.
 
 import { useEffect, useMemo, useState } from "react";
 
+import { CharacterAvatar } from "./CharacterAvatar";
 import { ui } from "./store";
-
-const POLL_INTERVAL_MS = 20 * 1000;
-const PAGE_SIZE = 50;
-
-type ActivityKind =
-  | "visit"
-  | "npc_chat"
-  | "tag_awarded"
-  | "item_awarded"
-  | "group_chat_started";
-
-interface ActivityRow {
-  id: string;
-  kind: ActivityKind;
-  subjectKey: string;
-  subjectName: string;
-  subjectCharacter: string | null;
-  metadata: Record<string, unknown>;
-  createdAt: string;
-}
+import {
+  type ActivityKind,
+  type ActivityRow,
+  type ActivityStatus,
+} from "./useTownActivity";
 
 // Color-code each row by kind via a thin left border. Avoids a second
 // tile next to the avatar (read as a category code) and lets the
-// sentence's verb carry the meaning. Emoji icons were dropped because
-// rendering is platform-dependent and most blended into the dark
-// background.
+// sentence's verb carry the meaning.
 const KIND_ACCENT: Record<ActivityKind, string> = {
-  visit: "#009e73", // green — arrival
-  npc_chat: "#56b4e9", // sky — conversation
-  tag_awarded: "#f0e442", // yellow — earned
-  item_awarded: "#cc79a7", // pink — gift
-  group_chat_started: "#e69f00", // orange — room
+  visit: "#dcb016", // yellow — arrival / active
+  npc_chat: "#67bfe1", // sky — conversation
+  tag_awarded: "#e194ad", // pink — earned
+  item_awarded: "#aaba6c", // olive — gift
+  group_chat_started: "#e67333", // orange — room
 };
 
-export function ActivityFeed({ townSlug }: { townSlug: string }) {
-  const [items, setItems] = useState<ActivityRow[]>([]);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">(
-    "loading",
-  );
+const KIND_BADGE: Record<ActivityKind, string> = {
+  visit: "City",
+  npc_chat: "Chat",
+  tag_awarded: "Earned",
+  item_awarded: "Gift",
+  group_chat_started: "Room",
+};
 
-  useEffect(() => {
-    let cancelled = false;
-    const ctrl = new AbortController();
+export interface ActivityFeedProps {
+  items: ActivityRow[];
+  status: ActivityStatus;
+}
 
-    const fetchOnce = async () => {
-      try {
-        const res = await fetch(
-          `/api/towns/${encodeURIComponent(townSlug)}/activity?limit=${PAGE_SIZE}`,
-          { signal: ctrl.signal, cache: "no-store" },
-        );
-        if (!res.ok) {
-          if (!cancelled) setStatus("error");
-          return;
-        }
-        const body = (await res.json()) as { items?: ActivityRow[] };
-        if (cancelled) return;
-        setItems(body.items ?? []);
-        setStatus("ready");
-      } catch (e) {
-        if ((e as { name?: string }).name === "AbortError") return;
-        if (!cancelled) setStatus("error");
-      }
-    };
-
-    void fetchOnce();
-    const id = window.setInterval(fetchOnce, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      ctrl.abort();
-      window.clearInterval(id);
-    };
-  }, [townSlug]);
-
-  // Esc closes the panel — same behaviour as the other right-side
-  // overlays (Suggestions, Explorer).
+export function ActivityFeed({ items, status }: ActivityFeedProps) {
+  // Esc closes the popover — same behaviour as the other overlays
+  // (Suggestions, Explorer).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
@@ -97,43 +56,101 @@ export function ActivityFeed({ townSlug }: { townSlug: string }) {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  const { now, earlier } = useMemo(() => splitByRecency(items), [items]);
+
   return (
-    <div className="pointer-events-auto absolute right-0 top-0 z-40 flex h-full w-[360px] flex-col border-l-2 border-ink bg-[#0c0d12] text-paper shadow-[-6px_0_0_0_rgba(0,0,0,0.4)]">
-      <div className="flex items-center justify-between border-b-2 border-ink/40 px-4 py-3">
-        <span className="text-[12px] font-bold uppercase tracking-[0.25em] text-[#f0e442]">
+    <div
+      className="nb-card-dark pointer-events-auto absolute left-3 z-40 flex flex-col"
+      style={{
+        bottom: 36,
+        width: 380,
+        maxHeight: "70vh",
+      }}
+      role="dialog"
+      aria-label="Town activity"
+    >
+      <div className="flex items-center justify-between border-b-2 border-paper/10 px-3 py-2">
+        <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-paper">
+          <span
+            aria-hidden
+            className="inline-block h-2 w-2 rounded-full"
+            style={{ background: "#dcb016" }}
+          />
           Town activity
         </span>
         <button
           type="button"
           aria-label="Close feed"
           onClick={() => ui.closeFeed()}
-          className="text-[14px] font-bold leading-none text-paper/70 hover:text-paper"
+          className="inline-flex h-6 w-6 items-center justify-center text-base font-bold leading-none text-paper/70 hover:bg-white/10 hover:text-paper"
         >
           ×
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto px-3 py-2">
+      <div className="flex-1 overflow-y-auto px-2 py-2">
         {status === "loading" ? (
           <FeedMessage>Loading…</FeedMessage>
         ) : status === "error" ? (
-          <FeedMessage>Couldn't load activity.</FeedMessage>
+          <FeedMessage>Couldn&apos;t load activity.</FeedMessage>
         ) : items.length === 0 ? (
           <FeedMessage>No activity yet.</FeedMessage>
         ) : (
-          <ul className="flex flex-col">
-            {items.map((row) => (
-              <FeedItem key={row.id} row={row} />
-            ))}
-          </ul>
+          <>
+            {now.length > 0 ? (
+              <FeedSection title="Happening now" rows={now} />
+            ) : null}
+            {earlier.length > 0 ? (
+              <FeedSection title="Earlier today" rows={earlier} />
+            ) : null}
+          </>
         )}
       </div>
     </div>
   );
 }
 
+// Rows newer than RECENT_WINDOW_MS bubble to a "Happening now" section
+// above the rest — same grouping as the reference design.
+const RECENT_WINDOW_MS = 30 * 60 * 1000;
+
+function splitByRecency(rows: ActivityRow[]): {
+  now: ActivityRow[];
+  earlier: ActivityRow[];
+} {
+  const threshold = Date.now() - RECENT_WINDOW_MS;
+  const now: ActivityRow[] = [];
+  const earlier: ActivityRow[] = [];
+  for (const r of rows) {
+    if (new Date(r.createdAt).getTime() >= threshold) now.push(r);
+    else earlier.push(r);
+  }
+  return { now, earlier };
+}
+
+function FeedSection({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: ActivityRow[];
+}) {
+  return (
+    <div className="mb-2 last:mb-0">
+      <div className="px-1 py-1 text-xs font-bold uppercase tracking-wider text-paper/40">
+        {title}
+      </div>
+      <ul className="flex flex-col gap-1">
+        {rows.map((row) => (
+          <FeedItem key={row.id} row={row} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function FeedMessage({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-2 py-6 text-center text-[12px] uppercase tracking-wider text-paper/50">
+    <div className="px-2 py-6 text-center text-xs uppercase tracking-wider text-paper/40">
       {children}
     </div>
   );
@@ -144,61 +161,37 @@ function FeedItem({ row }: { row: ActivityRow }) {
   const relative = useRelativeTime(row.createdAt);
   return (
     <li
-      className="border-b border-paper/10 border-l-2 py-3 pl-3 last:border-b-0"
+      className="border-l-2 bg-white/[0.03] py-2 pl-2 pr-2"
       style={{ borderLeftColor: KIND_ACCENT[row.kind] }}
     >
-      <div className="text-[10px] uppercase tracking-wider text-paper/50">
-        {relative}
-      </div>
-      <div className="mt-1 flex items-start gap-2">
-        <InitialTile name={row.subjectName} />
-        <div className="flex-1 text-[12px] uppercase leading-snug tracking-wider text-[#f0e442]">
-          {sentence}
+      <div className="flex items-start gap-2">
+        <CharacterAvatar
+          character={row.subjectCharacter}
+          seed={row.subjectName}
+          size={28}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="truncate text-xs font-bold uppercase tracking-wider text-paper">
+            {sentence}
+          </div>
+          <div className="mt-0.5 flex items-center gap-1.5 text-xs uppercase tracking-wider text-paper/50">
+            <span style={{ color: KIND_ACCENT[row.kind] }}>
+              {KIND_BADGE[row.kind]}
+            </span>
+            <span aria-hidden>·</span>
+            <span>{relative}</span>
+          </div>
         </div>
       </div>
     </li>
   );
 }
 
-// Color a tile from the visitor's display name so the same person stays
-// the same color across feed rows. FNV-1a hue ramp — same idea as the
-// group-chat author colors.
-const TILE_PALETTE = [
-  "#f0e442", // yellow
-  "#56b4e9", // sky
-  "#cc79a7", // pink
-  "#009e73", // green
-  "#e69f00", // orange
-  "#0072b2", // blue
-] as const;
-
-function tileColorFor(name: string): string {
-  let h = 2166136261;
-  for (let i = 0; i < name.length; i++) {
-    h ^= name.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return TILE_PALETTE[Math.abs(h) % TILE_PALETTE.length]!;
-}
-
-function InitialTile({ name }: { name: string }) {
-  const letter = (name.replace(/^@+/, "").trim()[0] ?? "?").toUpperCase();
-  const bg = useMemo(() => tileColorFor(name), [name]);
-  return (
-    <div
-      className="mt-[2px] flex h-6 w-6 shrink-0 items-center justify-center border border-paper/30 text-[11px] font-black text-ink"
-      style={{ background: bg }}
-    >
-      {letter}
-    </div>
-  );
-}
-
-function describeActivity(row: ActivityRow): string {
+export function describeActivity(row: ActivityRow): string {
   const name = `@${row.subjectName}`;
   switch (row.kind) {
     case "visit":
-      return `${name} arrived`;
+      return `${name} is active in the city`;
     case "npc_chat": {
       const npc = stringField(row.metadata, "npcName") ?? "an NPC";
       return `${name} talked to ${npc}`;
@@ -246,7 +239,11 @@ function useRelativeTime(iso: string): string {
     const id = window.setInterval(() => setNow(Date.now()), 30 * 1000);
     return () => window.clearInterval(id);
   }, []);
-  const delta = Math.max(0, now - new Date(iso).getTime());
+  return formatRelativeTime(now - new Date(iso).getTime());
+}
+
+export function formatRelativeTime(deltaMs: number): string {
+  const delta = Math.max(0, deltaMs);
   const sec = Math.floor(delta / 1000);
   if (sec < 30) return "just now";
   if (sec < 60) return `${sec} sec ago`;

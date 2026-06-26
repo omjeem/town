@@ -60,6 +60,16 @@ export function getNpcCount(): number {
   return total;
 }
 
+/** Flat list of every NPC in the cache. Used by the population popover
+ *  to render an NPC directory with name + building + description. */
+export function getNpcs(): NpcRow[] {
+  const out: NpcRow[] = [];
+  for (const rows of byBuildingId.values()) {
+    for (const r of rows) out.push(r);
+  }
+  return out;
+}
+
 function emit() {
   for (const fn of listeners) fn();
 }

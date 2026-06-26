@@ -133,63 +133,64 @@ export function Invite() {
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === e.currentTarget) ui.closeInvite();
       }}
     >
-      <div className="nb-card flex w-full max-w-md flex-col gap-4 p-6">
-        <div className="flex items-start justify-between gap-3">
+      <div className="nb-card-dark flex w-full max-w-md flex-col gap-4 p-6">
+        <div className="flex items-start justify-between gap-3 border-b-2 border-paper/15 pb-3">
           <div>
-            <div className="text-xs font-bold uppercase tracking-wide text-ink opacity-60">
+            <div className="text-xs font-bold uppercase tracking-wide text-paper/60">
               Invite
             </div>
-            <h2 className="mt-1 text-2xl font-black leading-tight text-ink">
+            <h2 className="mt-1 text-2xl font-black leading-tight text-paper">
               {townName ?? "Your town"}
             </h2>
           </div>
           <button
             type="button"
             onClick={() => ui.closeInvite()}
-            className="text-xs font-bold uppercase tracking-wide text-ink opacity-60 hover:opacity-100"
+            className="border-2 border-paper/30 px-2 py-1 text-xs font-bold uppercase tracking-wider text-paper hover:bg-white/10"
+            aria-label="Close invite"
           >
-            Close
+            ESC
           </button>
         </div>
 
         {loading ? (
-          <div className="text-sm font-bold text-ink opacity-60">
+          <div className="text-sm font-bold text-paper/60">
             Loading…
           </div>
         ) : (
           <>
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold uppercase tracking-wide text-ink opacity-60">
+              <span className="text-xs font-bold uppercase tracking-wide text-paper/60">
                 Invite link
               </span>
-              <div className="nb-tile flex items-center justify-between gap-2 bg-paper px-3 py-2">
-                <span className="truncate text-sm font-bold text-ink">
+              <div className="flex items-center justify-between gap-2 border-2 border-paper/20 bg-black/30 px-3 py-2">
+                <span className="truncate text-sm font-bold text-paper">
                   {inviteUrl}
                 </span>
                 <button
                   type="button"
                   onClick={() => inviteUrl && void copy(inviteUrl, "url")}
-                  className="text-xs font-bold uppercase tracking-wide text-ink opacity-60 hover:opacity-100"
+                  className="text-xs font-bold uppercase tracking-wide text-paper/60 hover:text-paper"
                 >
                   {copyState === "url" ? "Copied" : "Copy"}
                 </button>
               </div>
-              <span className="mt-1 text-[11px] text-ink opacity-60">
+              <span className="mt-1 text-xs text-paper/50">
                 Anyone with this link lands on the gate with the code pre-filled.
               </span>
             </div>
 
             <div className="flex flex-col gap-1">
-              <span className="text-xs font-bold uppercase tracking-wide text-ink opacity-60">
+              <span className="text-xs font-bold uppercase tracking-wide text-paper/60">
                 Share code
               </span>
               <div
-                className="nb-tile flex items-center justify-between gap-2 px-3 py-3"
+                className="flex items-center justify-between gap-2 border-2 border-paper/20 px-3 py-3"
                 style={{ background: PALETTE.h240 }}
               >
                 <span className="font-mono text-2xl font-black tracking-[0.4em] text-ink">
@@ -198,20 +199,20 @@ export function Invite() {
                 <button
                   type="button"
                   onClick={() => code && void copy(code, "code")}
-                  className="text-xs font-bold uppercase tracking-wide text-ink opacity-60 hover:opacity-100"
+                  className="text-xs font-bold uppercase tracking-wide text-ink/70 hover:text-ink"
                 >
                   {copyState === "code" ? "Copied" : "Copy"}
                 </button>
               </div>
               <div className="mt-1 flex items-center justify-between gap-2">
-                <span className="text-[11px] text-ink opacity-60">
+                <span className="text-xs text-paper/50">
                   Or paste this code into the gate manually.
                 </span>
                 <button
                   type="button"
                   onClick={() => void rotateCode()}
                   disabled={rotating}
-                  className="text-xs font-bold uppercase tracking-wide text-ink opacity-60 hover:opacity-100"
+                  className="text-xs font-bold uppercase tracking-wide text-paper/60 hover:text-paper disabled:opacity-40"
                 >
                   {rotating ? "Resetting…" : "Reset code"}
                 </button>
@@ -219,7 +220,7 @@ export function Invite() {
             </div>
 
             {error ? (
-              <div className="text-sm font-bold" style={{ color: "var(--destructive)" }}>
+              <div className="border-2 border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
                 {error}
               </div>
             ) : null}

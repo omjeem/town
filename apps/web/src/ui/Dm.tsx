@@ -183,23 +183,23 @@ export function Dm({
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-40 flex w-full max-w-sm flex-col"
+      className="fixed bottom-12 right-4 z-40 flex w-full max-w-sm flex-col"
       style={{ maxHeight: "70vh" }}
     >
-      <div className="nb-card flex flex-1 flex-col overflow-hidden">
-        <div className="flex items-center justify-between gap-3 border-b-2 border-ink px-3 py-2">
+      <div className="nb-card-dark flex flex-1 flex-col overflow-hidden">
+        <div className="flex items-center justify-between gap-3 border-b-2 border-paper/15 px-3 py-2">
           <div className="flex flex-col">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-ink opacity-60">
+            <div className="text-xs font-bold uppercase tracking-wider text-paper/60">
               Talking to
             </div>
-            <div className="text-sm font-bold leading-tight text-ink">
+            <div className="text-sm font-bold leading-tight text-paper">
               {otherName}
             </div>
           </div>
           <button
             type="button"
             onClick={() => ui.closeDm()}
-            className="text-xs font-bold uppercase tracking-wide text-ink opacity-60 hover:opacity-100"
+            className="text-xs font-bold uppercase tracking-wider text-paper/60 hover:text-paper"
           >
             Close
           </button>
@@ -211,11 +211,11 @@ export function Dm({
           style={{ minHeight: "12rem", maxHeight: "40vh" }}
         >
           {loading ? (
-            <div className="text-xs font-bold text-ink opacity-60">
+            <div className="text-xs font-bold text-paper/60">
               Loading…
             </div>
           ) : messages.length === 0 ? (
-            <div className="text-xs font-bold text-ink opacity-60">
+            <div className="text-xs font-bold text-paper/60">
               Say hi to start the conversation.
             </div>
           ) : (
@@ -225,11 +225,12 @@ export function Dm({
                 <div
                   key={m.id}
                   className={
-                    "nb-tile max-w-[80%] px-2 py-1 text-xs font-bold text-ink " +
-                    (mine ? "self-end" : "self-start")
+                    "max-w-[80%] border-2 px-2 py-1 text-xs font-bold " +
+                    (mine ? "self-end text-ink" : "self-start text-ink")
                   }
                   style={{
                     background: mine ? PALETTE.h240 : PALETTE.h60,
+                    borderColor: "rgba(0,0,0,0.4)",
                   }}
                 >
                   {m.text}
@@ -239,7 +240,7 @@ export function Dm({
           )}
         </div>
 
-        <div className="flex items-center gap-2 border-t-2 border-ink px-3 py-2">
+        <div className="flex items-center gap-2 border-t-2 border-paper/15 px-3 py-2">
           <input
             ref={inputRef}
             value={draft}
@@ -252,7 +253,7 @@ export function Dm({
             }}
             placeholder="Say something…"
             maxLength={2000}
-            className="nb-tile flex-1 bg-paper px-2 py-1 text-sm font-bold text-ink outline-none"
+            className="flex-1 border-2 border-paper/20 bg-black/30 px-2 py-1 text-sm font-bold text-paper placeholder:text-paper/40 outline-none focus:border-paper/50"
             // Intentionally NOT disabled while sending. Browsers blur a
             // disabled input, which kills focus mid-round-trip. The
             // Enter handler + Send button both gate on `sending`, so
@@ -263,9 +264,9 @@ export function Dm({
             type="button"
             onClick={() => void send()}
             disabled={sending || draft.trim().length === 0}
-            className="nb-tile px-3 py-1 text-xs font-black uppercase tracking-wide"
+            className="border-2 border-paper/20 px-3 py-1 text-xs font-black uppercase tracking-wider text-ink"
             style={{
-              background: draft.trim() ? PALETTE.h240 : "#a4afbd",
+              background: draft.trim() ? PALETTE.h240 : "rgba(246,243,234,0.3)",
               cursor:
                 draft.trim() && !sending ? "pointer" : "not-allowed",
               opacity: sending ? 0.6 : 1,
@@ -277,8 +278,7 @@ export function Dm({
 
         {error ? (
           <div
-            className="border-t-2 border-ink px-3 py-1 text-xs font-bold"
-            style={{ color: "var(--destructive)" }}
+            className="border-t-2 border-paper/15 px-3 py-1 text-xs font-bold text-red-400"
           >
             {error}
           </div>

@@ -230,36 +230,36 @@ export function ShareImage() {
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === e.currentTarget) ui.closeShareImage();
       }}
     >
-      <div className="nb-card flex w-full max-w-xl flex-col gap-4 p-6">
-        <div className="flex items-start justify-between gap-3">
+      <div className="nb-card-dark flex w-full max-w-xl flex-col gap-4 p-6">
+        <div className="flex items-start justify-between gap-3 border-b-2 border-paper/15 pb-3">
           <div>
-            <div className="text-xs font-bold uppercase tracking-wide text-ink opacity-60">
+            <div className="text-xs font-bold uppercase tracking-wide text-paper/60">
               Share
             </div>
-            <h2 className="mt-1 text-2xl font-black leading-tight text-ink">
+            <h2 className="mt-1 text-2xl font-black leading-tight text-paper">
               {townName ?? "Your town"}
             </h2>
           </div>
           <button
             type="button"
             onClick={() => ui.closeShareImage()}
-            className="text-xs font-bold uppercase tracking-wide text-ink opacity-60 hover:opacity-100"
+            className="border-2 border-paper/30 px-2 py-1 text-xs font-bold uppercase tracking-wider text-paper hover:bg-white/10"
+            aria-label="Close share"
           >
-            Close
+            ESC
           </button>
         </div>
 
         <div
-          className="nb-tile flex aspect-[1200/628] w-full items-center justify-center overflow-hidden"
-          style={{ background: "#c5d0dc" }}
+          className="flex aspect-[1200/628] w-full items-center justify-center overflow-hidden border-2 border-paper/20 bg-black/40"
         >
           {loading ? (
-            <span className="text-xs font-bold uppercase tracking-wide text-ink opacity-60">
+            <span className="text-xs font-bold uppercase tracking-wide text-paper/60">
               Rendering postcard…
             </span>
           ) : imageObjectUrl ? (
@@ -271,7 +271,7 @@ export function ShareImage() {
               style={{ imageRendering: "pixelated" }}
             />
           ) : (
-            <span className="text-xs font-bold uppercase tracking-wide text-destructive">
+            <span className="text-xs font-bold uppercase tracking-wide text-red-300">
               Render failed
             </span>
           )}
@@ -326,14 +326,14 @@ export function ShareImage() {
           />
         </div>
 
-        <p className="text-[11px] leading-snug text-ink opacity-60">
+        <p className="text-xs leading-snug text-paper/50">
           {canNativeShare
             ? "Share uses your device's share sheet and attaches the PNG when supported. X, LinkedIn and WhatsApp open with the invite link — their previews pick up this same image from the page meta tags."
             : "X, LinkedIn and WhatsApp open with the invite link prefilled — their previews pick up this same image from the page meta tags."}
         </p>
 
         {error ? (
-          <div className="text-sm font-bold" style={{ color: "var(--destructive)" }}>
+          <div className="border-2 border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
             {error}
           </div>
         ) : null}

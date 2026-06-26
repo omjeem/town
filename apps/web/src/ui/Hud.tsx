@@ -2,81 +2,64 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { PALETTE } from "../game/config";
+import { getPlayerCharacter } from "../game/character";
 import { logout } from "../game/auth";
+import { CharacterAvatar } from "./CharacterAvatar";
+import { HudButton } from "./HudButton";
 import { ui } from "./store";
 import type { HudKind } from "./store";
 
-// Identity badge (overworld) or room name card (interior).
-// Click the identity card to open a small dropdown with Share / Logout.
+// Identity pill (overworld) or room name card (interior).
+// Click the identity pill to open a small dropdown with Share / Logout.
 export function Hud({ hud }: { hud: HudKind }) {
   if (hud.kind === "overworld") {
     const session = hud.session;
     const name = session?.user.name ?? "Guest";
-    const letter = (name[0] ?? "G").toUpperCase();
-    const accent = PALETTE.h240;
+    const character = getPlayerCharacter();
 
     if (!session) {
       // Guest — no menu, just the badge.
       return (
-        <div className="flex items-center gap-3">
-          <div className="nb-card flex items-center gap-3 px-3 py-2">
-            <div
-              className="nb-tile flex h-9 w-9 items-center justify-center text-base font-black"
-              style={{ background: accent }}
-            >
-              {letter}
-            </div>
-            <div className="flex flex-col">
-              <div className="text-sm font-bold leading-tight text-ink">
-                {name}
-              </div>
-              <div className="text-[10px] leading-tight text-ink opacity-60">
-                home → desk to sign in
-              </div>
-            </div>
-          </div>
-        </div>
+        <HudButton
+          icon={
+            <CharacterAvatar character={character} seed={name} size={20} />
+          }
+          title="Walk home → desk to sign in"
+        >
+          {name}
+        </HudButton>
       );
     }
 
-    return (
-      <div className="flex items-center gap-3">
-        <IdentityMenu name={name} letter={letter} accent={accent} />
-      </div>
-    );
+    return <IdentityMenu name={name} character={character} />;
   }
 
-  // interior
+  // interior — title pill, accent stripe on the left.
   return (
-    <div className="nb-card flex items-center gap-3 px-3 py-2">
-      <div
-        className="h-9 w-2 self-stretch"
-        style={{ background: hud.accent }}
-      />
-      <div className="flex flex-col">
-        <div className="text-sm font-bold leading-tight text-ink">
-          {hud.title}
-        </div>
-        <div className="text-[10px] leading-tight text-ink opacity-60">
-          walk to door to leave
-        </div>
-      </div>
-    </div>
+    <HudButton
+      icon={
+        <span
+          aria-hidden
+          className="inline-block h-3 w-1.5"
+          style={{ background: hud.accent }}
+        />
+      }
+      title="Walk to door to leave"
+    >
+      {hud.title}
+    </HudButton>
   );
 }
 
-// Click-to-open dropdown on the identity card. Actions: Invite (URL +
+// Click-to-open dropdown on the identity pill. Actions: Invite (URL +
 // code modal), Share (screenshot + Twitter/WhatsApp/Download modal), and
 // Logout. Closes on outside click + on Escape.
 function IdentityMenu({
   name,
-  letter,
-  accent,
+  character,
 }: {
   name: string;
-  letter: string;
-  accent: string;
+  character: string;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -99,39 +82,26 @@ function IdentityMenu({
   }, [open]);
 
   return (
-    <div ref={rootRef} className="relative">
-      <button
-        type="button"
+    <div ref={rootRef} className="relative inline-flex">
+      <HudButton
         onClick={() => setOpen((v) => !v)}
-        className="nb-card flex items-center gap-3 px-3 py-2 text-left"
         aria-expanded={open}
         aria-haspopup="menu"
         title="Open menu"
+        active={open}
+        icon={<CharacterAvatar character={character} seed={name} size={20} />}
       >
-        <div
-          className="nb-tile flex h-9 w-9 items-center justify-center text-base font-black"
-          style={{ background: accent }}
-        >
-          {letter}
-        </div>
-        <div className="flex flex-col">
-          <div className="text-sm font-bold leading-tight text-ink">
-            {name}
-          </div>
-          <div className="text-[10px] leading-tight text-ink opacity-60">
-            click for menu
-          </div>
-        </div>
-      </button>
+        {name}
+      </HudButton>
       {open ? (
         <div
           role="menu"
-          className="nb-card absolute left-0 top-full z-40 mt-2 flex min-w-[180px] flex-col p-1"
+          className="nb-card-dark absolute left-0 top-full z-40 mt-1 flex min-w-[160px] flex-col p-1"
         >
           <button
             type="button"
             role="menuitem"
-            className="w-full px-3 py-2 text-left text-sm font-bold text-ink hover:bg-black/5"
+            className="w-full px-2.5 py-1.5 text-left text-xs font-bold uppercase tracking-wider text-paper hover:bg-white/5"
             onClick={() => {
               setOpen(false);
               ui.openInvite();
@@ -142,7 +112,7 @@ function IdentityMenu({
           <button
             type="button"
             role="menuitem"
-            className="w-full px-3 py-2 text-left text-sm font-bold text-ink hover:bg-black/5"
+            className="w-full px-2.5 py-1.5 text-left text-xs font-bold uppercase tracking-wider text-paper hover:bg-white/5"
             onClick={() => {
               setOpen(false);
               ui.openShareImage();
@@ -153,7 +123,7 @@ function IdentityMenu({
           <button
             type="button"
             role="menuitem"
-            className="w-full px-3 py-2 text-left text-sm font-bold text-ink hover:bg-black/5"
+            className="w-full px-2.5 py-1.5 text-left text-xs font-bold uppercase tracking-wider text-paper hover:bg-white/5"
             onClick={() => {
               setOpen(false);
               void logout().then(() => {

@@ -117,26 +117,31 @@ export function Dialogue({
       className="pointer-events-none fixed inset-0 z-[58] flex items-end justify-center pb-10"
     >
       <div
-        className="nb-card nb-modal-card pointer-events-auto relative flex w-[min(640px,92vw)] flex-col"
+        className="nb-card-dark nb-modal-card pointer-events-auto relative flex w-[min(480px,92vw)] flex-col"
         onClick={(e) => {
           e.stopPropagation();
           advance();
         }}
       >
-        <div className="h-1.5 w-full" style={{ background: dialogue.accent }} />
-
-        <div className="flex items-center justify-between border-b-2 border-black px-5 py-2">
-          <div className="text-[11px] font-black uppercase tracking-wider text-ink">
-            {dialogue.speaker}
+        <div className="flex items-center justify-between border-b-2 border-paper/15 px-3 py-1.5">
+          <div className="flex items-center gap-2">
+            <span
+              aria-hidden
+              className="inline-block h-2.5 w-2.5"
+              style={{ background: dialogue.accent }}
+            />
+            <span className="text-xs font-bold uppercase tracking-wider text-paper">
+              {dialogue.speaker}
+            </span>
           </div>
-          <div className="text-[10px] uppercase text-ink opacity-50">
+          <div className="text-xs uppercase tracking-wider text-paper/50">
             {allDone ? "click to choose" : "click / SPACE to skip"}
           </div>
         </div>
 
-        <div className="min-h-[110px] space-y-2 px-5 py-4 text-[15px] leading-relaxed text-ink">
+        <div className="min-h-[80px] space-y-1.5 px-3 py-3 text-sm leading-relaxed text-paper">
           {dialogue.lines.slice(0, lineIdx).map((l, i) => (
-            <p key={i} className="opacity-70">
+            <p key={i} className="text-paper/60">
               {l}
             </p>
           ))}
@@ -150,7 +155,7 @@ export function Dialogue({
 
         {(dialogue.action || dialogue.secondary) && (
           <div
-            className={`flex items-center justify-end gap-2 border-t-2 border-black px-4 py-3 transition-opacity ${allDone ? "opacity-100" : "opacity-30"}`}
+            className={`flex items-center justify-end gap-2 border-t-2 border-paper/15 px-3 py-2 transition-opacity ${allDone ? "opacity-100" : "opacity-30"}`}
             onClick={(e) => e.stopPropagation()}
           >
             {dialogue.secondary ? (
@@ -158,7 +163,7 @@ export function Dialogue({
                 type="button"
                 onClick={() => allDone && dialogue.secondary?.onPress()}
                 disabled={!allDone}
-                className="text-xs font-semibold uppercase text-ink opacity-60 hover:opacity-100 disabled:cursor-not-allowed"
+                className="text-xs font-bold uppercase tracking-wider text-paper/60 hover:text-paper disabled:cursor-not-allowed"
               >
                 {dialogue.secondary.label}
               </button>
@@ -168,10 +173,10 @@ export function Dialogue({
                 type="button"
                 onClick={() => allDone && dialogue.action?.onPress()}
                 disabled={!allDone}
-                className="nb-button flex items-center gap-2 px-3 py-1.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center gap-2 border-2 border-paper/20 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-ink disabled:cursor-not-allowed disabled:opacity-50"
                 style={{ background: dialogue.accent }}
               >
-                <kbd className="nb-key px-1.5 py-0.5 text-[10px] font-bold">
+                <kbd className="border-2 border-ink bg-paper px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider text-ink">
                   SPACE
                 </kbd>
                 <span>{dialogue.action.label}</span>

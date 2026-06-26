@@ -11,22 +11,29 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { useVisitorItems, type VisitorItem } from "./useVisitorItems";
+import { HudButton } from "./HudButton";
+import { useUnseenItemCount } from "./useUnseenItemCount";
+import type { VisitorItem } from "./useVisitorItems";
 
 export function ItemsBadge({ townSlug }: { townSlug: string }) {
-  const items = useVisitorItems(townSlug);
+  const { items, unseenCount, markSeen } = useUnseenItemCount(townSlug);
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
 
-  // Lock background scroll while the modal is open.
+  // Lock background scroll while the modal is open. Acknowledge any
+  // unseen items on both edges so anything that lands while the modal
+  // is open is also marked seen on close — the visitor opened the
+  // inventory, they've seen what's in it.
   useEffect(() => {
     if (!open) return;
+    markSeen();
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = original;
+      markSeen();
     };
-  }, [open]);
+  }, [open, markSeen]);
 
   // Reset to the newest item every time the modal opens, and clamp the
   // index if the list shrunk (rare — only if an item gets deleted while
@@ -61,40 +68,39 @@ export function ItemsBadge({ townSlug }: { townSlug: string }) {
   }, [open, close, prev, next]);
 
   const isEmpty = items.length === 0;
+  const hasUnseen = unseenCount > 0;
 
   return (
     <>
-      <button
-        type="button"
+      <HudButton
         onClick={() => {
           // Empty state: button is purely informational, no modal to
           // open. Clicking it does nothing — the cursor + disabled
           // affordance below already signal that.
           if (isEmpty) return;
+          markSeen();
           setOpen(true);
         }}
         disabled={isEmpty}
-        className="nb-card flex flex-col items-end gap-1 px-3 py-2"
-        style={{
-          background: "#ffffff",
-          cursor: isEmpty ? "default" : "pointer",
-          opacity: isEmpty ? 0.6 : 1,
-        }}
+        variant={hasUnseen ? "primary" : "default"}
+        style={{ opacity: isEmpty ? 0.5 : 1 }}
         aria-label={
           isEmpty
             ? "Items: 0. No items earned yet."
-            : `Items: ${items.length}. Click to view and share.`
+            : hasUnseen
+              ? `New items: ${unseenCount}. Click to view.`
+              : `Items: ${items.length}. Click to view and share.`
         }
         title={
           isEmpty
             ? "No items earned in this town yet"
-            : `${items.length} item${items.length === 1 ? "" : "s"} earned in this town`
+            : hasUnseen
+              ? `${unseenCount} new item${unseenCount === 1 ? "" : "s"} since you last looked`
+              : `${items.length} item${items.length === 1 ? "" : "s"} earned in this town`
         }
       >
-        <span className="text-[12px] font-bold leading-tight text-ink">
-          Items: {items.length}
-        </span>
-      </button>
+        {hasUnseen ? `New items: ${unseenCount}` : `Items: ${items.length}`}
+      </HudButton>
 
       {open ? (
         <ItemsModal
