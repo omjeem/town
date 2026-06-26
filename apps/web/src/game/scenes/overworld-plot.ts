@@ -24,6 +24,7 @@ import { makePlayer, type Tile } from "../entities/player";
 import { attachRemotePlayers } from "../entities/remotePlayer";
 import { getSession, onSessionChange } from "../auth";
 import { ui } from "../../ui/store";
+import { isCinematicLocked, registerWorldBounds } from "../cinematic";
 import { loadPlot, setCachedPlot, subscribePlot } from "../plotClient";
 import {
   getActiveTownSlug,
@@ -313,6 +314,7 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
       const worldH = plot.world.h;
       const worldPxW = worldW * TILE;
       const worldPxH = worldH * TILE;
+      registerWorldBounds({ worldPxW, worldPxH });
 
       // --- Render order: ground → ponds → paths → decor → buildings.
       drawGround(k, worldW, worldH);
@@ -459,10 +461,25 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
       // never reaches past the world edge. The kaplay canvas's own
       // stretch+letterbox handles fitting VIEW_W × VIEW_H to the
       // browser viewport.
+      //
+      // Scale is re-pinned every frame (not just on scene boot) as
+      // defense-in-depth against a Flyover cinematic finishing in a
+      // bad state and leaving the cinematic's wide scale stuck on the
+      // camera. Re-pin to 1.0 the moment the cinematic releases its
+      // lock; the brief tween-end frame the user sees is at the
+      // already-wide cinematic scale, but the next player-follow tick
+      // snaps it back.
       k.setCamScale(1);
       const halfW = VIEW_W / 2;
       const halfH = VIEW_H / 2;
       k.onUpdate(() => {
+        // Cinematic overlays (Flyover) own the camera while active —
+        // bail before re-anchoring so the scripted pan isn't yanked
+        // back to the player every frame.
+        if (isCinematicLocked()) return;
+        // Cheap idempotent write — kaplay no-ops when the value is
+        // already 1, so this is a single number compare per frame.
+        k.setCamScale(1);
         const tx = player.pos.x + TILE / 2;
         const ty = player.pos.y + TILE / 2;
         const cx = Math.max(halfW, Math.min(worldPxW - halfW, tx));

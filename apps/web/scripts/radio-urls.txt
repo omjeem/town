@@ -1,0 +1,11 @@
+# One Pixabay direct-download URL per line, matching the slug order in
+# apps/web/src/ui/town-radio-tracks.ts:
+#
+#   line 1 → midnight-walk.mp3
+#   line 2 → lofi-study.mp3
+#   line 3 → tokyo-cafe.mp3
+#   line 4 → chill-abstract.mp3
+#   line 5 → good-night.mp3
+#
+# Lines beginning with `#` are ignored. Run scripts/fetch-radio.sh after
+# pasting URLs.

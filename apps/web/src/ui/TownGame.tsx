@@ -38,8 +38,10 @@ import { GroupChatPrompt, GroupChatSurface } from "../features/group-chat";
 import { BottomBar } from "./BottomBar";
 import { BuildTownCta } from "./BuildTownCta";
 import { CommunityLinks } from "./CommunityLinks";
+import { Flyover } from "./Flyover";
 import { HudButton } from "./HudButton";
 import { PopulationPopover } from "./PopulationPopover";
+import { TownRadio } from "./TownRadio";
 import { TransitionLoading } from "./TransitionLoading";
 
 // The mount point: a canvas owned by React, populated by kaplay in useEffect,
@@ -222,6 +224,10 @@ export function TownGame(props: TownGameProps = {}) {
         // tabIndex makes the canvas focusable so canvasRef.current.focus()
         // actually lands keyboard focus here when a modal closes.
         tabIndex={0}
+        // data-town-canvas tags the kaplay canvas for the Flyover
+        // overlay to grab via querySelector — saves threading a ref
+        // through the bottom-bar tray to the cinematic surface.
+        data-town-canvas
         className="absolute inset-0 h-full w-full focus:outline-none"
         style={{ imageRendering: "pixelated" }}
       />
@@ -313,14 +319,26 @@ export function TownGame(props: TownGameProps = {}) {
       <GroupChatPrompt />
       <GroupChatSurface />
 
-      {/* "Build your own town" tile — visitor only. Floats just above
-          the BottomBar's left edge so the CTA reads as a peer to the
-          activity row, not buried in a corner card. */}
-      {isVisitor ? (
-        <div className="pointer-events-auto absolute left-3 z-30" style={{ bottom: 40 }}>
-          <BuildTownCta />
-        </div>
-      ) : null}
+      {/* Left-side toolbar that floats just above the BottomBar: the
+          "Build your own town" CTA (visitor only) sits alongside the
+          Town Radio music player and the Flyover intro launcher. One
+          row keeps the left corner readable as a single peer to the
+          activity ticker. */}
+      <div
+        className="pointer-events-auto absolute left-3 z-30 flex items-end gap-2"
+        style={{ bottom: 40 }}
+      >
+        {isVisitor ? <BuildTownCta /> : null}
+        <TownRadio />
+        <FlyoverButton
+          townName={
+            isVisitor
+              ? (props as { townName: string }).townName
+              : null
+          }
+        />
+      </div>
+
 
       {/* Bottom-bar — town activity toggle + rotating ticker + "Town
           from core" attribution. Spans the full width of the screen. */}
@@ -393,6 +411,29 @@ function PopulationBadge({
       </HudButton>
       {open ? <PopulationPopover onClose={() => setOpen(false)} /> : null}
     </div>
+  );
+}
+
+// "▶ Flyover" pill — opens the intro cinematic on click. Owns its own
+// open/close flag instead of plumbing through the ui store so the
+// overlay teardown stays local. Mounted next to TownRadio in the
+// bottom-left toolbar.
+function FlyoverButton({ townName }: { townName: string | null }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <HudButton
+        onClick={() => setOpen(true)}
+        aria-label="Play town flyover"
+        title="Play the town flyover intro"
+        icon={<span aria-hidden className="font-mono text-[10px]">▶</span>}
+      >
+        Flyover
+      </HudButton>
+      {open ? (
+        <Flyover townName={townName} onClose={() => setOpen(false)} />
+      ) : null}
+    </>
   );
 }
 
