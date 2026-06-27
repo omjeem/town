@@ -376,6 +376,17 @@
     --color-ink: var(--ink);
     --color-wall: var(--wall);
     --color-ink-shadow: var(--shadow);
+
+    /* `bt-*` (brutalism-tile) tokens — Tailwind utilities for the dark
+     * floating-pill surface used by Town Radio / Flyover / Hud chips.
+     * Inline-equivalent of the legacy `.nb-card-dark` class; prefer
+     * these utilities in new components so the styling travels with
+     * the markup instead of relying on a global selector. */
+    --color-bt-bg: #0e1116;
+    --color-bt-border: #1a1d22;
+    --shadow-bt: 3px 3px 0 0 rgba(0, 0, 0, 0.45);
+    --shadow-bt-hover: 4px 4px 0 0 rgba(0, 0, 0, 0.5);
+    --shadow-bt-active: 1px 1px 0 0 rgba(0, 0, 0, 0.5);
 }
 
 html,
@@ -435,10 +446,12 @@ body {
         transform 60ms ease-out,
         box-shadow 60ms ease-out;
 }
+
 .nb-card-dark.is-clickable:hover {
     transform: translate(-1px, -1px);
     box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.5);
 }
+
 .nb-card-dark.is-clickable:active {
     transform: translate(1px, 1px);
     box-shadow: 1px 1px 0 0 rgba(0, 0, 0, 0.5);

@@ -38,12 +38,18 @@ export type HudButtonProps = ButtonProps | LinkProps;
 const SHARED =
   "inline-flex h-7 items-center gap-1.5 px-2.5 py-1 text-xs font-bold uppercase tracking-wider leading-none whitespace-nowrap";
 
+// Inline-utility version of the legacy `.nb-card-dark.is-clickable`
+// styles. Uses `bt-*` theme tokens so the bg / border / shadow live
+// in globals.css with the other Town design tokens but the markup
+// doesn't depend on a custom CSS class anymore.
+const PRESS =
+  "border-2 border-bt-border bg-bt-bg shadow-bt transition-[transform,box-shadow] duration-[60ms] ease-out hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-bt-hover active:translate-x-[1px] active:translate-y-[1px] active:shadow-bt-active cursor-pointer";
+
 function styleFor(variant: Variant, active: boolean): string {
-  const press = "nb-card-dark is-clickable";
-  if (variant === "primary") return `${press} text-ink`;
+  if (variant === "primary") return `${PRESS} text-ink`;
   return active
-    ? `${press} text-paper bg-white/10`
-    : `${press} text-paper`;
+    ? `${PRESS} text-paper bg-white/10`
+    : `${PRESS} text-paper`;
 }
 
 function inlineFor(variant: Variant): React.CSSProperties | undefined {

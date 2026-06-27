@@ -41,7 +41,7 @@ export function TownRadio() {
 
   return (
     <div ref={rootRef} className="relative">
-      <div className="nb-card-dark flex h-7 items-stretch overflow-hidden text-paper">
+      <div className="flex h-7 items-stretch overflow-hidden border-2 border-bt-border bg-bt-bg text-paper shadow-bt">
         <button
           type="button"
           onClick={() => radio.toggle()}
@@ -80,7 +80,7 @@ function TrackPopover() {
     <div
       role="dialog"
       aria-label="Town radio playlist"
-      className="nb-card-dark absolute left-0 z-40 mb-2 flex flex-col text-paper"
+      className="absolute left-0 z-40 mb-2 flex flex-col border-2 border-bt-border bg-bt-bg text-paper shadow-bt"
       style={{ bottom: "100%", width: 280 }}
     >
       <div className="flex items-center justify-between gap-2 border-b-2 border-paper/15 px-3 py-2">
