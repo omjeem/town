@@ -1,7 +1,8 @@
 {
+  "id": "cmr603hy8001kpm2hnf0xwd3l",
   "buildings": [
     {
-      "id": "welcome",
+      "id": "home",
       "plotKey": "home",
       "variantId": "home.cottage",
       "label": "The Welcome Room"

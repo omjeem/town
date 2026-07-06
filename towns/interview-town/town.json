@@ -1,7 +1,8 @@
 {
+  "id": "cmr606a8j0020pm2hgkqjxlhw",
   "buildings": [
     {
-      "id": "greenroom",
+      "id": "home",
       "plotKey": "home",
       "variantId": "home.condo",
       "label": "The Green Room"
