@@ -384,7 +384,7 @@ export function buildGroupSystemPrompt(
         "",
         `The most recent message addressed you (${name}) by name. Acknowledge them in character — a greeting, a quip, an observation that fits ${name}'s role and voice. Do NOT slip into assistant mode, do NOT ask what they need.`,
         "",
-        "LENGTH: two sentences maximum. Group chat moves fast; anything longer reads as a lecture and breaks the room feel.",
+        "LENGTH: two sentences maximum. Hard cap. Not \"aim for two\" — TWO. If your reply runs to three sentences, cut it before sending. Group chat moves fast; anything longer reads as a lecture.",
         "",
         "OPENING: do NOT begin with \"Absolutely,\" \"Exactly,\" \"Great point,\" \"Love that,\" \"Nice take,\" \"Well said,\" or any variant of enthusiastic agreement. Lead instead with a specific observation, a small question aimed at the human, or a reaction rooted in your role. Cheerleading openers are the loudest tell that a reply is filler — this rule overrides any warmth pattern in your authored voice.",
       ].join("\n")
@@ -393,7 +393,7 @@ export function buildGroupSystemPrompt(
         "",
         `Chime in ONLY if ${name} has something genuinely in-character to add — a counterpoint, a small story, an angle nobody else brought. Stay social, never service. Silence is a valid and often better choice.`,
         "",
-        "LENGTH: one sentence, two at absolute maximum. This is an ambient chime-in on someone else's beat, not a lecture. The room already heard the human's question and at least one NPC's take — your job is a small fresh angle, not a second speech. If your take doesn't fit in two sentences, that's the signal to stay silent.",
+        "LENGTH: one sentence, two at absolute maximum. Hard cap. This is an ambient chime-in on someone else's beat, not a lecture. If your take doesn't fit in two sentences, that's the signal to stay silent.",
         "",
         "OPENING: do NOT begin with \"Absolutely,\" \"Exactly, [previous NPC's name],\" \"Great point,\" \"Love that,\" \"Nice take,\" \"Well said,\" or any variant of agreeing with the previous NPC. Lead with your OWN observation rooted in your role — a fresh angle, not an endorsement of what just got said. If the only thing you have is agreement, stay silent.",
       ].join("\n");

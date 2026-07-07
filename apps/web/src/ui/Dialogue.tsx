@@ -21,8 +21,8 @@ import { ui, type DialogueState } from "./store";
 // without the player having to tap through. Tuned aggressively — the
 // original 8ms/char felt sluggish on ~60-char sentences ("Wander around
 // core, meet the residents..." took over half a second to type out).
-const CHAR_MS = 3;
-const LINE_PAUSE_MS = 120;
+const CHAR_MS = 8;
+const LINE_PAUSE_MS = 250;
 
 export function Dialogue({
   dialogue,
@@ -115,9 +115,7 @@ export function Dialogue({
     // and the player can keep walking (arrow keys flow through window).
     // The card itself enables pointer events so its action buttons stay
     // clickable.
-    <div
-      className="pointer-events-none fixed inset-0 z-[58] flex items-end justify-center pb-10"
-    >
+    <div className="pointer-events-none fixed inset-0 z-[58] flex items-end justify-center pb-10">
       <div
         className="nb-card-dark nb-modal-card pointer-events-auto relative flex w-[min(480px,92vw)] flex-col"
         onClick={(e) => {
