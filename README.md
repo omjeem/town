@@ -157,6 +157,10 @@ leave with a roast card worth screenshotting.
 
 **→ [Play](https://town.getcore.me/roast-town?invite_code=0MXN93)**
 
+These five are the ones we built — but anyone can publish a town, and plenty
+have. Browse what the community is making, and see who's climbing the ranks, on
+the **[public town leaderboard](https://town.getcore.me/explore)**.
+
 ## Build your own
 
 Once you've poked around a few towns, the natural thought is *"what would mine
@@ -173,6 +177,10 @@ Then send people the link. They can walk around, chat with you directly if
 you're both online, and talk to your characters the same way you talked to the
 ones in CORE Town — except now they're yours. Even when no one's visiting, you
 can hang out with your own characters whenever you feel like it.
+
+When it's ready, **publish it to the [public leaderboard](https://town.getcore.me/explore)**
+— towns are ranked by how alive they are (a mix of energy and how many people
+visit), so a small town people love climbs past a big empty one.
 
 Editing a town is the same as editing a folder. Here's how.
 
