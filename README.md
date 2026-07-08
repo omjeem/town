@@ -61,70 +61,56 @@ We've built five towns you can walk into right now. Each is a different world
 with its own cast of characters — start with CORE Town, then pick whichever bit
 sounds like your kind of fun.
 
+<table>
+<tr>
+<td width="50%" valign="top">
+
 ### 🔪 Murder Mystery Town
 
-<p align="center">
-  <!-- IMAGE: overworld of Murder Mystery Town — The Manor, The Precinct, The Cake Shop, The Newsroom, The Records Room, The Coroner's Lab, The Boxing Club — moody, foggy, noir vibe. A shot of interrogating a suspect works too. -->
-  <img width="3018" height="1652" alt="murder-mystery-town" src="https://github.com/user-attachments/assets/3fbaf19d-b094-424b-9baa-b2bedbcb4e8c" />
-</p>
+<img width="100%" alt="murder-mystery-town" src="https://github.com/user-attachments/assets/3fbaf19d-b094-424b-9baa-b2bedbcb4e8c" />
 
-A real whodunit. Iris Bell is dead in an alley, less than twelve hours cold,
-and you're the visiting detective. Detective Reeve briefs you at **The
-Precinct**, then it's on you: work the estranged mother at **The Manor**, the
-nervous baker at **The Cake Shop**, the reporter at **The Newsroom**, the
-records clerk, the coroner, and the ex-fiancé at **The Boxing Club**. Every
-character knows one piece of the truth — and each has something to hide. Catch
-someone in a contradiction, figure out who killed Iris, and report back to
-Reeve to close the case and earn a **Case Closed** card.
+A real whodunit. Iris Bell is dead in an alley, less than twelve hours cold, and you're the visiting detective. Detective Reeve briefs you at **The Precinct**, then it's on you: work the estranged mother at **The Manor**, the nervous baker at **The Cake Shop**, the reporter at **The Newsroom**, the records clerk, the coroner, and the ex-fiancé at **The Boxing Club**. Every character knows one piece of the truth — and each has something to hide. Catch someone in a contradiction, figure out who killed Iris, and report back to Reeve to close the case and earn a **Case Closed** card.
 
 **→ [Play](https://town.getcore.me/murder-mystery?invite_code=S85S24)**
 
+</td>
+<td width="50%" valign="top">
+
 ### 🚀 AI Startup Town
 
-<p align="center">
-  <!-- IMAGE: overworld of AI Startup Town, or a shot of a cofounder (e.g. Paul Graham at the Loft, Garry at the Brand Studio) with a Google Doc deck being written live. -->
-  <img width="3014" height="1662" alt="ai-startup-town" src="https://github.com/user-attachments/assets/e5723f44-2763-429c-ae5d-fc027b5ee07d" />
-</p>
+<img width="100%" alt="ai-startup-town" src="https://github.com/user-attachments/assets/e5723f44-2763-429c-ae5d-fc027b5ee07d" />
 
-Get in a room with AI avatars of famous investors — Paul Graham, Garry Tan,
-Michael Seibel, Dalton Caldwell, and more. Pitch your idea, stress-test your
-plan, or just talk through whatever's on your mind about your startup. Each one
-brings a different lens (founder story, product, traction, distribution), so you
-can wander from partner to partner and get the whole board's take.
+Get in a room with AI avatars of famous investors — Paul Graham, Garry Tan, Michael Seibel, Dalton Caldwell, and more. Pitch your idea, stress-test your plan, or just talk through whatever's on your mind about your startup. Each one brings a different lens (founder story, product, traction, distribution), so you can wander from partner to partner and get the whole board's take.
 
 **→ [Play](https://town.getcore.me/startup?invite_code=7EQMH0)**
 
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
 ### 🎙️ Interview Town
 
-<p align="center">
-  <!-- IMAGE: overworld of Interview Town — The Green Room, Radio Booth, Confessional, Systems Room, Coding Bay, Case Room, Portico — or a scorecard reveal. -->
-  <img width="3010" height="1660" alt="interview-town" src="https://github.com/user-attachments/assets/c59eafbc-2e45-4d2d-b80d-825636e422c0" />
-</p>
+<img width="100%" alt="interview-town" src="https://github.com/user-attachments/assets/c59eafbc-2e45-4d2d-b80d-825636e422c0" />
 
-Your mock-interview practice ground. AI interviewers help you prep for a role —
-tell them the job you're going for and they'll put you through it, each with a
-different style and focus: system design with Alex Xu, the coding round with
-Gayle McDowell, a McKinsey-style case with Victor Cheng, or a tough on-camera
-grilling with Piers Morgan. They look up your real **LinkedIn or GitHub** first,
-then interview you and hand you a **scorecard** so you know where you stand.
+Your mock-interview practice ground. AI interviewers help you prep for a role — tell them the job you're going for and they'll put you through it, each with a different style and focus: system design with Alex Xu, the coding round with Gayle McDowell, a McKinsey-style case with Victor Cheng, or a tough on-camera grilling with Piers Morgan. They look up your real **LinkedIn or GitHub** first, then interview you and hand you a **scorecard** so you know where you stand.
 
 **→ [Play](https://town.getcore.me/interview?invite_code=E9VXZ9)**
 
+</td>
+<td width="50%" valign="top">
+
 ### 🔥 Roast Town
 
-<p align="center">
-  <!-- IMAGE: overworld of Roast Town — HQ, Burn Dojo, Clap-Back Bar, Pitch Room, Design Studio, Culture Corner, Dev Den — or a roast card / battle card render. -->
-  <img width="3014" height="1656" alt="roast-town" src="https://github.com/user-attachments/assets/18764363-cf2d-46ae-8d75-c9810b7a44df" />
-</p>
+<img width="100%" alt="roast-town" src="https://github.com/user-attachments/assets/18764363-cf2d-46ae-8d75-c9810b7a44df" />
 
-A fun place to show off — or sharpen — your roast skills by trading burns with
-AI avatars. Smoky asks what you brought to be roasted, then sends you to the
-right room: Sensei Slim coaches your burns at the **Burn Dojo**, Vinny takes you
-on in a live roast battle at the **Clap-Back Bar**, jaded VC Chad Ventures roasts
-your pitch, and 10x-dev Rex tears apart your stack. Give as good as you get and
-leave with a roast card worth screenshotting.
+A fun place to show off — or sharpen — your roast skills by trading burns with AI avatars. Smoky asks what you brought to be roasted, then sends you to the right room: Sensei Slim coaches your burns at the **Burn Dojo**, Vinny takes you on in a live roast battle at the **Clap-Back Bar**, jaded VC Chad Ventures roasts your pitch, and 10x-dev Rex tears apart your stack. Give as good as you get and leave with a roast card worth screenshotting.
 
 **→ [Play](https://town.getcore.me/roast-town?invite_code=0MXN93)**
+
+</td>
+</tr>
+</table>
 
 These five are the ones we built — but anyone can publish a town, and plenty
 have. Browse what the community is making, and see who's climbing the ranks, on
