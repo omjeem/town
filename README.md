@@ -2,7 +2,7 @@
   <img src="apps/web/public/town_logo_light.svg" alt="town" width="120" />
 </p>
 
-<h1 align="center">town</h1>
+<h1 align="center">Town</h1>
 
 <p align="center"><em>Your world, as a tiny pixel town that grows itself.</em></p>
 
@@ -10,19 +10,7 @@
   <img src="docs/assets/screenshot-tenkai.png" alt="An overworld screenshot of a town named Tenkai — three buildings nestled in a dense forest, signpost reading 'Tenkai · Harshith Mullapudi · 2 miles'." width="780" />
 </p>
 
-Town is a tiny pixel world you can walk around in — part hangout, part game,
-part place you build yourself. Every building has someone living in it: a
-bartender who actually listens, a YC partner who picks apart your pitch, a
-detective who's already decided you did it. They're not chatbots reading a
-script — they stay in character, react to what you actually say, and can *do*
-real things, because each one runs on tools from [CORE](https://app.getcore.me).
 
-Rendered with [kaplay](https://kaplayjs.com). Top-down, browser-native, and
-deterministic from a seed, so your town stays *your* town across logins.
-
-> **Take a tour.** Wander the public CORE town —
-> <https://town.getcore.me/core-town?invite_code=H4C0TZ>. No signup, no
-> install; arrow keys to move, **SPACE** at a local to chat.
 
 ---
 
@@ -50,7 +38,7 @@ into each other, or just see who else is around.
   <sub>Two visitors crossing paths in the overworld — population counter top right, chat bubble open.</sub>
 </p>
 
-#### Talk to the characters
+#### Talk to the AI characters
 
 Walk up to a building, press **SPACE**, and talk to whoever lives there. They
 react to what you actually say, not a script — and a few of them hand you
@@ -73,30 +61,11 @@ We've built five towns you can walk into right now. Each is a different world
 with its own cast of characters — start with CORE Town, then pick whichever bit
 sounds like your kind of fun.
 
-### 🏙️ CORE Town — the flagship
-
-<p align="center">
-  <!-- IMAGE: overworld map of CORE Town showing its seven buildings — Core HQ, YC House, The Last Call, Alien Embassy, Detective Office, Roast Stage, Trial of You — nestled in forest with the town signpost. The hero shot for the whole project. -->
-  <img src="docs/assets/towns/core-town.png" alt="Overworld map of CORE Town and its seven buildings." width="780" />
-</p>
-
-One town that shows off everything a town can be. Seven wildly different rooms
-under one roof: pitch your startup to Garry at **YC House**, explain an Earth
-custom to Ambassador Xelos at the **Alien Embassy**, stand trial for your
-digital sins at the **Trial of You**, get worked over by a noir detective at
-the **Detective Office**, get roasted on the **Roast Stage**, or just sit at
-**The Last Call** and let Sera the bartender listen. You can even meet the real
-people building CORE at **Core HQ**. Walk out with collectible tags — YC
-Applicant, First Contact, Convicted, Roasted, Person of Interest.
-
-**→ [Take the tour](https://town.getcore.me/core-town?invite_code=H4C0TZ)** ·
-no signup, arrow keys to move, **SPACE** to talk. Best place to start.
-
 ### 🔪 Murder Mystery Town
 
 <p align="center">
   <!-- IMAGE: overworld of Murder Mystery Town — The Manor, The Precinct, The Cake Shop, The Newsroom, The Records Room, The Coroner's Lab, The Boxing Club — moody, foggy, noir vibe. A shot of interrogating a suspect works too. -->
-  <img src="docs/assets/towns/murder-mystery-town.png" alt="Overworld map of Murder Mystery Town and its seven locations." width="780" />
+  <img width="3018" height="1652" alt="murder-mystery-town" src="https://github.com/user-attachments/assets/3fbaf19d-b094-424b-9baa-b2bedbcb4e8c" />
 </p>
 
 A real whodunit. Iris Bell is dead in an alley, less than twelve hours cold,
@@ -114,7 +83,7 @@ Reeve to close the case and earn a **Case Closed** card.
 
 <p align="center">
   <!-- IMAGE: overworld of AI Startup Town, or a shot of a cofounder (e.g. Paul Graham at the Loft, Garry at the Brand Studio) with a Google Doc deck being written live. -->
-  <img src="docs/assets/towns/ai-startup-town.png" alt="Overworld map of AI Startup Town." width="780" />
+  <img width="3014" height="1662" alt="ai-startup-town" src="https://github.com/user-attachments/assets/e5723f44-2763-429c-ae5d-fc027b5ee07d" />
 </p>
 
 Get in a room with AI avatars of famous investors — Paul Graham, Garry Tan,
@@ -129,7 +98,7 @@ can wander from partner to partner and get the whole board's take.
 
 <p align="center">
   <!-- IMAGE: overworld of Interview Town — The Green Room, Radio Booth, Confessional, Systems Room, Coding Bay, Case Room, Portico — or a scorecard reveal. -->
-  <img src="docs/assets/towns/interview-town.png" alt="Overworld map of Interview Town." width="780" />
+  <img width="3010" height="1660" alt="interview-town" src="https://github.com/user-attachments/assets/c59eafbc-2e45-4d2d-b80d-825636e422c0" />
 </p>
 
 Your mock-interview practice ground. AI interviewers help you prep for a role —
@@ -145,7 +114,7 @@ then interview you and hand you a **scorecard** so you know where you stand.
 
 <p align="center">
   <!-- IMAGE: overworld of Roast Town — HQ, Burn Dojo, Clap-Back Bar, Pitch Room, Design Studio, Culture Corner, Dev Den — or a roast card / battle card render. -->
-  <img src="docs/assets/towns/roast-town.png" alt="Overworld map of Roast Town." width="780" />
+  <img width="3014" height="1656" alt="roast-town" src="https://github.com/user-attachments/assets/18764363-cf2d-46ae-8d75-c9810b7a44df" />
 </p>
 
 A fun place to show off — or sharpen — your roast skills by trading burns with
@@ -160,6 +129,25 @@ leave with a roast card worth screenshotting.
 These five are the ones we built — but anyone can publish a town, and plenty
 have. Browse what the community is making, and see who's climbing the ranks, on
 the **[public town leaderboard](https://town.getcore.me/explore)**.
+
+### 🏙️ CORE Town
+
+<p align="center">
+  <!-- IMAGE: overworld map of CORE Town showing its seven buildings — Core HQ, YC House, The Last Call, Alien Embassy, Detective Office, Roast Stage, Trial of You — nestled in forest with the town signpost. The hero shot for the whole project. -->
+  <img width="3016" height="1650" alt="core-town" src="https://github.com/user-attachments/assets/47fd2ad8-79d3-4779-8a76-4ba0382877ff" />
+</p>
+
+One town that shows off everything a town can be. Seven wildly different rooms
+under one roof: pitch your startup to Garry at **YC House**, explain an Earth
+custom to Ambassador Xelos at the **Alien Embassy**, stand trial for your
+digital sins at the **Trial of You**, get worked over by a noir detective at
+the **Detective Office**, get roasted on the **Roast Stage**, or just sit at
+**The Last Call** and let Sera the bartender listen. You can even meet the real
+people building CORE at **Core HQ**. Walk out with collectible tags — YC
+Applicant, First Contact, Convicted, Roasted, Person of Interest.
+
+**→ [Take the tour](https://town.getcore.me/core-town?invite_code=H4C0TZ)** ·
+no signup, arrow keys to move, **SPACE** to talk. Best place to start.
 
 ## Build your own
 
