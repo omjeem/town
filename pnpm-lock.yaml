@@ -26,6 +26,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^3.0.71
         version: 3.0.71(zod@3.25.76)
+      '@ai-sdk/openai-compatible':
+        specifier: ^2.0.57
+        version: 2.0.57(zod@3.25.76)
       '@ai-sdk/react':
         specifier: ^3.0.207
         version: 3.0.207(react@19.2.4)(zod@3.25.76)
@@ -247,6 +250,12 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/openai-compatible@2.0.57':
+    resolution: {integrity: sha512-Qt4GfVxKT70YxlDHJeHQ72pO4+Dj8lPGB76+4dENHOrTZp7L24eRIo9mljOLXU8WFZf0uv49bF6CfLnefHMPiw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/openai@3.0.71':
     resolution: {integrity: sha512-j6eBAa5oHFZ4U5CxpIV3T4zXNM/BviodNCZCL1qHkA4aqkwK9iQ18TWYz2DZcXpw4BO5pikKzqpXORxb1EnZGA==}
     engines: {node: '>=18'}
@@ -259,8 +268,18 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/provider-utils@4.0.36':
+    resolution: {integrity: sha512-hy0V+eyKcYyjmIxdcSh1jvy4+zNC7DbP0/V45jkRmfVnz+lI6GslT0qsd0V/bfJKo/A+P2t1tYFypTQJdOH1Sg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/provider@3.0.10':
     resolution: {integrity: sha512-Q3BZ27qfpYqnCYGvE3vt+Qi6LGOF9R5Nmzn+9JoM1lCRsD9mYaIhfJLkSunN48nfGXJ6n+XNV0J/XVpqGQl7Dw==}
+    engines: {node: '>=18'}
+
+  '@ai-sdk/provider@3.0.13':
+    resolution: {integrity: sha512-ZPtVYt5QIJzOta1kdUiDuCx4HhFkvNPv/rvmZ2b1iXwybYjJsCnNYR4PAw4kW7rgVfDARvHXcU64efWuqNp6bw==}
     engines: {node: '>=18'}
 
   '@ai-sdk/react@3.0.207':
@@ -2321,6 +2340,12 @@ snapshots:
       '@vercel/oidc': 3.2.0
       zod: 3.25.76
 
+  '@ai-sdk/openai-compatible@2.0.57(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.13
+      '@ai-sdk/provider-utils': 4.0.36(zod@3.25.76)
+      zod: 3.25.76
+
   '@ai-sdk/openai@3.0.71(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
@@ -2334,7 +2359,18 @@ snapshots:
       eventsource-parser: 3.1.0
       zod: 3.25.76
 
+  '@ai-sdk/provider-utils@4.0.36(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.13
+      '@standard-schema/spec': 1.1.0
+      eventsource-parser: 3.1.0
+      zod: 3.25.76
+
   '@ai-sdk/provider@3.0.10':
+    dependencies:
+      json-schema: 0.4.0
+
+  '@ai-sdk/provider@3.0.13':
     dependencies:
       json-schema: 0.4.0
 
