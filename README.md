@@ -65,6 +65,17 @@ sounds like your kind of fun.
 <tr>
 <td width="50%" valign="top">
 
+### 🏙️ CORE Town
+
+<img width="100%" alt="core-town" src="https://github.com/user-attachments/assets/47fd2ad8-79d3-4779-8a76-4ba0382877ff" />
+
+One town that shows off everything a town can be. Seven wildly different rooms under one roof: pitch your startup to Garry at **YC House**, explain an Earth custom to Ambassador Xelos at the **Alien Embassy**, stand trial for your digital sins at the **Trial of You**, get worked over by a noir detective at the **Detective Office**, get roasted on the **Roast Stage**, or just sit at **The Last Call** and let Sera the bartender listen. You can even meet the real people building CORE at **Core HQ**. Walk out with collectible tags — YC Applicant, First Contact, Convicted, Roasted, Person of Interest.
+
+**→ [Take the tour](https://town.getcore.me/core-town?invite_code=H4C0TZ)** · no signup, arrow keys to move, **SPACE** to talk. Best place to start.
+
+</td>
+<td width="50%" valign="top">
+
 ### 🔪 Murder Mystery Town
 
 <img width="100%" alt="murder-mystery-town" src="https://github.com/user-attachments/assets/3fbaf19d-b094-424b-9baa-b2bedbcb4e8c" />
@@ -74,6 +85,8 @@ A real whodunit. Iris Bell is dead in an alley, less than twelve hours cold, and
 **→ [Play](https://town.getcore.me/murder-mystery?invite_code=S85S24)**
 
 </td>
+</tr>
+<tr>
 <td width="50%" valign="top">
 
 ### 🚀 AI Startup Town
@@ -85,8 +98,6 @@ Get in a room with AI avatars of famous investors — Paul Graham, Garry Tan, Mi
 **→ [Play](https://town.getcore.me/startup?invite_code=7EQMH0)**
 
 </td>
-</tr>
-<tr>
 <td width="50%" valign="top">
 
 ### 🎙️ Interview Town
@@ -98,6 +109,8 @@ Your mock-interview practice ground. AI interviewers help you prep for a role �
 **→ [Play](https://town.getcore.me/interview?invite_code=E9VXZ9)**
 
 </td>
+</tr>
+<tr>
 <td width="50%" valign="top">
 
 ### 🔥 Roast Town
@@ -109,31 +122,17 @@ A fun place to show off — or sharpen — your roast skills by trading burns wi
 **→ [Play](https://town.getcore.me/roast-town?invite_code=0MXN93)**
 
 </td>
+<td width="50%" valign="top">
+
+### 🌍 Explore more
+
+Anyone can publish a town, and plenty have. Browse every town the community is making, ranked by how alive they are (a mix of energy and how many people visit) — so a small town people love climbs past a big empty one.
+
+**→ [Public town leaderboard](https://town.getcore.me/explore)**
+
+</td>
 </tr>
 </table>
-
-These five are the ones we built — but anyone can publish a town, and plenty
-have. Browse what the community is making, and see who's climbing the ranks, on
-the **[public town leaderboard](https://town.getcore.me/explore)**.
-
-### 🏙️ CORE Town
-
-<p align="center">
-  <!-- IMAGE: overworld map of CORE Town showing its seven buildings — Core HQ, YC House, The Last Call, Alien Embassy, Detective Office, Roast Stage, Trial of You — nestled in forest with the town signpost. The hero shot for the whole project. -->
-  <img width="3016" height="1650" alt="core-town" src="https://github.com/user-attachments/assets/47fd2ad8-79d3-4779-8a76-4ba0382877ff" />
-</p>
-
-One town that shows off everything a town can be. Seven wildly different rooms
-under one roof: pitch your startup to Garry at **YC House**, explain an Earth
-custom to Ambassador Xelos at the **Alien Embassy**, stand trial for your
-digital sins at the **Trial of You**, get worked over by a noir detective at
-the **Detective Office**, get roasted on the **Roast Stage**, or just sit at
-**The Last Call** and let Sera the bartender listen. You can even meet the real
-people building CORE at **Core HQ**. Walk out with collectible tags — YC
-Applicant, First Contact, Convicted, Roasted, Person of Interest.
-
-**→ [Take the tour](https://town.getcore.me/core-town?invite_code=H4C0TZ)** ·
-no signup, arrow keys to move, **SPACE** to talk. Best place to start.
 
 ## Build your own
 
