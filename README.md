@@ -10,15 +10,15 @@
   <img src="docs/assets/screenshot-tenkai.png" alt="An overworld screenshot of a town named Tenkai — three buildings nestled in a dense forest, signpost reading 'Tenkai · Harshith Mullapudi · 2 miles'." width="780" />
 </p>
 
-Town is a tiny pixel game you can build and share. It has buildings and AI
-characters with whom anyone can talk to. 
-You can invite someone else to your own town who can browse these
-buildings, talk to AI characters or you can chat with them or even end up in
-a shared group chat where the AI characters jump in as well.
+Town is a tiny pixel world you can walk around in — part hangout, part game,
+part place you build yourself. Every building has someone living in it: a
+bartender who actually listens, a YC partner who picks apart your pitch, a
+detective who's already decided you did it. They're not chatbots reading a
+script — they stay in character, react to what you actually say, and can *do*
+real things, because each one runs on tools from [CORE](https://app.getcore.me).
 
-Powered by [CORE](https://app.getcore.me). Rendered with
-[kaplay](https://kaplayjs.com). Top-down, browser-native, deterministic from a
-seed so your town stays *your* town across logins.
+Rendered with [kaplay](https://kaplayjs.com). Top-down, browser-native, and
+deterministic from a seed, so your town stays *your* town across logins.
 
 > **Take a tour.** Wander the public CORE town —
 > <https://town.getcore.me/core-town?invite_code=H4C0TZ>. No signup, no
@@ -26,9 +26,21 @@ seed so your town stays *your* town across logins.
 
 ---
 
-## See it in action
+## What is Town
 
-#### Chat with others
+A town is a small map of buildings, and every building is its own little
+experience with an AI character inside it. What each character *is* comes from
+two things: a **personality** — how they talk, what they care about, their
+backstory — and a **skillset**, the [CORE](https://app.getcore.me) tools their
+author handed them. Give a character web search and they'll look you up before
+they talk. Give them memory and they'll remember you next time. Give them a
+Google Docs tool and they'll write a real document with you. Personality makes
+them fun to talk to; the tools make them able to actually *do* something about
+it.
+
+And it's not a solo experience.
+
+#### Wander with friends
 
 Friends show up live, walking around the same town you're in — wave, bump
 into each other, or just see who else is around.
@@ -38,48 +50,137 @@ into each other, or just see who else is around.
   <sub>Two visitors crossing paths in the overworld — population counter top right, chat bubble open.</sub>
 </p>
 
-#### Chat with AI characters
+#### Talk to the characters
 
-Walk up to a building and talk to whoever lives there — they react to what
-you actually say, not a script.
+Walk up to a building, press **SPACE**, and talk to whoever lives there. They
+react to what you actually say, not a script — and a few of them hand you
+something to keep at the end of a good conversation.
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/9bc9a494-1316-49f3-8e05-e6d013511be1" alt="Talking to Garry inside YC House." width="480" /><br />
   <sub>Pitching a startup idea to Garry inside YC House.</sub>
 </p>
 
-Every room is its own little experience, the characters react to what you
-actually say, and a few of them give you something to keep at the end of a
-good conversation.
+#### Jump into a group chat
+
+Step into a building with other people, press **G**, and everyone in the room
+— humans and AI characters alike — shares one chat. The characters jump in on
+their own, so a quiet room turns into a scene.
+
+## Explore the towns
+
+We've built five towns you can walk into right now. Each is a different world
+with its own cast of characters — start with CORE Town, then pick whichever bit
+sounds like your kind of fun.
+
+### 🏙️ CORE Town — the flagship
+
+<p align="center">
+  <!-- IMAGE: overworld map of CORE Town showing its seven buildings — Core HQ, YC House, The Last Call, Alien Embassy, Detective Office, Roast Stage, Trial of You — nestled in forest with the town signpost. The hero shot for the whole project. -->
+  <img src="docs/assets/towns/core-town.png" alt="Overworld map of CORE Town and its seven buildings." width="780" />
+</p>
+
+One town that shows off everything a town can be. Seven wildly different rooms
+under one roof: pitch your startup to Garry at **YC House**, explain an Earth
+custom to Ambassador Xelos at the **Alien Embassy**, stand trial for your
+digital sins at the **Trial of You**, get worked over by a noir detective at
+the **Detective Office**, get roasted on the **Roast Stage**, or just sit at
+**The Last Call** and let Sera the bartender listen. You can even meet the real
+people building CORE at **Core HQ**. Walk out with collectible tags — YC
+Applicant, First Contact, Convicted, Roasted, Person of Interest.
+
+**→ [Take the tour](https://town.getcore.me/core-town?invite_code=H4C0TZ)** ·
+no signup, arrow keys to move, **SPACE** to talk. Best place to start.
+
+### 🔪 Murder Mystery Town
+
+<p align="center">
+  <!-- IMAGE: overworld of Murder Mystery Town — The Manor, The Precinct, The Cake Shop, The Newsroom, The Records Room, The Coroner's Lab, The Boxing Club — moody, foggy, noir vibe. A shot of interrogating a suspect works too. -->
+  <img src="docs/assets/towns/murder-mystery-town.png" alt="Overworld map of Murder Mystery Town and its seven locations." width="780" />
+</p>
+
+A real whodunit. Iris Bell is dead in an alley, less than twelve hours cold,
+and you're the visiting detective. Detective Reeve briefs you at **The
+Precinct**, then it's on you: work the estranged mother at **The Manor**, the
+nervous baker at **The Cake Shop**, the reporter at **The Newsroom**, the
+records clerk, the coroner, and the ex-fiancé at **The Boxing Club**. Every
+character knows one piece of the truth — and each has something to hide. Catch
+someone in a contradiction, figure out who killed Iris, and report back to
+Reeve to close the case and earn a **Case Closed** card.
+
+**→ [Play](https://town.getcore.me/murder-mystery?invite_code=S85S24)**
+
+### 🚀 AI Startup Town
+
+<p align="center">
+  <!-- IMAGE: overworld of AI Startup Town, or a shot of a cofounder (e.g. Paul Graham at the Loft, Garry at the Brand Studio) with a Google Doc deck being written live. -->
+  <img src="docs/assets/towns/ai-startup-town.png" alt="Overworld map of AI Startup Town." width="780" />
+</p>
+
+Get in a room with AI avatars of famous investors — Paul Graham, Garry Tan,
+Michael Seibel, Dalton Caldwell, and more. Pitch your idea, stress-test your
+plan, or just talk through whatever's on your mind about your startup. Each one
+brings a different lens (founder story, product, traction, distribution), so you
+can wander from partner to partner and get the whole board's take.
+
+**→ [Play](https://town.getcore.me/startup?invite_code=7EQMH0)**
+
+### 🎙️ Interview Town
+
+<p align="center">
+  <!-- IMAGE: overworld of Interview Town — The Green Room, Radio Booth, Confessional, Systems Room, Coding Bay, Case Room, Portico — or a scorecard reveal. -->
+  <img src="docs/assets/towns/interview-town.png" alt="Overworld map of Interview Town." width="780" />
+</p>
+
+Your mock-interview practice ground. AI interviewers help you prep for a role —
+tell them the job you're going for and they'll put you through it, each with a
+different style and focus: system design with Alex Xu, the coding round with
+Gayle McDowell, a McKinsey-style case with Victor Cheng, or a tough on-camera
+grilling with Piers Morgan. They look up your real **LinkedIn or GitHub** first,
+then interview you and hand you a **scorecard** so you know where you stand.
+
+**→ [Play](https://town.getcore.me/interview?invite_code=E9VXZ9)**
+
+### 🔥 Roast Town
+
+<p align="center">
+  <!-- IMAGE: overworld of Roast Town — HQ, Burn Dojo, Clap-Back Bar, Pitch Room, Design Studio, Culture Corner, Dev Den — or a roast card / battle card render. -->
+  <img src="docs/assets/towns/roast-town.png" alt="Overworld map of Roast Town." width="780" />
+</p>
+
+A fun place to show off — or sharpen — your roast skills by trading burns with
+AI avatars. Smoky asks what you brought to be roasted, then sends you to the
+right room: Sensei Slim coaches your burns at the **Burn Dojo**, Vinny takes you
+on in a live roast battle at the **Clap-Back Bar**, jaded VC Chad Ventures roasts
+your pitch, and 10x-dev Rex tears apart your stack. Give as good as you get and
+leave with a roast card worth screenshotting.
+
+**→ [Play](https://town.getcore.me/roast-town?invite_code=0MXN93)**
 
 ## Build your own
 
-Once you've poked around CORE-Town, the natural thing to think is "what
-would mine look like?" And you can just go build that — your own buildings,
-your own AI characters, written however you want, based on whatever's
-actually going on in your life or work. And it's not just for you — you can
-invite other people to come visit. They can walk around and chat with you
-directly if you're both online, and they can also talk to your AI
-characters, the same way you talked to the ones in CORE-Town, except now
-they're yours. Even when no one's visiting, you can chat with your own
-characters whenever you feel like it, just for fun.
+Once you've poked around a few towns, the natural thought is *"what would mine
+look like?"* — and you can just go build it. Your own buildings, your own
+characters, written however you want, around whatever's actually going on in
+your life or work:
 
-What could your town even be?
+- **Your actual life** — a gym with a coach who knows your training streak, a library with a critic who knows what you've been reading.
+- **A side project or startup** — your own pitch room, where visitors get grilled by an investor-style character.
+- **A hobby** — a record store run by someone who only wants to talk music.
+- **Just something fun** — a trial room, a roast stage, whatever bit you want.
 
-- Your actual life — a gym building with a coach character who knows your training streak, a library with a critic who knows what you've been reading.
-- A side project or startup — your own version of the pitch room, where visitors get grilled by an investor-style character.
-- A hobby — a record store run by a character who only wants to talk music.
-- Just something fun — your own trial room, roast stage, whatever bit you want to build, the same way CORE-Town did it.
+Then send people the link. They can walk around, chat with you directly if
+you're both online, and talk to your characters the same way you talked to the
+ones in CORE Town — except now they're yours. Even when no one's visiting, you
+can hang out with your own characters whenever you feel like it.
 
-Whatever you go with, the idea is simple: build something with a bit of
-personality in it, then send people the link and let them actually walk
-around in it instead of just reading about you.
+Editing a town is the same as editing a folder. Here's how.
 
 ---
 
 ## Make it yours
 
-Editing a town is the same as editing a folder. Three steps.
+You edit JSON and MDX in a folder; the server owns the layout. Three steps.
 
 ### 1. Log in
 
