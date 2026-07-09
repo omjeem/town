@@ -22,10 +22,13 @@ export interface TownConfig {
    *  win over these — the config is a convenience so users don't have
    *  to export a key in every shell. File is chmod 0600. */
   llm?: {
-    /** Which provider to use when both keys are set. Optional. */
-    provider?: "anthropic" | "openai";
+    /** Which provider to use when more than one key is set. Optional. */
+    provider?: "anthropic" | "openai" | "ollama";
     anthropicKey?: string;
     openaiKey?: string;
+    /** Ollama Cloud key. Local daemons need no key — point OLLAMA_BASE_URL
+     *  at them via the shell env instead. */
+    ollamaKey?: string;
   };
 }
 
@@ -41,6 +44,9 @@ export function hydrateEnvFromConfig(): void {
   if (cfg.llm.openaiKey && !process.env.OPENAI_API_KEY) {
     process.env.OPENAI_API_KEY = cfg.llm.openaiKey;
   }
+  if (cfg.llm.ollamaKey && !process.env.OLLAMA_API_KEY) {
+    process.env.OLLAMA_API_KEY = cfg.llm.ollamaKey;
+  }
   if (cfg.llm.provider && !process.env.LLM_PROVIDER) {
     process.env.LLM_PROVIDER = cfg.llm.provider;
   }
@@ -49,12 +55,13 @@ export function hydrateEnvFromConfig(): void {
 /** Persist a key for the given provider, and set it as the preferred
  *  provider so a subsequent call picks it up without an env override. */
 export function setLlmKey(
-  provider: "anthropic" | "openai",
+  provider: "anthropic" | "openai" | "ollama",
   key: string,
 ): TownConfig {
   const next = getConfig();
   const llm = { ...(next.llm ?? {}) };
   if (provider === "anthropic") llm.anthropicKey = key;
+  else if (provider === "ollama") llm.ollamaKey = key;
   else llm.openaiKey = key;
   llm.provider = provider;
   return updateConfig({ llm });
