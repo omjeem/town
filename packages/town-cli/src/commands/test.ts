@@ -82,6 +82,7 @@ function pickModel(overrideId?: string): { model: LanguageModel; label: string }
             name: "ollama",
             baseURL: process.env.OLLAMA_BASE_URL ?? DEFAULT_OLLAMA_BASE_URL,
             apiKey: process.env.OLLAMA_API_KEY,
+            includeUsage: true,
           })(id);
   return { model, label: `${provider}:${id}` };
 }
