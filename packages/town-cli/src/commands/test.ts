@@ -2,16 +2,17 @@
 //
 // Subcommands:
 //   town test set-key <provider> <key>   Persist an LLM key to ~/.town/config.json.
-//                                        provider ∈ {anthropic, openai}.
+//                                        provider ∈ {anthropic, openai, ollama}.
 //   town test npc <mdxPath> [flags]      Test one NPC's prompt against a
 //                                        realistic conversation. Multi-turn
 //                                        history persists in --session files;
 //                                        edit the MDX between calls and the
 //                                        next reply uses the new prompt.
 //
-// LLM resolution: env wins over ~/.town/config.json. Both providers can be
+// LLM resolution: env wins over ~/.town/config.json. Any provider can be
 // configured; --model overrides the default id. Model defaults match the
-// production /api/npc-chat wrapping (claude-haiku-4-5-20251001 / gpt-4o-mini).
+// production /api/npc-chat wrapping (claude-haiku-4-5-20251001 / gpt-4o-mini / gpt-oss:120b-cloud). 
+// Ollama targets Ollama Cloud by default; set OLLAMA_BASE_URL to use a local daemon (no key needed).
 
 import { Command } from "commander";
 import chalk from "chalk";
@@ -26,6 +27,7 @@ import { createInterface } from "node:readline";
 
 import { anthropic } from "@ai-sdk/anthropic";
 import { openai } from "@ai-sdk/openai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { streamText, type LanguageModel } from "ai";
 import matter from "gray-matter";
 
@@ -37,31 +39,50 @@ import {
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
+const DEFAULT_OLLAMA_MODEL = "gpt-oss:120b-cloud";
+const DEFAULT_OLLAMA_BASE_URL = "https://ollama.com/v1";
 
 // ─── model resolution ─────────────────────────────────────────────────
 function pickModel(overrideId?: string): { model: LanguageModel; label: string } {
   const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
   const hasOpenAI = !!process.env.OPENAI_API_KEY;
+  // Ollama: a cloud key, or OLLAMA_BASE_URL pointing at a local daemon.
+  const hasOllama = !!process.env.OLLAMA_API_KEY || !!process.env.OLLAMA_BASE_URL;
   const explicit = (process.env.LLM_PROVIDER ?? "").toLowerCase().trim();
 
-  let provider: "anthropic" | "openai" | null = null;
+  let provider: "anthropic" | "openai" | "ollama" | null = null;
   if (explicit === "anthropic" && hasAnthropic) provider = "anthropic";
   else if (explicit === "openai" && hasOpenAI) provider = "openai";
+  else if (explicit === "ollama" && hasOllama) provider = "ollama";
   else if (hasAnthropic) provider = "anthropic";
   else if (hasOpenAI) provider = "openai";
+  else if (hasOllama) provider = "ollama";
 
   if (!provider) {
     throw new Error(
       "No LLM key found. Set it once with " +
         chalk.cyan("`town test set-key <provider> <key>`") +
-        " (provider ∈ anthropic|openai) or export " +
-        "ANTHROPIC_API_KEY / OPENAI_API_KEY in this shell.",
+        " (provider ∈ anthropic|openai|ollama) or export " +
+        "ANTHROPIC_API_KEY / OPENAI_API_KEY / OLLAMA_API_KEY in this shell.",
     );
   }
   const id =
     overrideId ??
-    (provider === "anthropic" ? DEFAULT_ANTHROPIC_MODEL : DEFAULT_OPENAI_MODEL);
-  const model = provider === "anthropic" ? anthropic(id) : openai(id);
+    (provider === "anthropic"
+      ? DEFAULT_ANTHROPIC_MODEL
+      : provider === "openai"
+        ? DEFAULT_OPENAI_MODEL
+        : DEFAULT_OLLAMA_MODEL);
+  const model =
+    provider === "anthropic"
+      ? anthropic(id)
+      : provider === "openai"
+        ? openai(id)
+        : createOpenAICompatible({
+            name: "ollama",
+            baseURL: process.env.OLLAMA_BASE_URL ?? DEFAULT_OLLAMA_BASE_URL,
+            apiKey: process.env.OLLAMA_API_KEY,
+          })(id);
   return { model, label: `${provider}:${id}` };
 }
 
@@ -353,9 +374,9 @@ async function repl(
 // ─── subcommand: town test set-key ───────────────────────────────────
 function runSetKey(provider: string, key: string): void {
   const p = provider.toLowerCase();
-  if (p !== "anthropic" && p !== "openai") {
+  if (p !== "anthropic" && p !== "openai" && p !== "ollama") {
     console.error(
-      `unknown provider "${provider}". Use "anthropic" or "openai".`,
+      `unknown provider "${provider}". Use "anthropic", "openai", or "ollama".`,
     );
     process.exit(1);
   }
@@ -492,7 +513,7 @@ export function registerTest(program: Command): void {
     .command("set-key <provider> <key>")
     .description(
       "Persist an LLM API key to ~/.town/config.json. " +
-        "provider ∈ {anthropic, openai}. Env vars still override.",
+        "provider ∈ {anthropic, openai, ollama}. Env vars still override.",
     )
     .action((provider: string, key: string) => {
       runSetKey(provider, key);
