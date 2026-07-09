@@ -1,11 +1,11 @@
 {
-  "name": "redplanethq",
+  "name": "redplanethq-town",
   "owner": {
     "name": "Redplanethq"
   },
   "metadata": {
     "description": "Plugins by Town (redplanethq)",
-    "homepage": "https://github.com/redplanethq/town-next"
+    "homepage": "https://github.com/redplanethq/town"
   },
   "plugins": [
     {
