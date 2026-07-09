@@ -51,9 +51,7 @@ function styleFor(variant: Variant, active: boolean): string {
   // dropdown that opens below it. A slightly lighter dark
   // (bt-border tone) reads as "depressed" without going white over
   // the bright landing backdrop.
-  return active
-    ? `${PRESS} text-paper bg-[#1a1d22]`
-    : `${PRESS} text-paper`;
+  return active ? `${PRESS} text-paper bg-[#1a1d22]` : `${PRESS} text-paper`;
 }
 
 function inlineFor(variant: Variant): React.CSSProperties | undefined {
@@ -66,7 +64,13 @@ function inlineFor(variant: Variant): React.CSSProperties | undefined {
 }
 
 export function HudButton(props: HudButtonProps) {
-  const { icon, children, variant = "default", active = false, className = "" } = props;
+  const {
+    icon,
+    children,
+    variant = "default",
+    active = false,
+    className = "",
+  } = props;
   const classes = `${SHARED} ${styleFor(variant, active)} ${className}`.trim();
   const style = inlineFor(variant);
 
@@ -84,8 +88,10 @@ export function HudButton(props: HudButtonProps) {
         className={classes}
         style={style}
       >
-        {icon ? <span className="inline-flex shrink-0 items-center">{icon}</span> : null}
-        <span className="truncate">{children}</span>
+        {icon ? (
+          <span className="inline-flex shrink-0 items-center">{icon}</span>
+        ) : null}
+        {children && <span className="truncate">{children}</span>}
       </a>
     );
   }
@@ -105,7 +111,9 @@ export function HudButton(props: HudButtonProps) {
   void _className;
   return (
     <button type="button" {...rest} className={classes} style={style}>
-      {icon ? <span className="inline-flex shrink-0 items-center">{icon}</span> : null}
+      {icon ? (
+        <span className="inline-flex shrink-0 items-center">{icon}</span>
+      ) : null}
       <span className="truncate">{children}</span>
     </button>
   );

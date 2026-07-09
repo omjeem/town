@@ -51,7 +51,7 @@ export function CommunityLinks() {
         aria-label="GitHub"
         icon={<GithubGlyph />}
       >
-        {stars === null ? "GitHub" : `★ ${formatCount(stars)}`}
+        {stars === null ? "Star us" : `★ ${formatCount(stars)}`}
       </HudButton>
       <HudButton
         href={DISCORD_INVITE}
