@@ -25,6 +25,7 @@ export function ollamaModel(modelId?: string): LanguageModel {
     baseURL: process.env.OLLAMA_BASE_URL ?? DEFAULT_BASE_URL,
     apiKey: process.env.OLLAMA_API_KEY,
     supportsStructuredOutputs: true,
+    includeUsage: true,
   });
   return provider(modelId || process.env.OLLAMA_MODEL || DEFAULT_OLLAMA_MODEL);
 }
