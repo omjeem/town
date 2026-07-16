@@ -58,6 +58,9 @@ export function CommandBar() {
     void npcTick;
     const byBuilding = new Map<string, NpcRow[]>();
     for (const npc of getNpcs()) {
+      // Overworld NPCs have no building to teleport into — skip them so
+      // Cmd+K doesn't try to route the player to an empty bucket.
+      if (!npc.buildingId) continue;
       const bucket = byBuilding.get(npc.buildingId);
       if (bucket) bucket.push(npc);
       else byBuilding.set(npc.buildingId, [npc]);

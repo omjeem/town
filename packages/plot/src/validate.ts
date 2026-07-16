@@ -296,5 +296,87 @@ export function validatePlot(plot: Plot, manifest: Manifest): ValidationResult {
     npcSlotKeys.add(slotKey);
   }
 
+  // Overworld NPCs — bounds + collision + placement well-formedness.
+  //
+  // Collision set: every tile that's already claimed by a building
+  // footprint, a pond, or another overworld NPC. Roads/decor stay
+  // walkable (roads by design; decor is a soft-render layer). If the
+  // same tile is claimed twice by overworld NPCs we surface both so the
+  // author can see which pair collided.
+  const overworldNpcs = plot.overworldNpcs ?? [];
+  if (overworldNpcs.length > 0) {
+    const blocked = new Set<string>();
+    for (const b of plot.buildings) {
+      for (let dy = 0; dy < b.h; dy++) {
+        for (let dx = 0; dx < b.w; dx++) {
+          blocked.add(`${b.tx + dx},${b.ty + dy}`);
+        }
+      }
+    }
+    for (const p of plot.ponds) {
+      for (let dy = 0; dy < p.h; dy++) {
+        for (let dx = 0; dx < p.w; dx++) {
+          blocked.add(`${p.tx + dx},${p.ty + dy}`);
+        }
+      }
+    }
+    const seenTiles = new Map<string, number>();
+    const seenNpcIds = new Map<string, number>();
+    for (const [i, n] of overworldNpcs.entries()) {
+      const prefix = `overworldNpcs[${i}]`;
+      if (!n.npcId || typeof n.npcId !== "string") {
+        issues.push({ path: `${prefix}.npcId`, message: `missing npcId` });
+      } else if (seenNpcIds.has(n.npcId)) {
+        issues.push({
+          path: `${prefix}.npcId`,
+          message: `duplicate npcId "${n.npcId}" — every overworld NPC must be unique`,
+        });
+      } else {
+        seenNpcIds.set(n.npcId, i);
+      }
+      if (
+        !Number.isInteger(n.tx) ||
+        !Number.isInteger(n.ty) ||
+        n.tx < 0 ||
+        n.ty < 0 ||
+        n.tx >= plot.world.w ||
+        n.ty >= plot.world.h
+      ) {
+        issues.push({
+          path: `${prefix}`,
+          message: `tile (${n.tx}, ${n.ty}) is outside the world (${plot.world.w}×${plot.world.h})`,
+        });
+        continue;
+      }
+      const key = `${n.tx},${n.ty}`;
+      if (blocked.has(key)) {
+        issues.push({
+          path: `${prefix}`,
+          message: `tile (${n.tx}, ${n.ty}) collides with a building or pond`,
+        });
+      }
+      const prior = seenTiles.get(key);
+      if (prior !== undefined) {
+        issues.push({
+          path: `${prefix}`,
+          message: `tile (${n.tx}, ${n.ty}) collides with overworldNpcs[${prior}]`,
+        });
+      } else {
+        seenTiles.set(key, i);
+      }
+      // Placement well-formedness. `outside` must reference a real
+      // building — otherwise the server can't re-resolve when the
+      // building moves.
+      if (n.placement.kind === "outside") {
+        if (!buildingIds.has(n.placement.buildingId)) {
+          issues.push({
+            path: `${prefix}.placement.buildingId`,
+            message: `unknown buildingId "${n.placement.buildingId}"`,
+          });
+        }
+      }
+    }
+  }
+
   return { ok: issues.length === 0, issues };
 }

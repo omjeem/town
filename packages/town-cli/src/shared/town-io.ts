@@ -133,8 +133,30 @@ export interface TownJson {
   tags?: TownTagDef[];
 }
 
+/** Which side of a building an overworld NPC stands on. Mirrors
+ *  `OverworldAnchorSide` from `@town/plot` — kept duplicated here
+ *  because `@town/town-cli` is a standalone published package with no
+ *  workspace deps. */
+export type OverworldAnchorSide = "front" | "back" | "left" | "right";
+
+/** Authored placement for an overworld NPC. Sent to the server so it
+ *  can re-resolve tile coords when buildings move. Interior NPCs leave
+ *  this undefined and set `buildingId + slotId` instead. */
+export type OverworldPlacementDTO =
+  | { kind: "position"; tx: number; ty: number }
+  | {
+      kind: "outside";
+      buildingId: string;
+      side: OverworldAnchorSide;
+      offset?: number;
+    };
+
 export interface NpcDTO {
   id?: string;
+  /** Interior NPCs bind to a building's variant slot. Overworld NPCs
+   *  (placement set) leave `buildingId` empty — the server treats the
+   *  empty string here as "no building" so the wire schema stays
+   *  string-typed. */
   buildingId: string;
   /** Slot within the building. Empty string is the implicit first slot
    *  — what an MDX without a `slotId` frontmatter binds to. */
@@ -142,6 +164,9 @@ export interface NpcDTO {
   name: string;
   description: string;
   prompt: string;
+  /** Overworld placement — set for NPCs standing outside a building
+   *  or at explicit world coords. Absent for interior NPCs. */
+  placement?: OverworldPlacementDTO;
   /** Tool capability grant — integrations, core tasks/memory, skills.
    *  Authored in the MDX frontmatter under `permissions:`; passed
    *  through opaquely here and normalised server-side. Absent means
@@ -190,6 +215,85 @@ function slotIdFromFilename(file: string): { buildingId: string; slotId: string 
   return { buildingId: base.slice(0, idx), slotId: base.slice(idx + 2) };
 }
 
+/** Parse an `outside:` frontmatter value into a placement. Accepts the
+ *  short form ("outside: home" → front, offset 1) and the long form
+ *  ("outside: { buildingId: home, side: back, offset: 2 }"). Returns an
+ *  Error-value (never throws) so callers can attach filename context. */
+function parseOutsideFrontmatter(
+  raw: unknown,
+  file: string,
+): OverworldPlacementDTO | Error {
+  const validSides: OverworldAnchorSide[] = ["front", "back", "left", "right"];
+  if (typeof raw === "string") {
+    // Short form — anchor building only, defaults elsewhere.
+    if (!raw.trim()) {
+      return new Error(`${file}: \`outside\` is empty — expected a buildingId.`);
+    }
+    return { kind: "outside", buildingId: raw.trim(), side: "front" };
+  }
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    const buildingId =
+      typeof obj.buildingId === "string" ? obj.buildingId.trim() : "";
+    if (!buildingId) {
+      return new Error(
+        `${file}: \`outside.buildingId\` is required — which building does this NPC stand next to?`,
+      );
+    }
+    const rawSide =
+      typeof obj.side === "string" ? (obj.side.trim() as OverworldAnchorSide) : "front";
+    if (!validSides.includes(rawSide)) {
+      return new Error(
+        `${file}: \`outside.side\` must be one of ${validSides.join(", ")} (got "${String(obj.side)}").`,
+      );
+    }
+    const placement: OverworldPlacementDTO = {
+      kind: "outside",
+      buildingId,
+      side: rawSide,
+    };
+    if (obj.offset !== undefined) {
+      const off = Number(obj.offset);
+      if (!Number.isInteger(off) || off < 1) {
+        return new Error(
+          `${file}: \`outside.offset\` must be a positive integer (got ${String(obj.offset)}).`,
+        );
+      }
+      placement.offset = off;
+    }
+    return placement;
+  }
+  return new Error(`${file}: \`outside\` must be a buildingId or an object.`);
+}
+
+/** Parse a `position:` frontmatter value. Accepts a two-tuple
+ *  ("[42, 30]") and an object ("{ x: 42, y: 30 }"). Returns Error on
+ *  malformed input so callers can attach file context. */
+function parsePositionFrontmatter(
+  raw: unknown,
+  file: string,
+): OverworldPlacementDTO | Error {
+  const badShape = () =>
+    new Error(
+      `${file}: \`position\` must be [x, y] or { x, y } — got ${JSON.stringify(raw)}.`,
+    );
+  if (Array.isArray(raw)) {
+    if (raw.length !== 2) return badShape();
+    const tx = Number(raw[0]);
+    const ty = Number(raw[1]);
+    if (!Number.isInteger(tx) || !Number.isInteger(ty)) return badShape();
+    return { kind: "position", tx, ty };
+  }
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    const tx = Number(obj.x ?? obj.tx);
+    const ty = Number(obj.y ?? obj.ty);
+    if (!Number.isInteger(tx) || !Number.isInteger(ty)) return badShape();
+    return { kind: "position", tx, ty };
+  }
+  return badShape();
+}
+
 export async function readNpcsDir(dir: string): Promise<NpcDTO[]> {
   const npcDir = join(dir, "npcs");
   if (!existsSync(npcDir)) return [];
@@ -203,19 +307,59 @@ export async function readNpcsDir(dir: string): Promise<NpcDTO[]> {
     const parsed = matter(raw);
     const data = parsed.data as Record<string, unknown>;
     const fromFilename = slotIdFromFilename(file);
-    const buildingId =
-      typeof data.buildingId === "string" ? data.buildingId : fromFilename.buildingId;
+    const buildingIdRaw =
+      typeof data.buildingId === "string" ? data.buildingId : "";
     const slotId =
       typeof data.slotId === "string" ? data.slotId : fromFilename.slotId;
     const name = typeof data.name === "string" ? data.name : "";
     const description =
       typeof data.description === "string" ? data.description : "";
     const id = typeof data.id === "string" ? data.id : undefined;
-    if (!buildingId) {
+
+    // Placement — exactly one of {interior via buildingId, outside,
+    // position}. Filename-derived buildingId only applies if the file
+    // has no overworld placement AND no explicit frontmatter — otherwise
+    // an author who moves an NPC out of a building would still be tied
+    // to the filename convention.
+    let placement: OverworldPlacementDTO | undefined;
+    const hasOutside = data.outside !== undefined;
+    const hasPosition = data.position !== undefined;
+    if (hasOutside && hasPosition) {
       throw new Error(
-        `${file}: frontmatter missing \`buildingId\` — can't decide which building this NPC lives in.`,
+        `${file}: set either \`outside\` or \`position\`, not both.`,
       );
     }
+    if (hasOutside) {
+      const parsedPlacement = parseOutsideFrontmatter(data.outside, file);
+      if (parsedPlacement instanceof Error) throw parsedPlacement;
+      placement = parsedPlacement;
+    } else if (hasPosition) {
+      const parsedPlacement = parsePositionFrontmatter(data.position, file);
+      if (parsedPlacement instanceof Error) throw parsedPlacement;
+      placement = parsedPlacement;
+    }
+
+    let buildingId: string;
+    if (placement) {
+      if (buildingIdRaw) {
+        throw new Error(
+          `${file}: \`buildingId\` is only for interior NPCs — remove it or drop the \`${hasOutside ? "outside" : "position"}\` frontmatter.`,
+        );
+      }
+      // Wire schema is string-typed; empty string signals "overworld NPC,
+      // see placement". Filename hint is ignored for overworld NPCs
+      // (filename convention only encodes interior slots).
+      buildingId = "";
+    } else {
+      const resolved = buildingIdRaw || fromFilename.buildingId;
+      if (!resolved) {
+        throw new Error(
+          `${file}: frontmatter must set one of \`buildingId\`, \`outside\`, or \`position\` — can't decide where this NPC stands.`,
+        );
+      }
+      buildingId = resolved;
+    }
+
     if (!name) throw new Error(`${file}: frontmatter missing \`name\`.`);
     // `permissions` flows through opaquely — we don't validate the
     // shape here, the server runs it through normalisePermissions
@@ -229,6 +373,7 @@ export async function readNpcsDir(dir: string): Promise<NpcDTO[]> {
       name,
       description,
       prompt: parsed.content.trim(),
+      ...(placement ? { placement } : {}),
       ...(permissions !== undefined ? { permissions } : {}),
     });
   }
@@ -241,20 +386,45 @@ export async function writeNpcMdx(
 ): Promise<void> {
   const npcDir = join(dir, "npcs");
   await mkdir(npcDir, { recursive: true });
-  const safeBuilding = npc.buildingId.replace(/[^a-z0-9_-]+/gi, "-");
-  // Filename convention: <buildingId>.mdx for the default first slot,
-  // <buildingId>__<slotId>.mdx for any other slot. Keeps the legacy
-  // shape on disk when no multi-slot variant is in play.
-  const slotSafe = (npc.slotId ?? "").replace(/[^a-z0-9_-]+/gi, "-");
-  const safe = slotSafe ? `${safeBuilding}__${slotSafe}` : safeBuilding;
-  const body = matter.stringify(npc.prompt.trimEnd() + "\n", {
+
+  const sanitize = (s: string) => s.replace(/[^a-z0-9_-]+/gi, "-");
+  const slotSafe = sanitize(npc.slotId ?? "");
+
+  let safe: string;
+  const frontmatter: Record<string, unknown> = {
     id: npc.id,
-    buildingId: npc.buildingId,
-    ...(npc.slotId ? { slotId: npc.slotId } : {}),
     name: npc.name,
     description: npc.description,
-    ...(npc.permissions !== undefined ? { permissions: npc.permissions } : {}),
-  });
+  };
+
+  if (npc.placement) {
+    // Overworld NPCs — filename is derived from placement shape so
+    // the folder listing tells the author at a glance which are
+    // roaming outside. Interior NPCs keep the legacy `<buildingId>[__slot].mdx`.
+    if (npc.placement.kind === "outside") {
+      safe = `outside-${sanitize(npc.placement.buildingId)}__${sanitize(npc.id)}`;
+      frontmatter.outside = {
+        buildingId: npc.placement.buildingId,
+        side: npc.placement.side,
+        ...(npc.placement.offset !== undefined
+          ? { offset: npc.placement.offset }
+          : {}),
+      };
+    } else {
+      safe = `overworld__${sanitize(npc.id)}`;
+      frontmatter.position = { x: npc.placement.tx, y: npc.placement.ty };
+    }
+    if (npc.slotId) frontmatter.slotId = npc.slotId;
+  } else {
+    const safeBuilding = sanitize(npc.buildingId);
+    safe = slotSafe ? `${safeBuilding}__${slotSafe}` : safeBuilding;
+    frontmatter.buildingId = npc.buildingId;
+    if (npc.slotId) frontmatter.slotId = npc.slotId;
+  }
+
+  if (npc.permissions !== undefined) frontmatter.permissions = npc.permissions;
+
+  const body = matter.stringify(npc.prompt.trimEnd() + "\n", frontmatter);
   await writeFile(join(npcDir, `${safe}.mdx`), body);
 }
 

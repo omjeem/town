@@ -51,16 +51,17 @@ export async function GET(req: Request) {
     await ensureNpcsForTown(town.id);
     const rows = await prisma.npc.findMany({
       where: { townId: town.id },
-      orderBy: { buildingId: "asc" },
+      orderBy: [{ buildingId: "asc" }, { slotId: "asc" }],
     });
     return NextResponse.json({
       npcs: rows.map((r) => ({
         id: r.id,
-        buildingId: r.buildingId,
+        buildingId: r.buildingId ?? "",
         slotId: r.slotId,
         name: r.name,
         description: r.description,
         prompt: r.prompt,
+        ...(r.placement != null ? { placement: r.placement } : {}),
       })),
     });
   }
@@ -101,11 +102,12 @@ export async function GET(req: Request) {
   return NextResponse.json({
     npcs: rows.map((r) => ({
       id: r.id,
-      buildingId: r.buildingId,
+      buildingId: r.buildingId ?? "",
       slotId: r.slotId,
       name: r.name,
       description: r.description,
       prompt: r.prompt,
+      ...(r.placement != null ? { placement: r.placement } : {}),
     })),
   });
 }

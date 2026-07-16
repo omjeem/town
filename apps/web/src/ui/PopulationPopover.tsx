@@ -156,7 +156,9 @@ export function PopulationPopover({ aura, onClose }: PopulationPopoverProps) {
                 key={n.id}
                 npc={n}
                 buildingLabel={
-                  buildingLabelById.get(n.buildingId) ?? n.buildingId
+                  n.buildingId
+                    ? buildingLabelById.get(n.buildingId) ?? n.buildingId
+                    : "Outside"
                 }
               />
             ))

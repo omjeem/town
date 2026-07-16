@@ -55,6 +55,53 @@ underlying tile-level layout (paths, ponds, decor).
   frontmatter so the renderer matches each MDX to the right position
   inside the interior.
 
+### Overworld NPCs — resident stands OUTSIDE a building
+
+Any NPC can be placed loose in the overworld (not inside an interior)
+by replacing the \`buildingId\` frontmatter with \`outside\` or
+\`position\`. Interior + overworld NPCs count against the same NPC cap
+and share the same chat pipeline; the only difference is where they
+stand.
+
+Anchored to a building's edge:
+\`\`\`yaml
+---
+name: Postmaster
+description: Runs the mailboxes on the town square.
+outside:
+  buildingId: home
+  side: front      # front (south face) | back | left | right
+  offset: 1        # tiles from the building's edge — default 1
+---
+System prompt here…
+\`\`\`
+
+Shorthand for the common case ("outside the front of X"):
+\`\`\`yaml
+outside: home       # equivalent to { buildingId: home, side: front }
+\`\`\`
+
+Explicit world tile:
+\`\`\`yaml
+position: [42, 30]  # (tx, ty) in world tiles
+# or
+position:
+  x: 42
+  y: 30
+\`\`\`
+
+Rules:
+- Set exactly one of \`buildingId\`, \`outside\`, or \`position\`. The
+  deploy fails loudly if you set two, or none.
+- \`outside\` re-resolves at deploy time — move the building and the
+  NPC follows its side. \`position\` is absolute and won't budge.
+- The resolved tile must be inside the world and not overlap another
+  building, a pond, or another NPC. Deploy fails with the collided
+  tile if any placement can't land.
+- \`front\` places the NPC one column right of the front door so the
+  doorway stays walkable. Use \`position\` if you want them
+  somewhere else on the south face.
+
 ## NPC tool permissions
 
 Every NPC starts with **no tools** — they can chat but cannot read

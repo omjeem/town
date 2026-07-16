@@ -53,11 +53,17 @@ export function projectTownShape(plot: Plot): TownShape {
 
 export interface TownNpcDTO {
   id: string;
+  /** Empty string for overworld NPCs — `placement` carries where they
+   *  actually stand. Kept string-typed so the wire schema matches what
+   *  the CLI's readNpcsDir emits when authoring interior vs overworld. */
   buildingId: string;
   slotId: string;
   name: string;
   description: string;
   prompt: string;
+  /** Overworld placement. Absent for interior NPCs; present exactly
+   *  when `buildingId` is empty. */
+  placement?: unknown;
   /** Tool capability grant. Absent when the NPC has no tools.
    *  Shape mirrors NpcPermissions in lib/npc-templates.ts — we
    *  project the JSONB blob raw so `town clone` round-trips
@@ -72,11 +78,12 @@ export async function loadTownNpcs(townId: string): Promise<TownNpcDTO[]> {
   });
   return rows.map((r) => ({
     id: r.id,
-    buildingId: r.buildingId,
+    buildingId: r.buildingId ?? "",
     slotId: r.slotId,
     name: r.name,
     description: r.description,
     prompt: r.prompt,
+    ...(r.placement != null ? { placement: r.placement } : {}),
     ...(r.permissions != null ? { permissions: r.permissions } : {}),
   }));
 }

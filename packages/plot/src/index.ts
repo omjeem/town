@@ -1,6 +1,7 @@
 export * from "./types";
 export * from "./manifest";
 export { validatePlot, type ValidationResult, type ValidationIssue } from "./validate";
+export { resolveOverworldPlacementTile } from "./placement";
 export {
   isUploadedSpriteRef,
   uploadedSpriteHash,

@@ -28,6 +28,7 @@ import { readActiveSlug } from "@/lib/active-slug";
 import { resolveUser } from "@/lib/auth-bearer";
 import { getChatModel } from "@/lib/chat-model";
 import { prisma } from "@/lib/db";
+import { replaceAutoGreetInMessages } from "@/lib/npc-greet";
 import { safeBlock, safeInline } from "@/lib/prompt-sanitize";
 import { getSystemNpcs, type SystemNpc } from "@/lib/system-npcs";
 import {
@@ -252,13 +253,17 @@ export async function POST(req: Request) {
 
   const system = buildSystemPrompt(founder, body.mode, body.invitee, viewer);
 
-  const uiMessages: UIMessage[] = body.messages.map((m, i) => ({
-    id: m.id ?? `m-${i}`,
-    role: m.role,
-    parts:
-      m.parts ??
-      (m.content ? [{ type: "text", text: m.content }] : []),
-  })) as UIMessage[];
+  // Auto-greet sentinel (first user turn on chat open) → real "player
+  // walked up" stage direction. See lib/npc-greet.ts.
+  const uiMessages: UIMessage[] = replaceAutoGreetInMessages(
+    body.messages.map((m, i) => ({
+      id: m.id ?? `m-${i}`,
+      role: m.role,
+      parts:
+        m.parts ??
+        (m.content ? [{ type: "text", text: m.content }] : []),
+    })) as UIMessage[],
+  );
 
   let model;
   try {

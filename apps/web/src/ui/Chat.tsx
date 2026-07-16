@@ -21,6 +21,10 @@ import { useChat, type UIMessage } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 
 import { getActiveTownSlug } from "../game/plotClient";
+import {
+  AUTO_GREET_TRIGGER,
+  isAutoGreetMessage,
+} from "../lib/npc-greet";
 import { CloseIcon, ExpandIcon, RestoreIcon } from "./chat-icons";
 import { ui, type ChatState } from "./store";
 
@@ -64,6 +68,23 @@ export function Chat({ chat }: { chat: NonNullable<ChatState> }) {
       },
     }),
   });
+
+  // Auto-greet: on first mount with an empty message list, send the
+  // hidden sentinel so the server can rewrite it to a "player walked
+  // up" stage direction and stream the NPC's opening line back — the
+  // player never sees an empty chat window. Ref-guarded so React
+  // StrictMode's double-invoke doesn't fire two greetings.
+  const didAutoGreetRef = useRef(false);
+  useEffect(() => {
+    if (didAutoGreetRef.current) return;
+    if (messages.length !== 0) return;
+    didAutoGreetRef.current = true;
+    void sendMessage({ text: AUTO_GREET_TRIGGER });
+    // Intentionally empty deps — this effect fires once on mount. If
+    // the chat gets re-opened later with fresh state (new chat panel
+    // instance), it re-mounts and this fires again for that panel.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Keep the scroll pinned to the latest message as the stream lands
   // (and on mode swap so compact → expanded lands at the bottom too).
@@ -170,14 +191,21 @@ export function Chat({ chat }: { chat: NonNullable<ChatState> }) {
               expanded={isExpanded}
               isGreeting
             />
-            {messages.map((m) => (
-              <Bubble
-                key={m.id}
-                message={m}
-                accent={chat.accent}
-                expanded={isExpanded}
-              />
-            ))}
+            {messages.map((m) => {
+              // Hide the synthetic auto-greet trigger — server rewrites
+              // it into a stage direction, but the raw user turn stays
+              // in AI-SDK's history and would otherwise render as a
+              // gibberish first bubble.
+              if (isAutoGreetMessage(m)) return null;
+              return (
+                <Bubble
+                  key={m.id}
+                  message={m}
+                  accent={chat.accent}
+                  expanded={isExpanded}
+                />
+              );
+            })}
             {busy && messages[messages.length - 1]?.role !== "assistant" ? (
               <div className="flex items-center gap-2 pl-1 text-xs font-medium text-paper/50">
                 <span className="inline-flex gap-1">

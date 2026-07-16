@@ -73,6 +73,37 @@ description: <1-sentence external description — this is what shows in the UI, 
 Single-slot buildings: `slotId: ""` and filename is `npcs/<buildingId>.mdx`.
 Multi-slot buildings (custom plots with multiple `npcPositions`): use the matching `slotId` from `plot.json` and filename `npcs/<buildingId>.<slotId>.mdx`.
 
+### Overworld NPCs (standing outside a building)
+
+Replace `buildingId` + `slotId` with either `outside` (anchored to a building's edge) or `position` (explicit world tile). The character prose + `name` + `description` fields work identically — only the frontmatter placement changes.
+
+```mdx
+---
+name: Town Crier
+description: Reads the day's news on the square in front of home.
+outside:
+  buildingId: home
+  side: front       # front | back | left | right — default "front"
+  offset: 1         # tiles from the building's edge — default 1
+---
+```
+
+Short form when `side: front`, `offset: 1` is fine:
+```mdx
+outside: home
+```
+
+Absolute coordinates:
+```mdx
+position: [42, 30]  # (tx, ty) in world tiles
+```
+
+Rules:
+- Set **exactly one** of `buildingId`, `outside`, or `position`. Deploy fails if you set two, or none.
+- `outside` re-resolves at deploy time — if the building moves, the NPC follows. `position` is absolute and doesn't budge.
+- The resolved tile must be inside the world and free of buildings/ponds/other NPCs. Deploy fails loudly with the collided tile if not.
+- Filename convention for overworld NPCs: the CLI writes them as `outside-<buildingId>__<id>.mdx` or `overworld__<id>.mdx` on clone — but you can name new files anything.
+
 ## Existing NPC integrity
 
 Before writing a new one:

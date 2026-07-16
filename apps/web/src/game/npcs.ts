@@ -14,6 +14,7 @@ import { getActiveTownSlug } from "./plotClient";
 
 export type NpcRow = {
   id: string;
+  /** Empty string for overworld NPCs — they don't bind to a building. */
   buildingId: string;
   slotId: string;
   name: string;
@@ -25,6 +26,11 @@ export type NpcRow = {
 // `Variant.npcPositions`. Renderer reads everything by buildingId and
 // matches each plot.npcs[] slot to the row with the same slotId.
 let byBuildingId: Map<string, NpcRow[]> = new Map();
+// Flat id → row index for O(1) lookup — used by overworld NPCs, which
+// don't bind to a building (buildingId === "") and need to be resolved
+// via plot.overworldNpcs[].npcId. Both interior and overworld rows land
+// here so callers have one uniform lookup path.
+let byId: Map<string, NpcRow> = new Map();
 let inFlight: Promise<void> | null = null;
 let listeners: Array<() => void> = [];
 
@@ -44,6 +50,13 @@ export function getNpcByBuildingId(buildingId: string): NpcRow | null {
   return rows && rows.length > 0 ? rows[0]! : null;
 }
 
+/** Overworld NPCs — plot.overworldNpcs[i].npcId maps to a row here.
+ *  Falls back to null when the roster is still loading or the id is
+ *  stale (e.g. a deploy in flight nuked the row). */
+export function getNpcById(npcId: string): NpcRow | null {
+  return byId.get(npcId) ?? null;
+}
+
 export function onNpcsChange(fn: () => void): () => void {
   listeners.push(fn);
   return () => {
@@ -51,23 +64,19 @@ export function onNpcsChange(fn: () => void): () => void {
   };
 }
 
-/** Total NPC rows in the cache — the sum across every building. Used by
- *  the top-right population badge so visitors see "town has N residents
- *  + you" even when nobody else is currently roaming. */
+/** Total NPC rows in the cache — the sum across every building PLUS
+ *  every loose overworld resident. Used by the top-right population
+ *  badge so visitors see "town has N residents + you" even when
+ *  nobody else is currently roaming. */
 export function getNpcCount(): number {
-  let total = 0;
-  for (const rows of byBuildingId.values()) total += rows.length;
-  return total;
+  return byId.size;
 }
 
-/** Flat list of every NPC in the cache. Used by the population popover
- *  to render an NPC directory with name + building + description. */
+/** Flat list of every NPC in the cache — interior + overworld. Used
+ *  by the population popover to render an NPC directory with name +
+ *  building + description. */
 export function getNpcs(): NpcRow[] {
-  const out: NpcRow[] = [];
-  for (const rows of byBuildingId.values()) {
-    for (const r of rows) out.push(r);
-  }
-  return out;
+  return [...byId.values()];
 }
 
 function emit() {
@@ -95,21 +104,31 @@ export async function refreshNpcs(): Promise<void> {
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) {
         byBuildingId = new Map();
+        byId = new Map();
       } else {
         const body = (await res.json()) as {
           npcs?: Array<Omit<NpcRow, "slotId"> & { slotId?: string }>;
         };
-        const next = new Map<string, NpcRow[]>();
+        const nextByBuilding = new Map<string, NpcRow[]>();
+        const nextById = new Map<string, NpcRow>();
         for (const n of body.npcs ?? []) {
           const row: NpcRow = { ...n, slotId: n.slotId ?? "" };
-          const list = next.get(row.buildingId);
+          nextById.set(row.id, row);
+          // Overworld NPCs have buildingId="" — indexing them under a
+          // per-building bucket would collapse the whole loose-NPC
+          // roster into one Map entry, so skip that path. The lookup
+          // for overworld NPCs goes through `getNpcById`.
+          if (!row.buildingId) continue;
+          const list = nextByBuilding.get(row.buildingId);
           if (list) list.push(row);
-          else next.set(row.buildingId, [row]);
+          else nextByBuilding.set(row.buildingId, [row]);
         }
-        byBuildingId = next;
+        byBuildingId = nextByBuilding;
+        byId = nextById;
       }
     } catch {
       byBuildingId = new Map();
+      byId = new Map();
     } finally {
       inFlight = null;
     }
@@ -125,6 +144,7 @@ export function startNpcsSync(): () => void {
   void refreshNpcs();
   return () => {
     byBuildingId = new Map();
+    byId = new Map();
     listeners = [];
   };
 }

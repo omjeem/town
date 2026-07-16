@@ -14,6 +14,7 @@
 // ops. CustomPlots are merged onto the plot wholesale. NPCs replace the
 // existing roster atomically.
 
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -21,6 +22,11 @@ import { resolveUser } from "@/lib/auth-bearer";
 import { prisma } from "@/lib/db";
 import { loadManifest } from "@/lib/manifest";
 import { normalizePermissions } from "@/lib/npc-templates";
+import {
+  resolveOverworldNpcs,
+  type ResolvableOverworldNpc,
+} from "@/lib/overworld-npcs";
+import { savePlotForTown } from "@/lib/plot";
 import { resolveTownForOwner } from "@/lib/resolve-town";
 import {
   applyTownShape,
@@ -37,23 +43,55 @@ import {
 import type { CustomPlot, Plot } from "@town/plot";
 import { validatePlot } from "@town/plot";
 
+const OverworldSideSchema = z.enum(["front", "back", "left", "right"]);
+
+const OverworldPlacementSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("position"),
+    tx: z.number().int(),
+    ty: z.number().int(),
+  }),
+  z.object({
+    kind: z.literal("outside"),
+    buildingId: z.string().min(1),
+    side: OverworldSideSchema,
+    offset: z.number().int().positive().optional(),
+  }),
+]);
+
 const NpcSchema = z.object({
-  buildingId: z.string().min(1),
+  // Interior NPCs bind to a building; overworld NPCs leave this as ""
+  // and set `placement` instead. Kept string-typed on the wire for
+  // backward compat with existing CLI builds.
+  buildingId: z.string(),
   // Slot within the building. Empty string is the implicit first slot
   // (the legacy one-NPC-per-building case). The CLI defaults to "" when
-  // an MDX frontmatter doesn't set it.
+  // an MDX frontmatter doesn't set it. Overworld NPCs use the default
+  // empty slot since there's no variant slot to bind against.
   slotId: z.string().default(""),
   name: z.string().min(1),
   description: z.string(),
   prompt: z.string(),
   id: z.string().optional(),
+  /** Overworld placement — mutually exclusive with `buildingId`. */
+  placement: OverworldPlacementSchema.optional(),
   // Tool capability grant — integrations, core tasks/memory, skills.
   // We don't shape this in zod because the normaliser in npc-templates
   // already silently drops unknown keys (preventing permission leaks
   // from typos), and duplicating the shape here would just create a
   // second place to update.
   permissions: z.unknown().optional(),
-});
+}).refine(
+  (n) => {
+    if (n.placement) return n.buildingId === "";
+    return n.buildingId.length > 0;
+  },
+  {
+    message:
+      "NPCs must set either `buildingId` (interior) or `placement` (overworld), not both.",
+    path: ["placement"],
+  },
+);
 
 const BuildingSchema = z.object({
   id: z.string().min(1),
@@ -188,9 +226,12 @@ type CustomPlotInput = z.infer<typeof CustomPlotSchema>;
 
 /** Verify every NPC in the roster has somewhere to stand — the
  *  (buildingId, slotId) pair must map to an npcSlot on the resolved
- *  variant, and no two NPCs may share a slot. Called before
- *  applyTownShape so a bad deploy doesn't leave the plot mutated with a
- *  half-applied NPC roster. */
+ *  variant, and no two NPCs may share a slot. Overworld NPCs (those
+ *  with a `placement`) are validated separately: `outside` must
+ *  reference a real building, and every placement's tile coords are
+ *  bounds-checked / collision-checked once the layout is resolved.
+ *  Called before applyTownShape so a bad deploy doesn't leave the plot
+ *  mutated with a half-applied NPC roster. */
 function validateNpcSlots(
   buildings: BuildingInput[],
   customPlots: CustomPlotInput[] | undefined,
@@ -221,9 +262,28 @@ function validateNpcSlots(
     slotsByBuilding.set(b.id, new Set(variant.npcSlots.map((s) => s.id)));
   }
 
+  const knownBuildingIds = new Set(buildings.map((b) => b.id));
   const issues: Array<{ path: string; message: string }> = [];
   const seenKeys = new Map<string, number>();
   for (const [i, n] of npcs.entries()) {
+    // Overworld NPCs — validate placement anchor here; tile-collision
+    // check waits until after applyTownShape when we have the resolved
+    // layout, since `outside` positions depend on where the building
+    // ended up.
+    if (n.placement) {
+      if (n.placement.kind === "outside") {
+        if (!knownBuildingIds.has(n.placement.buildingId)) {
+          issues.push({
+            path: `npcs[${i}].placement.buildingId`,
+            message:
+              `"${n.name}" is anchored to building "${n.placement.buildingId}" ` +
+              `but no such building exists in town.json.`,
+          });
+        }
+      }
+      continue;
+    }
+
     const slotId = n.slotId ?? "";
     const key = `${n.buildingId}::${slotId}`;
     const priorIdx = seenKeys.get(key);
@@ -502,22 +562,68 @@ export async function POST(req: Request) {
     );
   }
 
+  // Pre-generate IDs for NPCs without one so plot.overworldNpcs entries
+  // can point to the row we're about to insert. Existing rows (round-
+  // tripped via `town clone` → `town deploy`) keep their id.
+  const npcInputs = (parsed.npcs ?? []).map((n) => ({
+    ...n,
+    id: n.id ?? randomUUID(),
+  }));
+
+  // Resolve overworld placements against the freshly-applied layout,
+  // then re-save the plot with `overworldNpcs` populated. Two saves per
+  // deploy = version bumps by 2; the intermediate is visible only for
+  // a few ms so polling clients simply skip it.
+  let responseVersion = applied.version;
+  const overworldNpcInputs: ResolvableOverworldNpc[] = npcInputs
+    .filter((n): n is typeof n & { placement: NonNullable<typeof n.placement> } =>
+      Boolean(n.placement),
+    )
+    .map((n) => ({ npcId: n.id, name: n.name, placement: n.placement }));
+  if (overworldNpcInputs.length > 0) {
+    const resolution = resolveOverworldNpcs(
+      applied.plot as Plot,
+      overworldNpcInputs,
+    );
+    if (resolution.issues.length > 0) {
+      return NextResponse.json(
+        {
+          error: "overworld-npc-placement-failed",
+          detail:
+            resolution.issues.length === 1
+              ? resolution.issues[0]!.message
+              : `${resolution.issues.length} NPCs couldn't be placed.`,
+          issues: resolution.issues,
+        },
+        { status: 400 },
+      );
+    }
+    const saved = await savePlotForTown(townId, resolution.plot);
+    responseVersion = saved.version;
+  }
+
   let npcCount = 0;
   try {
     const result = await prisma.$transaction(async (tx) => {
       let count = 0;
       if (parsed.npcs && parsed.npcs.length >= 0) {
         await tx.npc.deleteMany({ where: { townId } });
-        if (parsed.npcs.length > 0) {
+        if (npcInputs.length > 0) {
           const created = await tx.npc.createMany({
-            data: parsed.npcs.map((n) => ({
-              ...(n.id ? { id: n.id } : {}),
+            data: npcInputs.map((n) => ({
+              id: n.id,
               townId,
-              buildingId: n.buildingId,
+              // Interior NPCs bind to a real buildingId; overworld ones
+              // leave the column NULL and stash the authored placement
+              // in `placement` for re-materialization.
+              buildingId: n.placement ? null : n.buildingId,
               slotId: n.slotId,
               name: n.name,
               description: n.description,
               prompt: n.prompt,
+              ...(n.placement
+                ? { placement: n.placement as unknown as object }
+                : {}),
               ...(n.permissions !== undefined
                 ? {
                     permissions: normalizePermissions(
@@ -571,7 +677,7 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({
-    version: applied.version,
+    version: responseVersion,
     count: npcCount,
   });
 }

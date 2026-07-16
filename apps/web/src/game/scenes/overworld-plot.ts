@@ -26,6 +26,9 @@ import { isSleeping as auraIsSleeping } from "../aura";
 import { getSession, onSessionChange } from "../auth";
 import { ui } from "../../ui/store";
 import { isCinematicLocked, registerWorldBounds } from "../cinematic";
+import { openNpcGreeting } from "../npcGreeting";
+import { getNpcById, onNpcsChange } from "../npcs";
+import { SYSTEM_OVERWORLD_NPCS } from "../systemOverworldNpcs";
 import { loadPlot, setCachedPlot, subscribePlot } from "../plotClient";
 import {
   getActiveTownSlug,
@@ -37,6 +40,7 @@ import {
 import { registerTeleport } from "../teleport";
 import {
   defaultPlot,
+  resolveOverworldPlacementTile,
   resolveSpriteUrl,
   type Manifest,
   type Plot,
@@ -467,8 +471,13 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
 
     let unsubscribe: (() => void) | null = null;
     let unsubSession: (() => void) | null = null;
+    let unsubNpcs: (() => void) | null = null;
     let detachRemotes: (() => void) | null = null;
     let decorStreamRef: DecorStream | null = null;
+    // Tracks whether the auto-opened NPC greeting is on screen so
+    // onSceneLeave can close it before the interior scene mounts. Set
+    // from inside boot() through the wrapper below.
+    let hasActiveGreeting = false;
     // Cancellation guard for the async boot pipeline. Flipped by
     // onSceneLeave. Every await point checks this before proceeding, and
     // in particular no `k.onUpdate`, `k.onKeyPress`, `k.add`, or
@@ -539,6 +548,132 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
       const signs: SignDraw[] = [];
       for (const b of plot.buildings) drawBuilding(k, b, signs);
       mountSigns(k, signs);
+
+      // Overworld NPCs — two sources, rendered with the same sprite +
+      // interaction pipeline:
+      //
+      //   1. plot.overworldNpcs — user-authored, positions materialized
+      //      server-side from each NPC's `placement` frontmatter. Chat
+      //      data (name / description / prompt) comes from the DB and
+      //      loads asynchronously via the client NPC cache.
+      //   2. SYSTEM_OVERWORLD_NPCS — hardcoded system NPCs (e.g. the
+      //      town guide standing outside home). Positions resolve
+      //      client-side against the plot's home building; chat routes
+      //      through the NPC's bespoke `/api/<id>-chat` endpoint (the
+      //      Npc DB table has no row for them).
+      //
+      // Sprite is stationary — a 16×25 civilian PNG anchored so the
+      // feet sit on the target tile row. Z=45 matches the interior
+      // scene so player z=50 renders over them when overlapping.
+      const OVERWORLD_NPC_SPRITE = "office_npc";
+      const NPC_SPRITE_H = 25;
+
+      // Unified list of "someone the player can walk up to" in the
+      // overworld. `getRow()` returns the chat data lazily so we can
+      // render the sprite immediately and re-resolve the label once
+      // the roster loads (see the `onNpcsChange` subscription below).
+      interface OverworldNpcSlot {
+        tx: number;
+        ty: number;
+        sprite: string;
+        /** Stable id used as the k.onKeyPress dispatch key. */
+        key: string;
+        /** Returns the display name + dialogue payload — or null when
+         *  the NPC row hasn't loaded yet (user-authored) or the anchor
+         *  building isn't in this town (system NPC — skip silently). */
+        getRow: () => {
+          npcId: string;
+          name: string;
+          description: string;
+          chatApi?: string;
+          accent: string;
+        } | null;
+      }
+      const overworldSlots: OverworldNpcSlot[] = [];
+
+      for (const n of plot.overworldNpcs ?? []) {
+        overworldSlots.push({
+          tx: n.tx,
+          ty: n.ty,
+          sprite: OVERWORLD_NPC_SPRITE,
+          key: n.npcId,
+          getRow: () => {
+            const row = getNpcById(n.npcId);
+            if (!row) return null;
+            return {
+              npcId: row.id,
+              name: row.name,
+              description: row.description,
+              accent: PALETTE.h60,
+            };
+          },
+        });
+      }
+
+      // System overworld NPCs — resolve each placement against the
+      // current plot's buildings. Silently skip when the anchor
+      // building doesn't exist in this town (a variant a user hasn't
+      // shipped yet) or when the resolved tile is already blocked by
+      // a building/pond/other-NPC. The system NPC just doesn't appear;
+      // no error — same principle as the interior founder that only
+      // renders on the canonical HOME building.
+      const buildingsById = new Map(plot.buildings.map((b) => [b.id, b]));
+      const collisionForSystem = new Set<string>();
+      for (const b of plot.buildings) {
+        for (let dy = 0; dy < b.h; dy++) {
+          for (let dx = 0; dx < b.w; dx++) {
+            collisionForSystem.add(`${b.tx + dx},${b.ty + dy}`);
+          }
+        }
+      }
+      for (const p of plot.ponds) {
+        for (let dy = 0; dy < p.h; dy++) {
+          for (let dx = 0; dx < p.w; dx++) {
+            collisionForSystem.add(`${p.tx + dx},${p.ty + dy}`);
+          }
+        }
+      }
+      for (const n of plot.overworldNpcs ?? []) {
+        collisionForSystem.add(`${n.tx},${n.ty}`);
+      }
+      for (const sys of SYSTEM_OVERWORLD_NPCS) {
+        const tile = resolveOverworldPlacementTile(
+          sys.placement,
+          buildingsById,
+        );
+        if (!tile) continue;
+        if (
+          tile.tx < 0 ||
+          tile.ty < 0 ||
+          tile.tx >= worldW ||
+          tile.ty >= worldH
+        )
+          continue;
+        if (collisionForSystem.has(`${tile.tx},${tile.ty}`)) continue;
+        collisionForSystem.add(`${tile.tx},${tile.ty}`);
+        overworldSlots.push({
+          tx: tile.tx,
+          ty: tile.ty,
+          sprite: sys.sprite,
+          key: `system:${sys.id}`,
+          getRow: () => ({
+            npcId: sys.id,
+            name: sys.name,
+            description: sys.description,
+            chatApi: sys.chatApi,
+            accent: sys.accent,
+          }),
+        });
+      }
+
+      // Draw every slot's sprite. Collision + prompt wiring below.
+      for (const slot of overworldSlots) {
+        k.add([
+          k.sprite(slot.sprite),
+          k.pos(slot.tx * TILE, slot.ty * TILE + TILE - NPC_SPRITE_H),
+          k.z(45),
+        ]);
+      }
 
       // Tell React the world is rendered — BootScreen can dismiss
       // itself (after its sweep finishes) and the overworld becomes
@@ -611,6 +746,19 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
       // still has to be usable.
       for (const key of pathSet) blocked.delete(key);
 
+      // Overworld NPC tiles block. They're characters, not props — the
+      // player should walk around them the same way they walk around a
+      // stump. Also index by tile → slot key so the proximity check
+      // can find neighbours in O(1). Slot key is the DB npcId for
+      // user-authored NPCs and `system:<id>` for system NPCs; the
+      // getRow lookup off the slot handles both.
+      const slotByTile = new Map<string, OverworldNpcSlot>();
+      for (const slot of overworldSlots) {
+        const key = slot.tx + "," + slot.ty;
+        blocked.add(key);
+        slotByTile.set(key, slot);
+      }
+
       const isBlocked = (tx: number, ty: number) => {
         if (tx < 0 || ty < 0 || tx >= worldW || ty >= worldH) return true;
         return blocked.has(tx + "," + ty);
@@ -654,6 +802,18 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
       // Set by `onArrive`, read by the E-key handler + used to clear
       // the interaction prompt the moment the player steps off.
       let pendingDoorOwner: PlotBuilding | null = null;
+      // Which overworld NPC the player is currently talking to. Set
+      // when we auto-open a greeting on adjacency; used to close the
+      // dialogue when the player walks away or to a different NPC.
+      // Interaction is SPACE-driven — same as interior NPCs — so
+      // there's no [E] prompt for these. Mirror the boolean to the
+      // scene-level `hasActiveGreeting` so onSceneLeave can clean up
+      // even mid-boot without capturing this local closure.
+      let activeGreetingSlotKey: string | null = null;
+      const setActiveGreeting = (key: string | null) => {
+        activeGreetingSlotKey = key;
+        hasActiveGreeting = key !== null;
+      };
 
       const doorLabelFor = (b: PlotBuilding): string => {
         const raw = (b as unknown as { label?: string }).label;
@@ -706,20 +866,77 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
         k.go("interior", { building: legacyKey, buildingId: owner.id });
       };
 
-      // Shared "you're near a door — do the right thing" resolver. Called
-      // from three places: `onArrive` on each tile step, right after
-      // `registerTeleport` warps the player, and once immediately after
-      // spawn so the prompt lights up on cold-start. Walking onto a door
-      // tile still auto-enters (original behaviour); standing anywhere in
-      // the building's front-proximal zone shows `[E] Enter <Building>`.
+      // Look up an overworld NPC slot adjacent to `tile` (4-neighbor).
+      // Returns the first match — first-writer wins if two NPCs
+      // somehow neighbor the same tile (validator + system-NPC
+      // collision check reject that at build time so it shouldn't
+      // happen).
+      const slotAdjacentTo = (tile: Tile): OverworldNpcSlot | null => {
+        const candidates: Array<[number, number]> = [
+          [tile.tx + 1, tile.ty],
+          [tile.tx - 1, tile.ty],
+          [tile.tx, tile.ty + 1],
+          [tile.tx, tile.ty - 1],
+        ];
+        for (const [tx, ty] of candidates) {
+          const slot = slotByTile.get(tx + "," + ty);
+          if (slot) return slot;
+        }
+        return null;
+      };
+
+      // Shared "you're near a door or an NPC — do the right thing"
+      // resolver. Called from three places: `onArrive` on each tile
+      // step, right after `registerTeleport` warps the player, and once
+      // immediately after spawn so the greeting/prompt lights up on
+      // cold-start.
+      //
+      // Priority:
+      //   1. Standing on a door tile → auto-enter the building.
+      //   2. Adjacent to an overworld NPC → auto-open the greeting
+      //      dialogue (matches interior NPC UX; SPACE then fires the
+      //      dialogue's "Talk to" button). No [E] prompt for NPCs.
+      //   3. In a building's door-zone → show [E] Enter <Building>.
+      //
+      // NPCs beat door-zones so a resident standing on the porch is
+      // chattable without the Enter prompt hijacking the interaction.
       const refreshDoorPrompt = (tile: Tile) => {
         const key = tile.tx + "," + tile.ty;
         const doorHere = doorOwner.get(key);
         if (doorHere) {
           pendingDoorOwner = null;
+          if (activeGreetingSlotKey) {
+            ui.closeDialogue();
+            setActiveGreeting(null);
+          }
           ui.setPrompt(null);
           enterBuilding(doorHere);
           return;
+        }
+        const slot = slotAdjacentTo(tile);
+        if (slot) {
+          pendingDoorOwner = null;
+          ui.setPrompt(null);
+          // If we're already showing the greeting for THIS slot,
+          // nothing to do. Different slot (or nothing was open) →
+          // close whatever's up and open the new greeting.
+          if (activeGreetingSlotKey === slot.key) return;
+          const row = slot.getRow();
+          if (!row) return;
+          if (activeGreetingSlotKey) ui.closeDialogue();
+          setActiveGreeting(slot.key);
+          openNpcGreeting({
+            npcId: row.npcId,
+            name: row.name,
+            description: row.description,
+            accent: row.accent,
+            ...(row.chatApi ? { chatApi: row.chatApi } : {}),
+          });
+          return;
+        }
+        if (activeGreetingSlotKey) {
+          ui.closeDialogue();
+          activeGreetingSlotKey = null;
         }
         const zone = doorZoneOwner.get(key);
         if (zone) {
@@ -891,8 +1108,15 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
       // SPACE opens the DM panel with the current proximity target. We
       // listen here instead of inside <InteractionPrompt> because the
       // canvas always has keyboard focus when no overlay is open.
+      //
+      // When an NPC greeting dialogue is open, its own window-level
+      // SPACE listener fires the primary "Talk to" action. Don't also
+      // open a DM on the same key press — otherwise standing next to
+      // both an NPC and a remote player would launch both surfaces at
+      // once.
       k.onKeyPress("space", () => {
         if (ui.isPaused()) return;
+        if (activeGreetingSlotKey) return;
         const target = ui.getState().proximity;
         if (!target) return;
         const slug = getActiveTownSlug();
@@ -904,14 +1128,21 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
         });
       });
 
-      // E enters the building the player is currently standing on the
-      // door tile of. `pendingDoorOwner` is set + the prompt is shown
-      // from `onArrive`; here we just consume it. Same paused-guard as
-      // SPACE so overlays don't intercept.
+      // E enters the building the player is currently in the front
+      // zone of. NPC interaction is SPACE-driven via the auto-opened
+      // greeting dialogue — same UX as interior NPCs — so E is doors
+      // only. Same paused-guard as SPACE so overlays don't intercept.
       k.onKeyPress("e", () => {
         if (ui.isPaused()) return;
-        if (!pendingDoorOwner) return;
-        enterBuilding(pendingDoorOwner);
+        if (pendingDoorOwner) enterBuilding(pendingDoorOwner);
+      });
+
+      // NPC roster loads asynchronously. Re-run the prompt refresh
+      // whenever the cache changes so a stale "Talk to resident"
+      // placeholder upgrades to the real name (and vice versa if a
+      // deploy nukes the row).
+      unsubNpcs = onNpcsChange(() => {
+        refreshDoorPrompt(player.tile);
       });
 
       // Publish the real session to the HUD, then keep it in sync as the
@@ -953,7 +1184,15 @@ export function registerOverworldPlotScene(k: KAPLAYCtx) {
       cancelled = true;
       if (unsubscribe) unsubscribe();
       if (unsubSession) unsubSession();
+      if (unsubNpcs) unsubNpcs();
       if (detachRemotes) detachRemotes();
+      // Close any auto-opened NPC greeting so it doesn't leak into
+      // the interior scene (dialogue key differs so it'd otherwise
+      // hang around until the player wanders back and away again).
+      if (hasActiveGreeting) {
+        ui.closeDialogue();
+        hasActiveGreeting = false;
+      }
       // Drop every streamed decor game object so kaplay's scene teardown
       // doesn't leak them into the next scene.
       if (decorStreamRef) decorStreamRef.destroy();

@@ -167,6 +167,47 @@ export interface PlotNpc extends TilePos {
   mdxRef?: string;
 }
 
+/** Which side of a building an overworld NPC stands on. `front` is the
+ *  south face (where the door is); `back` is north; `left`/`right` are
+ *  the west/east faces respectively. Offset counts tiles OUTWARD from
+ *  the building's outer edge on that side. */
+export type OverworldAnchorSide = "front" | "back" | "left" | "right";
+
+/** Authored placement for an overworld NPC. Round-tripped through the
+ *  DB so the server can re-resolve tile coords whenever the anchor
+ *  building moves. Renderers never read this — they read the resolved
+ *  `tx`/`ty` on `PlotOverworldNpc`. */
+export type OverworldPlacement =
+  | {
+      /** Absolute world-tile coords. */
+      kind: "position";
+      tx: number;
+      ty: number;
+    }
+  | {
+      /** Anchored to a building's edge. Server resolves to (tx, ty) at
+       *  materialization time. */
+      kind: "outside";
+      buildingId: string;
+      side: OverworldAnchorSide;
+      /** Tiles outward from the building's edge (default 1). */
+      offset?: number;
+    };
+
+/** An NPC placed loose in the overworld — either at explicit world
+ *  coords or anchored to a building's exterior. Sibling of `PlotNpc`;
+ *  the latter is strictly interior. */
+export interface PlotOverworldNpc extends TilePos {
+  /** DB Npc.id — the renderer looks up the chat row by this. */
+  npcId: string;
+  /** Display name for the sign / prompt / greeting. Denormalized off
+   *  the Npc row so the client can render without a second fetch. */
+  label: string;
+  /** The authored placement, preserved so re-materialization is
+   *  deterministic when buildings move. */
+  placement: OverworldPlacement;
+}
+
 export interface PlotWorld {
   w: number;
   h: number;
@@ -183,6 +224,9 @@ export interface Plot {
   ponds: PlotPond[];
   decor: PlotDecor[];
   npcs: PlotNpc[];
+  /** NPCs placed loose in the overworld (not inside a building). Absent
+   *  is treated as an empty list — every existing plot.json stays valid. */
+  overworldNpcs?: PlotOverworldNpc[];
   /** User-defined plots. A `PlotBuilding.plotKey` of `"custom:<id>"`
    *  resolves to one of these instead of an entry in `@town/catalog`. */
   customPlots?: CustomPlot[];

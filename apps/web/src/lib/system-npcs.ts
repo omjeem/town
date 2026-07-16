@@ -12,8 +12,16 @@ import { join, basename } from "node:path";
 
 export interface SystemNpc {
   id: string;
+  /** "interior" (default) → NPC lives inside a building, keyed by
+   *  `buildingId` + `tx`/`ty` in interior tiles. "overworld" → NPC
+   *  stands loose on the map, anchored to a building's edge via
+   *  `anchorBuildingId` + `side` + `offset`. */
+  scope: "interior" | "overworld";
+  /** Interior scope: the building this NPC lives inside. Overworld
+   *  scope: unused (see anchorBuildingId). */
   buildingId: string;
-  /** Tile position inside the building's interior. */
+  /** Interior tile inside the building's interior. Overworld scope
+   *  ignores these; the position resolves at render time. */
   tx: number;
   ty: number;
   /** kaplay sprite id to render. */
@@ -22,6 +30,13 @@ export interface SystemNpc {
   description: string;
   /** System prompt fed to the LLM when the player talks to this NPC. */
   prompt: string;
+  // Overworld-only:
+  /** Which building the NPC stands next to (id from PlotBuilding). */
+  anchorBuildingId?: string;
+  /** Which face — "front" is the south side (door face). */
+  side?: "front" | "back" | "left" | "right";
+  /** Tiles outward from the building's edge. Default 1. */
+  offset?: number;
 }
 
 // Bare-bones frontmatter parser — pulls a leading `---` block, expects
@@ -44,13 +59,14 @@ function parseMdx(source: string): { meta: Record<string, string | number>; body
   return { meta, body: fm[2]!.trim() };
 }
 
-// Static fallback so the founder always resolves even if the MDX directory
-// is missing at runtime (e.g. on a production build that didn't ship the
-// `src/data/` source tree). Keep this in sync with
-// apps/web/src/data/system-npcs/core-founder.mdx.
+// Static fallback so the built-in system NPCs always resolve even if
+// the MDX directory is missing at runtime (e.g. on a production build
+// that didn't ship the `src/data/` source tree). Keep in sync with the
+// files under apps/web/src/data/system-npcs/.
 const STATIC_FALLBACK: Record<string, SystemNpc> = {
   "core-founder": {
     id: "core-founder",
+    scope: "interior",
     buildingId: "store",
     tx: 7,
     ty: 5,
@@ -60,6 +76,27 @@ const STATIC_FALLBACK: Record<string, SystemNpc> = {
       "Visits the corner store. Tracks the CORE roadmap; tells you what's coming.",
     prompt:
       "You are the CORE founder, hanging out at the corner store in this small pixel-art town. You know the product, the roadmap, and the team. Greet the player warmly, be candid about what's shipping and what you're rethinking, redirect off-topic chatter back to CORE. Stay in character, no emojis, replies under three sentences.",
+  },
+  "town-guide": {
+    id: "town-guide",
+    scope: "overworld",
+    // Interior-scope fields unused for overworld NPCs — set to safe
+    // defaults so the type stays uniform.
+    buildingId: "",
+    tx: 0,
+    ty: 0,
+    sprite: "office_npc",
+    name: "Guide",
+    description:
+      "I welcome everyone who comes by — I'll show you around the town and point you at a good first stop.",
+    anchorBuildingId: "home",
+    side: "front",
+    offset: 2,
+    // Runtime prompt gets injected with a TOWN ROSTER block; the static
+    // fallback here is the minimum body so the fallback path doesn't
+    // ship a naked "..." placeholder if the MDX is missing.
+    prompt:
+      "You are the town guide standing just outside the resident's home. Welcome anyone who walks up — owner or visitor — and help them get their bearings. Movement is WASD/arrows; press E to enter a building's door or to talk to an NPC when the prompt appears; some houses show [G] for a group chat. When the player asks what to do, pick ONE concrete suggestion from the town roster (injected below) rather than listing everything. Voice: warm, brisk, tour-guide energy. Replies under three sentences unless asked for the full tour. No emojis, never break the fourth wall.",
   },
 };
 
@@ -85,8 +122,18 @@ function loadSystemNpcs(): Record<string, SystemNpc> {
     const id = basename(file, ".mdx");
     const source = readFileSync(join(dataDir, file), "utf8");
     const { meta, body } = parseMdx(source);
+    const scope = String(meta.scope ?? "interior") === "overworld"
+      ? "overworld"
+      : "interior";
+    const side = (() => {
+      const s = String(meta.side ?? "");
+      return s === "front" || s === "back" || s === "left" || s === "right"
+        ? s
+        : undefined;
+    })();
     out[id] = {
       id: String(meta.id ?? id),
+      scope,
       buildingId: String(meta.buildingId ?? ""),
       tx: typeof meta.tx === "number" ? meta.tx : 0,
       ty: typeof meta.ty === "number" ? meta.ty : 0,
@@ -94,6 +141,11 @@ function loadSystemNpcs(): Record<string, SystemNpc> {
       name: String(meta.name ?? "NPC"),
       description: String(meta.description ?? ""),
       prompt: body,
+      ...(meta.anchorBuildingId
+        ? { anchorBuildingId: String(meta.anchorBuildingId) }
+        : {}),
+      ...(side ? { side } : {}),
+      ...(typeof meta.offset === "number" ? { offset: meta.offset } : {}),
     };
   }
   return out;

@@ -26,7 +26,8 @@ import { getChatModel } from "@/lib/chat-model";
 
 export interface NpcRowLite {
   id: string;
-  buildingId: string;
+  /** Interior NPCs bind to a building; overworld NPCs leave this null. */
+  buildingId: string | null;
   name: string;
   description: string;
   prompt: string;

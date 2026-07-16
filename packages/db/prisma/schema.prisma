@@ -330,11 +330,24 @@ model Npc {
   id          String   @id @default(cuid())
   townId      String
   town        Town     @relation(fields: [townId], references: [id], onDelete: Cascade)
-  buildingId  String
+  // Interior NPCs bind to a building's variant slot. Overworld NPCs
+  // (placement.kind = "position" | "outside") have `buildingId` NULL —
+  // the anchor for "outside" is inside `placement.buildingId` and is
+  // re-resolved at plot-materialization time.
+  buildingId  String?
   // Slot within the building's variant — see `npcPositions` in @town/catalog
   // and @town/plot. Empty string is the implicit "first slot" that one-slot
   // variants resolve to, so existing rows stay valid without backfill.
   slotId      String   @default("")
+  // Authored placement descriptor for overworld NPCs. NULL for interior
+  // NPCs (backward-compatible default). Shape mirrors
+  // `OverworldPlacement` from @town/plot:
+  //   { kind: "position", tx: Int, ty: Int }
+  //   { kind: "outside", buildingId: String, side: "front"|"back"|"left"|"right", offset?: Int }
+  // The server materializes this into plot.overworldNpcs on every
+  // applyTownShape call so the tile coords stay in sync with building
+  // moves without touching the DB.
+  placement   Json?
   // Display name shown on the speaker line, e.g. "Hudson".
   name        String
   // Short flavor-text shown when the player approaches.

@@ -17,12 +17,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ui, type DialogueState } from "./store";
 
-// Faster typewriter + a small breath between lines so the eye can follow
-// without the player having to tap through. Tuned aggressively — the
-// original 8ms/char felt sluggish on ~60-char sentences ("Wander around
-// core, meet the residents..." took over half a second to type out).
-const CHAR_MS = 8;
-const LINE_PAUSE_MS = 250;
+// Typewriter pacing. Drives an rAF loop that reveals characters based
+// on elapsed time — the old setTimeout-per-char pattern was floored by
+// React re-render + scheduler overhead so wall-clock pacing drifted.
+// 80 chars/sec ≈ readable-with-typewriter-feel: a 40-char line takes
+// ~500ms. Click / SPACE still reveals the whole line instantly.
+const CHARS_PER_SEC = 80;
+const LINE_PAUSE_MS = 200;
 
 export function Dialogue({
   dialogue,
@@ -56,14 +57,26 @@ export function Dialogue({
   const isLineDone = charIdx >= currentLine.length;
   const allDone = isLastLine && isLineDone;
 
-  // Typewriter ticker — runs while the current line still has characters.
+  // Typewriter ticker. Uses rAF + wall-clock elapsed time to reveal
+  // characters at a guaranteed pace, independent of React re-render
+  // overhead. Restarts only when the LINE changes so each per-char
+  // re-render doesn't re-schedule the loop.
   useEffect(() => {
-    if (isLineDone) return;
-    const t = window.setTimeout(() => {
-      setCharIdx((i) => i + 1);
-    }, CHAR_MS);
-    return () => window.clearTimeout(t);
-  }, [charIdx, isLineDone]);
+    if (currentLine.length === 0) return;
+    const startedAt = performance.now();
+    let raf = 0;
+    const tick = () => {
+      const elapsed = performance.now() - startedAt;
+      const next = Math.min(
+        currentLine.length,
+        Math.floor((elapsed * CHARS_PER_SEC) / 1000),
+      );
+      setCharIdx(next);
+      if (next < currentLine.length) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [currentLine]);
 
   // Auto-advance: once a line finishes, hold for a beat and move to the
   // next one. The player never has to press SPACE between lines.

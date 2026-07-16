@@ -55,6 +55,18 @@ interface PostBody {
     name: string;
     description: string;
     prompt: string;
+    /** Overworld placement descriptor — set when the NPC stands outside
+     *  a building or at explicit world coords. Server materializes this
+     *  into plot.overworldNpcs; interior NPCs omit it. Shape matches
+     *  `OverworldPlacementDTO` in town-io.ts. */
+    placement?:
+      | { kind: "position"; tx: number; ty: number }
+      | {
+          kind: "outside";
+          buildingId: string;
+          side: "front" | "back" | "left" | "right";
+          offset?: number;
+        };
     permissions?: unknown;
   }>;
   /** Per-town catalog. Omitted when the deployment has neither inline

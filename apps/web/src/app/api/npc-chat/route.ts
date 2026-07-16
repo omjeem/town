@@ -49,6 +49,7 @@ import { getChatModel } from "@/lib/chat-model";
 import { resolveByokForUser } from "@/lib/byok/store";
 import { ingestNpcTurn, npcChatSessionId } from "@/lib/core-memory";
 import { getOwnerCoreToken } from "@/lib/core-token";
+import { replaceAutoGreetInMessages } from "@/lib/npc-greet";
 import { prisma } from "@/lib/db";
 import { ensureNpcsForTown } from "@/lib/plot";
 import { getNpcTemplate, type NpcPermissions } from "@/lib/npc-templates";
@@ -154,7 +155,8 @@ Rules:
 
 interface NpcInfo {
   id: string;
-  buildingId: string;
+  /** Interior NPCs bind to a building; overworld NPCs leave this null. */
+  buildingId: string | null;
   name: string;
   description: string;
   prompt: string;
@@ -494,12 +496,17 @@ export async function POST(req: Request) {
   );
 
   // Normalise the incoming messages to AI-SDK UIMessage shape so
-  // convertToModelMessages can hand them off to the model.
-  const uiMessages: UIMessage[] = body.messages.map((m, i) => ({
-    id: m.id ?? `m-${i}`,
-    role: m.role,
-    parts: m.parts ?? (m.content ? [{ type: "text", text: m.content }] : []),
-  })) as UIMessage[];
+  // convertToModelMessages can hand them off to the model. The
+  // auto-greet trigger (a sentinel the client sends on first paint) is
+  // rewritten in place to the real "player just walked up" prompt so
+  // the model reads it as a stage direction, not raw filler text.
+  const uiMessages: UIMessage[] = replaceAutoGreetInMessages(
+    body.messages.map((m, i) => ({
+      id: m.id ?? `m-${i}`,
+      role: m.role,
+      parts: m.parts ?? (m.content ? [{ type: "text", text: m.content }] : []),
+    })) as UIMessage[],
+  );
 
   // Sleeping gate — refuse new chat turns when the town's aura is under
   // AURA_SLEEP_THRESHOLD. Concurrent onFinish handlers can still drain
